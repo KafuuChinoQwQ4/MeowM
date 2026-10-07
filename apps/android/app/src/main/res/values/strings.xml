@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">MeowM</string>
+    <string name="notification_access_label">支付通知采集</string>
+    <string name="notification_permission_explanation">允许通知访问后，MeowM 才能接收所选支付应用发出的通知并创建待确认记录。通知正文仅临时交给本地 Rust 解析，不写入普通日志。你可以随时在系统设置中撤销权限，也可以单独关闭下方来源。</string>
+    <string name="open_notification_settings">打开通知访问设置</string>
+    <string name="capture_wechat">采集微信通知</string>
+    <string name="capture_alipay">采集支付宝通知</string>
+    <string name="notification_access_enabled">通知访问：已授权</string>
+    <string name="notification_access_disabled">通知访问：未授权</string>
+</resources>

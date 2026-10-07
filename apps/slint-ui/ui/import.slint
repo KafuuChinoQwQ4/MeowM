@@ -1,0 +1,39 @@
+import { Button, CheckBox, ComboBox, LineEdit, VerticalBox, ScrollView } from "std-widgets.slint";
+import { LedgerState } from "state.slint";
+import { MeowTheme } from "theme.slint";
+
+export component ImportPage inherits ScrollView {
+    VerticalBox { spacing: 11px;
+        Text { text: "导入账单"; font-size: 28px; font-weight: 700; color: MeowTheme.ink; }
+        Text { text: "选文件 → 预览核对 → 确认入账"; color: MeowTheme.muted; }
+        Text { text: "01  选择文件"; font-size: 17px; font-weight: 700; color: MeowTheme.primary-dark; }
+        Text { text: "账单来源"; color: MeowTheme.muted; }
+        ComboBox { model: ["微信 CSV", "支付宝 CSV"]; current-index <=> LedgerState.import-source; }
+        Text { text: "导入账户"; color: MeowTheme.muted; }
+        ComboBox { model: LedgerState.account-names; current-index <=> LedgerState.import-account; }
+        if !LedgerState.android-platform: LineEdit { placeholder-text: "本地 CSV 文件路径"; text <=> LedgerState.import-path; }
+        Button { text: "选择 CSV 文件"; clicked => { LedgerState.choose-csv(); } }
+        Button { text: "预览文件"; clicked => { LedgerState.preview-import(); } }
+        if LedgerState.import-lines.length > 0: Text { text: "02  核对预览"; font-size: 17px; font-weight: 700; color: MeowTheme.primary-dark; }
+        for line in LedgerState.import-lines: Rectangle { background: MeowTheme.surface; border-radius: 8px; min-height: 42px;
+            Text { x: 12px; y: 10px; width: parent.width - 24px; text: line; wrap: word-wrap; color: MeowTheme.ink; }
+        }
+        if LedgerState.import-row-names.length > 0: VerticalBox { spacing: 9px;
+            Text { text: "调整导入行"; font-weight: 700; color: MeowTheme.ink; }
+            ComboBox { model: LedgerState.import-row-names; current-index <=> LedgerState.import-row-selection; }
+            Button { text: "载入所选行"; clicked => { LedgerState.select-import-row(LedgerState.import-row-selection); } }
+            CheckBox { text: "将该行纳入本次导入"; checked <=> LedgerState.import-row-included; }
+            Button { text: "应用行选择"; clicked => { LedgerState.include-import-row(LedgerState.import-row-selection, LedgerState.import-row-included); } }
+            Text { text: "疑似重复时，核对日期、商户、账户及金额，再关联已有交易或确认独立入账。"; wrap: word-wrap; color: MeowTheme.muted; }
+            ComboBox { model: LedgerState.import-merge-names; current-index <=> LedgerState.import-merge-selection; }
+            Button { text: "关联已有交易"; clicked => { LedgerState.resolve-import(true); } }
+            Button { text: "确认为独立交易"; clicked => { LedgerState.resolve-import(false); } }
+            Text { text: "退款须关联原支出；无法处理的行可取消纳入。"; wrap: word-wrap; color: MeowTheme.muted; }
+            ComboBox { model: LedgerState.import-parent-names; current-index <=> LedgerState.import-parent-selection; }
+            Button { text: "关联退款与原支出"; clicked => { LedgerState.map-import-refund(LedgerState.import-row-selection, LedgerState.import-parent-selection); } }
+        }
+        Text { text: "03  确认导入"; font-size: 17px; font-weight: 700; color: MeowTheme.primary-dark; }
+        Text { text: "确认前不会写入账本。"; color: MeowTheme.muted; }
+        Button { text: "确认导入账本"; enabled: LedgerState.import-ready; clicked => { LedgerState.confirm-import(); } }
+    }
+}

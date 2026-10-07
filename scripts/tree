@@ -1,0 +1,7 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `tree_descriptions.json` — Required descriptions used to generate every directory tree index.
+- `update_tree.py` — Generator and stale-index checker for per-directory tree files.
+- `tree` — 本目录直接文件的说明索引。

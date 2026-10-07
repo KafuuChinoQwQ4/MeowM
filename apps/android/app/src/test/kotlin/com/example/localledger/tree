@@ -1,0 +1,9 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `AppLockPolicyTest.kt` — Application lock enablement requires secure device and successful authentication.
+- `CredentialCipherTest.kt` — JVM credential envelope roundtrip, random nonce, tamper and provider isolation tests.
+- `DocumentTransferTest.kt` — Bounded file stream unit tests.
+- `NotificationCapturePolicyTest.kt` — Android notification source forwarding preference tests.
+- `tree` — 本目录直接文件的说明索引。

@@ -1,0 +1,9 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `archive.rs` — Versioned portable backup container.
+- `crypto.rs` — Key derivation and authenticated encryption boundary.
+- `lib.rs` — Backup archive, crypto, and restore module declarations.
+- `restore.rs` — Backup validation and atomic restore workflow.
+- `tree` — 本目录直接文件的说明索引。

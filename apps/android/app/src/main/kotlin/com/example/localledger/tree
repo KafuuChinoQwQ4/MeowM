@@ -1,0 +1,14 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `AppLock.kt` — Optional device credential gate with secure windows and explicit unlock.
+- `CredentialCipher.kt` — Versioned authenticated credential envelope with provider-associated AES-GCM encryption.
+- `DocumentTransfer.kt` — Bounded SAF document stream transfer with failure-safe private staging.
+- `LedgerActivity.kt` — NativeActivity launcher for the Rust Slint ledger UI.
+- `LocalDataDeletion.kt` — Stops Android capture and erases Keystore credentials and private staging after ledger deletion.
+- `MainActivity.kt` — Notification permission explanation, settings jump, and source preferences.
+- `NotificationCaptureService.kt` — Android system notification adapter entry point.
+- `ProviderCredentialStore.kt` — Android Keystore keys and atomic ciphertext-only storage excluded from system backup.
+- `RustBridge.kt` — Narrow Kotlin-to-Rust JNI interface.
+- `tree` — 本目录直接文件的说明索引。

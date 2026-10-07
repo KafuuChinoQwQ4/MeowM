@@ -1,0 +1,15 @@
+[package]
+name = "ledger-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+ledger-domain = { path = "../ledger-domain" }
+ledger-app = { path = "../ledger-app" }
+rusqlite = { version = "0.32", features = ["bundled"] }
+uuid = "1"
+
+[dev-dependencies]
+tempfile = "3"

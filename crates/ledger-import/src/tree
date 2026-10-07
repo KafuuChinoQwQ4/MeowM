@@ -1,0 +1,13 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `alipay.rs` — Alipay bill file adapter.
+- `csv.rs` — CSV decoding and row validation helpers.
+- `dedupe.rs` — Import duplicate matching and merge candidates.
+- `lib.rs` — Bill import module declarations.
+- `normalize.rs` — Provider row to standard transaction mapping.
+- `preview.rs` — Import preview, warnings, and confirmation boundary.
+- `providers.rs` — Optional offline provider contracts, bounded pagination, recoverable errors and shared Pending previews.
+- `wechat.rs` — WeChat bill file adapter.
+- `tree` — 本目录直接文件的说明索引。

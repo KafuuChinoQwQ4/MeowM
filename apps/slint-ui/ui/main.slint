@@ -1,0 +1,86 @@
+import { VerticalBox, HorizontalBox, ScrollView } from "std-widgets.slint";
+import { LedgerState, Row } from "state.slint";
+import { MeowTheme } from "theme.slint";
+import { TransactionsPage, EditorPage } from "transactions.slint";
+import { PendingPage } from "pending.slint";
+import { ReportsPage } from "reports.slint";
+import { ImportPage } from "import.slint";
+import { SettingsPage } from "settings.slint";
+export { LedgerState, Row }
+
+export component LedgerWindow inherits Window {
+    title: "MeowM";
+    preferred-width: 420px;
+    preferred-height: 840px;
+    min-width: 320px;
+    background: MeowTheme.canvas;
+    default-font-family: "sans-serif";
+    default-font-size: 14px;
+    VerticalBox {
+        padding-left: 18px; padding-right: 18px; padding-top: 14px; padding-bottom: 8px; spacing: 12px;
+        HorizontalBox { height: 46px; alignment: center;
+            VerticalBox { horizontal-stretch: 1; spacing: 0px;
+                Text { text: "MeowM"; font-size: 22px; font-weight: 700; color: MeowTheme.primary-dark; }
+                Text { text: "轻松记下每一笔生活"; font-size: 11px; color: MeowTheme.muted; }
+            }
+            Rectangle { width: 42px; height: 38px; background: MeowTheme.primary-soft; border-radius: 8px;
+                Text { text: "↻"; color: MeowTheme.primary-dark; font-size: 20px; horizontal-alignment: center; vertical-alignment: center; }
+                TouchArea { clicked => { LedgerState.refresh(); } }
+            }
+        }
+        if LedgerState.message != "": Rectangle { background: MeowTheme.surface-pink; border-radius: 8px; min-height: 38px;
+            Text { text: LedgerState.message; wrap: word-wrap; color: MeowTheme.warning; x: 12px; y: 9px; width: parent.width - 24px; }
+        }
+        if LedgerState.page == 0: ScrollView { vertical-stretch: 1;
+            VerticalBox { spacing: 14px;
+                Text { text: LedgerState.month-title; font-size: 28px; font-weight: 700; color: MeowTheme.ink; }
+                Text { text: "本月概览"; color: MeowTheme.muted; }
+                Rectangle { background: MeowTheme.primary; border-radius: 8px; min-height: 182px;
+                    VerticalBox { padding: 20px; spacing: 10px;
+                        HorizontalBox { Text { text: "收支总览"; color: #f5f3ff; font-weight: 600; horizontal-stretch: 1; } Text { text: "CNY"; color: #d9d7ff; } }
+                        HorizontalBox { Text { text: "收入"; color: #e7fff7; } Text { text: LedgerState.income; color: #ffffff; font-size: 21px; horizontal-alignment: right; horizontal-stretch: 1; } }
+                        HorizontalBox { Text { text: "支出"; color: #ffeaf0; } Text { text: LedgerState.expense; color: #ffffff; font-size: 21px; horizontal-alignment: right; horizontal-stretch: 1; } }
+                        Rectangle { background: #ffffff22; height: 1px; }
+                        HorizontalBox { Text { text: "净支出"; color: #e8e6ff; font-weight: 600; } Text { text: LedgerState.net-expense; color: #ffffff; font-size: 18px; horizontal-alignment: right; horizontal-stretch: 1; } }
+                    }
+                }
+                Rectangle { background: MeowTheme.surface-pink; border-radius: 8px; min-height: 54px;
+                    HorizontalBox { padding-left: 16px; padding-right: 16px; alignment: center;
+                        Text { text: "＋"; color: MeowTheme.primary; font-size: 24px; }
+                        Text { text: "记一笔"; color: MeowTheme.primary-dark; font-weight: 700; horizontal-stretch: 1; }
+                        Text { text: "›"; color: MeowTheme.primary; font-size: 22px; }
+                    }
+                    TouchArea { clicked => { LedgerState.new-transaction(); } }
+                }
+                Text { text: "我的账户"; font-size: 18px; font-weight: 700; color: MeowTheme.ink; }
+                if LedgerState.accounts.length == 0: Rectangle { background: MeowTheme.surface; border-radius: 8px; min-height: 76px;
+                    Text { text: "还没有账户，先创建一个吧"; color: MeowTheme.muted; x: 16px; y: 18px; }
+                    Text { text: "去设置创建账户  ›"; color: MeowTheme.primary; x: 16px; y: 43px; font-weight: 600; }
+                    TouchArea { clicked => { LedgerState.navigate(4); } }
+                }
+                for account in LedgerState.accounts: Rectangle { background: MeowTheme.surface; border-radius: 8px; min-height: 68px;
+                    HorizontalBox { padding-left: 16px; padding-right: 16px; alignment: center;
+                        Rectangle { width: 38px; height: 38px; background: MeowTheme.surface-blue; border-radius: 8px; Text { text: "¥"; color: MeowTheme.primary-dark; horizontal-alignment: center; vertical-alignment: center; font-weight: 700; } }
+                        Text { text: account; color: MeowTheme.ink; horizontal-stretch: 1; }
+                        Text { text: "›"; color: MeowTheme.muted; font-size: 22px; }
+                    }
+                }
+                Text { text: "数据仅保存在本机 · 待确认记录不会影响余额"; wrap: word-wrap; color: MeowTheme.muted; font-size: 11px; }
+            }
+        }
+        if LedgerState.page == 1: TransactionsPage { vertical-stretch: 1; }
+        if LedgerState.page == 2: PendingPage { vertical-stretch: 1; }
+        if LedgerState.page == 3: ReportsPage { vertical-stretch: 1; }
+        if LedgerState.page == 4: SettingsPage { vertical-stretch: 1; }
+        if LedgerState.page == 5: EditorPage { vertical-stretch: 1; }
+        if LedgerState.page == 6: ImportPage { vertical-stretch: 1; }
+        HorizontalBox { spacing: 6px; height: 56px;
+            for label[index] in ["⌂  首页", "≡  交易", "!  待确认", "◔  报表", "⚙  设置"]: Rectangle {
+                horizontal-stretch: 1; min-width: 0px; height: 50px; border-radius: 8px;
+                background: LedgerState.page == index ? MeowTheme.primary-soft : MeowTheme.surface;
+                Text { text: label; horizontal-alignment: center; vertical-alignment: center; font-size: 11px; color: LedgerState.page == index ? MeowTheme.primary-dark : MeowTheme.muted; font-weight: LedgerState.page == index ? 700 : 500; }
+                TouchArea { clicked => { LedgerState.navigate(index); } }
+            }
+        }
+    }
+}

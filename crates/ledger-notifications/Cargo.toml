@@ -1,0 +1,10 @@
+[package]
+name = "ledger-notifications"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ledger-domain = { path = "../ledger-domain" }
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+sha2 = "0.10"

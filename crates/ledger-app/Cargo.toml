@@ -1,0 +1,12 @@
+[package]
+name = "ledger-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+ledger-domain = { path = "../ledger-domain" }
+uuid = "1"
+serde = { version = "1", features = ["derive"] }
+zeroize = "1"

@@ -1,0 +1,38 @@
+/target/
+/build/
+/.gradle/
+/local.properties
+*.apk
+*.aab
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.secret
+*.token
+*.credentials
+credentials.json
+secrets.json
+config/local/
+config/*.local.*
+
+# Private keys, certificates, and signing material
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+
+# Local databases, exports, logs, and caches
+*.db
+*.sqlite
+*.log
+
+/apps/android/.gradle/
+*.sqlite3
+*.sqlite3-journal
+
+/apps/android/.kotlin/

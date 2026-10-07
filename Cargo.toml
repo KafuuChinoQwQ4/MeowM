@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["crates/ledger-domain", "crates/ledger-app", "crates/ledger-storage", "crates/ledger-import", "crates/ledger-notifications", "crates/ledger-android-bridge", "apps/slint-ui", "crates/ledger-backup"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"

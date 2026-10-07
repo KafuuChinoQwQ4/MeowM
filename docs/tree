@@ -1,0 +1,8 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `architecture.md` — Responsibility boundaries between Rust crates and Android/Slint shells.
+- `privacy-and-deletion.md` — User-facing notification permissions, local privacy, logging, lock and deletion guarantees and limits.
+- `validation.md` — Release validation results, actual API 35 device workflows, artifact hashes, resource controls, and unvalidated limits.
+- `tree` — 本目录直接文件的说明索引。

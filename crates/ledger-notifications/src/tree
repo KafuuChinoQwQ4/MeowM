@@ -1,0 +1,9 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `event.rs` — Minimal event shape passed from Android to Rust.
+- `lib.rs` — Notification event and parser module declarations.
+- `parse.rs` — Shared notification parsing and confidence handling.
+- `providers.rs` — Payment app specific notification format parsers.
+- `tree` — 本目录直接文件的说明索引。

@@ -1,0 +1,12 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `account.rs` — Account kinds, opening balances, and account invariants.
+- `category.rs` — Editable category and classification rule domain types.
+- `lib.rs` — Public domain APIs and errors, including transfer conservation failures.
+- `money.rs` — Currency codes and integer minor-unit money.
+- `source.rs` — Import provenance and source evidence types.
+- `transaction.rs` — Transactions, postings, types, and lifecycle status.
+- `validation.rs` — Posting direction and transfer conservation invariants plus safe report effects.
+- `tree` — 本目录直接文件的说明索引。
