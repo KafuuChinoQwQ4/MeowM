@@ -6,6 +6,8 @@ use uuid::Uuid;
 pub enum SourceKind {
     Alipay,
     WeChat,
+    /// Bank statement import.
+    Bank,
     Notification,
     Manual,
 }

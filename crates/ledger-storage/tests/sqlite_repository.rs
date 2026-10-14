@@ -51,8 +51,8 @@ fn expense(account_id: AccountId, id: TransactionId, status: TransactionStatus) 
 #[test]
 fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
     let repo = SqliteLedgerRepository::in_memory().unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 4);
-    assert_eq!(repo.schema_version().unwrap(), 4);
+    assert_eq!(repo.schema_version().unwrap(), 5);
+    assert_eq!(repo.schema_version().unwrap(), 5);
 
     let account = account("CNY", 20_000);
     let account_id = account.id;
@@ -74,7 +74,7 @@ fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
 }
 
 #[test]
-fn opening_existing_file_keeps_schema_at_version_four() {
+fn opening_existing_file_keeps_schema_at_version_five() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("ledger.sqlite3");
     assert_eq!(
@@ -82,14 +82,14 @@ fn opening_existing_file_keeps_schema_at_version_four() {
             .unwrap()
             .schema_version()
             .unwrap(),
-        4
+        5
     );
     assert_eq!(
         SqliteLedgerRepository::open(&path)
             .unwrap()
             .schema_version()
             .unwrap(),
-        4
+        5
     );
 }
 
@@ -139,7 +139,7 @@ fn opening_database_with_invalid_schema_version_is_rejected() {
 }
 
 #[test]
-fn opening_version_one_database_upgrades_to_version_four() {
+fn opening_version_one_database_upgrades_to_version_five() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("upgrade.sqlite3");
     let connection = Connection::open(&path).unwrap();
@@ -155,7 +155,7 @@ fn opening_version_one_database_upgrades_to_version_four() {
     drop(connection);
 
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 4);
+    assert_eq!(repo.schema_version().unwrap(), 5);
     let connection = Connection::open(&path).unwrap();
     let has_rules: i64 = connection
         .query_row(
@@ -642,7 +642,7 @@ fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
     drop(db);
     for _ in 0..2 {
         let repo = SqliteLedgerRepository::open(&path).unwrap();
-        assert_eq!(repo.schema_version().unwrap(), 4);
+        assert_eq!(repo.schema_version().unwrap(), 5);
         assert_eq!(
             repo.list_accounts().unwrap()[0].id.as_uuid().to_string(),
             "00000000-0000-0000-0000-000000000001"
@@ -662,6 +662,7 @@ fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
         "audit_events",
         "transaction_metadata",
         "pending_review",
+        "import_receipt_rows",
     ] {
         assert_eq!(
             db.query_row(
@@ -677,7 +678,7 @@ fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
         db.query_row("SELECT count(*) FROM schema_version", [], |r| r
             .get::<_, i64>(0))
             .unwrap(),
-        4
+        5
     );
 }
 
@@ -884,4 +885,104 @@ fn recurring_instance_uniqueness_and_nonnegative_budget_are_enforced() {
         )
         .is_err()
     );
+}
+
+#[test]
+fn version_four_bank_migration_preserves_evidence_and_rolls_back_on_failure() {
+    let directory = tempfile::tempdir().unwrap();
+    let seed = |path: &std::path::Path, conflict: bool| {
+        let db = Connection::open(path).unwrap();
+        for sql in [
+            include_str!("../migrations/0001_initial.sql"),
+            include_str!("../migrations/0002_classification_rules.sql"),
+            include_str!("../migrations/0003_optional_balance.sql"),
+            include_str!("../migrations/0004_nine_features.sql"),
+        ] {
+            db.execute_batch(sql).unwrap();
+        }
+        db.execute_batch("INSERT INTO schema_version VALUES(1,0),(2,0),(3,0),(4,0); INSERT INTO transactions(id,occurred_at_utc_micros,kind,status) VALUES('00000000-0000-0000-0000-000000000001',0,'income','pending'); INSERT INTO import_batches(id) VALUES('00000000-0000-0000-0000-000000000002'); INSERT INTO source_evidence VALUES(17,'00000000-0000-0000-0000-000000000001','wechat','stable','00000000-0000-0000-0000-000000000002',zeroblob(32));").unwrap();
+        if conflict {
+            db.execute_batch("CREATE TABLE import_receipt_rows (conflict TEXT)")
+                .unwrap();
+        }
+    };
+    let good = directory.path().join("v4.sqlite");
+    seed(&good, false);
+    for _ in 0..2 {
+        assert_eq!(
+            SqliteLedgerRepository::open(&good)
+                .unwrap()
+                .schema_version()
+                .unwrap(),
+            5
+        );
+    }
+    let db = Connection::open(&good).unwrap();
+    assert_eq!(
+        db.query_row("SELECT id FROM source_evidence", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        17
+    );
+    drop(db);
+    let bad = directory.path().join("broken-v4.sqlite");
+    seed(&bad, true);
+    assert!(SqliteLedgerRepository::open(&bad).is_err());
+    let db = Connection::open(&bad).unwrap();
+    assert_eq!(
+        db.query_row("SELECT max(version) FROM schema_version", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        4
+    );
+    assert_eq!(
+        db.query_row("SELECT id FROM source_evidence", [], |row| row
+            .get::<_, i64>(0))
+            .unwrap(),
+        17
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE name='source_evidence_v5'",
+            [],
+            |row| row.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn pending_import_receipt_survives_restart_and_keeps_bank_identity() {
+    use ledger_app::{FeatureRepository, ImportRepository};
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("receipt.sqlite");
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    let wallet = account("CNY", 10000);
+    repo.insert_account(wallet.clone()).unwrap();
+    let candidate = expense(wallet.id, TransactionId::new(), TransactionStatus::Pending);
+    let batch = Uuid::new_v4();
+    let evidence = SourceEvidence {
+        source_kind: SourceKind::Bank,
+        external_transaction_id: Some("bank-stable".into()),
+        import_batch_id: batch,
+        source_fields_digest: [9; 32],
+    };
+    let receipt = repo
+        .insert_pending_batch(batch, vec![(candidate.clone(), evidence.clone())])
+        .unwrap();
+    drop(repo);
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    assert_eq!(
+        repo.insert_pending_batch(batch, vec![(candidate, evidence)])
+            .unwrap(),
+        receipt
+    );
+    assert_eq!(
+        repo.source_evidence(receipt[0]).unwrap()[0].source_kind,
+        SourceKind::Bank
+    );
+    assert_eq!(repo.posting_count().unwrap(), 1);
+    assert_eq!(repo.source_evidence_count().unwrap(), 1);
+    assert_eq!(repo.import_batch_count().unwrap(), 1);
 }

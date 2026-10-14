@@ -31,6 +31,7 @@ id!(AuditEventId);
 #[derive(Debug, Clone, Default)]
 pub struct PendingQuery {
     pub status: Option<TransactionStatus>,
+    pub source_kind: Option<crate::SourceKind>,
     pub from_utc_inclusive: Option<DateTime<Utc>>,
     pub until_utc_exclusive: Option<DateTime<Utc>>,
     pub account_id: Option<AccountId>,

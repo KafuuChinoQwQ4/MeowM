@@ -5,7 +5,11 @@ use ledger_domain::{
     validate_transaction_shape,
 };
 
-use crate::{AppError, LedgerRepository, Timestamp};
+use crate::{
+    AppError, FeatureRepository, ImportRepository, LedgerRepository, RepositoryError, Timestamp,
+};
+use ledger_domain::SourceEvidence;
+use uuid::Uuid;
 
 pub struct TransactionService<R> {
     repository: R,
@@ -99,5 +103,75 @@ impl<R: LedgerRepository> TransactionService<R> {
             Err(crate::RepositoryError::NotFound) => Err(AppError::AccountNotFound),
             Err(error) => Err(error.into()),
         }
+    }
+}
+
+/// Application boundary for the pending inbox. The repository owns transaction
+/// boundaries and optimistic versions; this service only translates user intent
+/// into the shared contracts.
+pub struct PendingService<R> {
+    repository: R,
+}
+
+impl<R: FeatureRepository> PendingService<R> {
+    pub fn new(repository: R) -> Self {
+        Self { repository }
+    }
+    pub fn repository(&self) -> &R {
+        &self.repository
+    }
+
+    pub fn list(
+        &self,
+        query: ledger_domain::PendingQuery,
+    ) -> Result<ledger_domain::TransactionPage, AppError> {
+        self.repository
+            .query_transactions(query)
+            .map_err(Into::into)
+    }
+
+    pub fn confirm(
+        &self,
+        ids: Vec<ledger_domain::TransactionId>,
+        edits: Vec<ledger_domain::TransactionEdit>,
+    ) -> Result<(), AppError> {
+        self.repository
+            .confirm_bulk_with_edits(
+                ledger_domain::BulkConfirmation {
+                    transaction_ids: ids,
+                },
+                edits,
+            )
+            .map_err(Into::into)
+    }
+
+    pub fn ignore(&self, ids: &[ledger_domain::TransactionId]) -> Result<(), AppError> {
+        self.repository.ignore_bulk(ids).map_err(Into::into)
+    }
+
+    pub fn undo_ignore(&self, id: ledger_domain::TransactionId) -> Result<(), AppError> {
+        self.repository
+            .restore_pending_atomic(id)
+            .map_err(Into::into)
+    }
+}
+
+impl<R: ImportRepository> PendingService<R> {
+    pub fn stage_batch(
+        &self,
+        batch_id: Uuid,
+        items: Vec<(Transaction, SourceEvidence)>,
+    ) -> Result<Vec<TransactionId>, AppError> {
+        if items.iter().any(|(transaction, evidence)| {
+            transaction.status != TransactionStatus::Pending || evidence.import_batch_id != batch_id
+        }) {
+            return Err(RepositoryError::InvalidData(
+                "import batch must contain pending candidates with matching evidence".into(),
+            )
+            .into());
+        }
+        self.repository
+            .insert_pending_batch(batch_id, items)
+            .map_err(Into::into)
     }
 }

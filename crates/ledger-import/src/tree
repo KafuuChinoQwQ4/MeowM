@@ -5,7 +5,7 @@
 - `alipay.rs` — Alipay bill file adapter.
 - `csv.rs` — CSV decoding and row validation helpers.
 - `dedupe.rs` — Import duplicate matching and merge candidates.
-- `lib.rs` — Bill import module declarations.
+- `lib.rs` — Unified WeChat, Alipay and bank CSV import with row-level preview errors.
 - `normalize.rs` — Provider row to standard transaction mapping.
 - `preview.rs` — Import preview, warnings, and confirmation boundary.
 - `wechat.rs` — WeChat bill file adapter.

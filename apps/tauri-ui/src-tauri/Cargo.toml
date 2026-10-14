@@ -16,6 +16,7 @@ uuid = "1"
 ledger-domain = { path = "../../../crates/ledger-domain" }
 ledger-app = { path = "../../../crates/ledger-app" }
 ledger-storage = { path = "../../../crates/ledger-storage" }
+ledger-import = { path = "../../../crates/ledger-import" }
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }

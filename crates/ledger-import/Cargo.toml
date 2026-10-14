@@ -7,3 +7,6 @@ license.workspace = true
 [dependencies]
 ledger-domain = { path = "../ledger-domain" }
 ledger-app = { path = "../ledger-app" }
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+sha2 = "0.10"
+uuid = "1"

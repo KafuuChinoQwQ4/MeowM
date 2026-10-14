@@ -1,0 +1,7 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `import_preview.rs` — Stable-ID and suspected duplicate preview tests.
+- `provider_parsers.rs` — UTF-8/BOM payment and bank parser row validation tests.
+- `tree` — 本目录直接文件的说明索引。

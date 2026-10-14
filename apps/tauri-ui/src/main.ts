@@ -1,11 +1,11 @@
 import './styles.css';
-import { api, type Account, type DayView } from './api';
+import { api, type Account, type DayView, type PageEntry, type EntryPage, type PageQuery, type PendingEdit, type BillPreview, type BillRow } from './api';
 import { money, today, moveDate, validDate, validAmount } from './format';
 
 const root = document.querySelector<HTMLDivElement>('#app')!;
 // This shell is static. All database and input text is assigned through textContent.
 root.innerHTML = `
-  <main class="app-shell"><nav class="side-nav" id="side-nav" aria-label="主导航" inert><button class="nav-item active" id="nav-ledger" type="button">账本</button><button class="nav-item" id="nav-records" type="button">明细</button><button class="nav-item" id="nav-platforms" type="button">平台管理</button></nav>
+  <main class="app-shell"><nav class="side-nav" id="side-nav" aria-label="主导航" inert><button class="nav-item active" id="nav-ledger" type="button">账本</button><button class="nav-item" id="nav-records" type="button">明细</button><button class="nav-item" id="nav-pending" type="button">待确认</button><button class="nav-item" id="nav-platforms" type="button">平台管理</button></nav>
     <section class="ledger" aria-label="日常账本"><button class="back-button" id="back" type="button" aria-label="返回上一级">‹</button>
       <div class="ledger-toolbar"><div class="account-field"><label for="account">当前平台</label><div class="account-select-wrap"><span aria-hidden="true">▣</span><select id="account" aria-label="当前平台"></select></div></div><div class="toolbar-actions"><button class="button button-primary compact-add" id="add-entry"><span aria-hidden="true">＋</span> 记一笔</button></div></div>
       <div class="date-bar"><div class="date-controls"><button class="icon-button" id="previous" aria-label="前一天">‹</button><label class="date-label"><span class="sr-only">记账日期</span><input type="date" id="date" min="0001-01-01" max="9999-12-31"></label><button class="icon-button" id="next" aria-label="后一天">›</button></div><button class="today-button" id="today">回到今天</button></div>
@@ -29,6 +29,7 @@ function button(text: string, className: string, action: () => void): HTMLButton
 function errorText(error: unknown): string {
   if (typeof error === 'string') return error;
   if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error) return String(error.message);
   return '操作暂时未完成，请稍后重试。';
 }
 const accountSelect = get<HTMLSelectElement>('account');
@@ -42,7 +43,7 @@ let loading = true;
 let saving = false;
 let requestId = 0;
 let hasSheetHistory = false;
-let activeView: 'ledger' | 'records' | 'platforms' = 'ledger';
+let activeView: 'ledger' | 'records' | 'platforms' | 'pending' = 'ledger';
 let recordPage = 0;
 let platformPage = 0;
 let platformFilter = '';
@@ -64,11 +65,11 @@ function toggleNavigation(open: boolean): void {
   get<HTMLButtonElement>('back').disabled = !open && activeView === 'ledger';
   if (!open) get('menu').focus();
 }
-function setView(view: 'ledger' | 'records' | 'platforms'): void { activeView = view; get('nav-ledger').classList.toggle('active', view === 'ledger'); get('nav-records').classList.toggle('active', view === 'records'); get('nav-platforms').classList.toggle('active', view === 'platforms'); toggleNavigation(false); renderDay(); }
+function setView(view: 'ledger' | 'records' | 'platforms' | 'pending'): void { activeView = view; get('nav-pending').classList.toggle('active', view === 'pending'); if (view === 'pending') void loadPending(); get('nav-ledger').classList.toggle('active', view === 'ledger'); get('nav-records').classList.toggle('active', view === 'records'); get('nav-platforms').classList.toggle('active', view === 'platforms'); toggleNavigation(false); renderDay(); }
 function controls(): void {
   get<HTMLButtonElement>('back').disabled = saving || (activeView === 'ledger' && !get('side-nav').classList.contains('open'));
-  document.querySelector('.ledger-toolbar')!.classList.toggle('platform-mode', activeView === 'platforms');
-  document.querySelector('.date-bar')!.classList.toggle('platform-mode', activeView === 'platforms');
+  document.querySelector('.ledger-toolbar')!.classList.toggle('platform-mode', (activeView === 'platforms' || activeView === 'pending'));
+  document.querySelector('.date-bar')!.classList.toggle('platform-mode', (activeView === 'platforms' || activeView === 'pending'));
   accountSelect.disabled = saving || accounts.length === 0;
   dateInput.disabled = saving;
   for (const id of ['previous', 'next', 'today']) get<HTMLButtonElement>(id).disabled = saving;
@@ -85,6 +86,7 @@ function feedback(message = '', retry?: () => void): void {
 }
 function renderDay(): void {
   const content = get('day-content'); content.replaceChildren(); controls();
+  if (activeView === 'pending') { renderPending(content); return; }
   if (activeView === 'platforms' && !loading) { renderPlatforms(content); return; }
   if (loading) {
     const state = node('div', 'empty-state loading-state'); state.append(node('span', 'loader'), node('p', '', '正在加载…')); content.append(state); return;
@@ -165,6 +167,7 @@ dateInput.addEventListener('change', () => selectDate(dateInput.value));
 get('previous').addEventListener('click', () => selectDate(moveDate(selectedDate, -1)));
 get('next').addEventListener('click', () => selectDate(moveDate(selectedDate, 1)));
 get('today').addEventListener('click', () => selectDate(today()));
+get('nav-pending').addEventListener('click', () => setView('pending'));
 get('nav-platforms').addEventListener('click', () => setView('platforms'));
 get('add-entry').addEventListener('click', openEntry);
 get('nav-ledger').addEventListener('click', () => setView('ledger'));
@@ -209,7 +212,7 @@ async function save(form: HTMLFormElement, error: HTMLElement, operation: () => 
   const submit = form.querySelector<HTMLButtonElement>('[type="submit"]')!; const label = submit.textContent; submit.textContent = '正在保存…';
   try {
     await operation(); saving = false; closeSheet(); notify(success);
-    if (refreshAccounts) await loadAccounts(); else await loadDay();
+    if (refreshAccounts) await loadAccounts(); else if (activeView === 'pending') await loadPending(); else await loadDay();
   } catch (cause) { error.textContent = errorText(cause); error.hidden = false; }
   finally {
     saving = false; controls(); get<HTMLButtonElement>('close-sheet').disabled = false;
@@ -291,3 +294,124 @@ function openClear(): void {
   form.addEventListener('submit', e => { e.preventDefault(); void save(form, error, () => api.clearReference(accountId), '参考余额已清除'); });
 }
 void loadAccounts();
+
+const sourceNames: Record<string, string> = { wechat: '微信', alipay: '支付宝', bank: '银行卡', notification: '通知', manual: '手动' };
+const kindNames: Record<string, string> = { income: '收入', expense: '支出', refund: '退款' };
+let pendingPage: EntryPage | null = null;
+let pendingLoading = false;
+let pendingRequest = 0;
+let pendingOffset = 0;
+let pendingStatus: 'pending' | 'ignored' = 'pending';
+let pendingSource = '';
+let pendingAccount = '';
+let pendingFrom = '';
+let pendingUntil = '';
+const pendingSelected = new Set<string>();
+async function loadPending(): Promise<void> {
+  const request = ++pendingRequest;
+  pendingLoading = true; pendingSelected.clear(); feedback(); renderDay();
+  const query: PageQuery = { status: pendingStatus, source: pendingSource as PageQuery['source'] || undefined, account_id: pendingAccount || undefined, from_date: pendingFrom || undefined, until_date: pendingUntil || undefined, offset: pendingOffset, limit: 20 };
+  try { const page = await api.queryEntries(query); if (request === pendingRequest) pendingPage = page; }
+  catch (error) { if (request === pendingRequest) { pendingPage = null; feedback(errorText(error), () => void loadPending()); } }
+  finally { if (request === pendingRequest) { pendingLoading = false; renderDay(); } }
+}
+function selectField(parent: HTMLElement, label: string, options: [string, string][], current: string, changed: (value: string) => void): HTMLSelectElement {
+  const wrapper = node('label', 'form-field', label); const select = node('select');
+  for (const [value, text] of options) { const option = node('option', '', text); option.value = value; select.append(option); }
+  select.value = current; select.addEventListener('change', () => changed(select.value)); wrapper.append(select); parent.append(wrapper); return select;
+}
+function renderPending(content: HTMLElement): void {
+  const heading = node('div', 'platform-heading'); heading.append(node('h2', '', '待确认收件箱'), button('导入账单', 'button button-primary', openImport)); content.append(heading);
+  content.append(node('p', 'field-hint', '导入记录仅在确认后计入余额与报表。'));
+  const filters = node('div', 'pending-filters');
+  function change(): void { pendingOffset = 0; void loadPending(); }
+  selectField(filters, '状态', [['pending', '待确认'], ['ignored', '已忽略']], pendingStatus, value => { pendingStatus = value as 'pending' | 'ignored'; change(); });
+  selectField(filters, '来源', [['', '全部来源'], ...Object.entries(sourceNames)], pendingSource, value => { pendingSource = value; change(); });
+  selectField(filters, '平台', [['', '全部平台'], ...accounts.map(account => [account.id, account.name] as [string, string])], pendingAccount, value => { pendingAccount = value; change(); });
+  const from = field(filters, '起始日期', 'from', '', 'date'); from.value = pendingFrom;
+  const until = field(filters, '结束日期（不含）', 'until', '', 'date'); until.value = pendingUntil;
+  from.addEventListener('change', () => { pendingFrom = from.value; change(); }); until.addEventListener('change', () => { pendingUntil = until.value; change(); }); content.append(filters);
+  if (pendingLoading) { content.append(node('p', 'empty-platforms', '正在加载…')); return; }
+  if (!pendingPage) return;
+  const actions = node('div', 'pending-actions');
+  const selectAll = node('input'); selectAll.type = 'checkbox'; selectAll.setAttribute('aria-label', '选择本页全部记录'); selectAll.checked = pendingPage.items.length > 0 && pendingPage.items.every(item => pendingSelected.has(item.id)); selectAll.addEventListener('change', () => { pendingSelected.clear(); if (selectAll.checked) pendingPage?.items.forEach(item => pendingSelected.add(item.id)); renderDay(); }); actions.append(selectAll, node('span', '', `已选 ${pendingSelected.size} / 共 ${pendingPage.total} 条`));
+  if (pendingStatus === 'pending') {
+    const confirm = button('批量确认', 'button button-primary', () => void pendingAction(() => api.confirmPending([...pendingSelected]), '已确认'));
+    const ignore = button('批量忽略', 'button button-secondary', () => void pendingAction(() => api.ignorePending([...pendingSelected]), '已忽略'));
+    confirm.disabled = ignore.disabled = saving || !pendingSelected.size; actions.append(confirm, ignore);
+  }
+  content.append(actions);
+  for (const entry of pendingPage.items) {
+    const card = node('article', 'pending-card'); const top = node('div', 'pending-top'); const check = node('input'); check.type = 'checkbox'; check.checked = pendingSelected.has(entry.id); check.setAttribute('aria-label', `选择 ${entry.merchant || entry.description || entry.id}`); check.addEventListener('change', () => { if (check.checked) pendingSelected.add(entry.id); else pendingSelected.delete(entry.id); renderDay(); });
+    top.append(check, node('strong', '', entry.merchant || entry.description || kindNames[entry.kind] || entry.kind), node('strong', '', `¥ ${money(entry.amount ?? '0')}`)); card.append(top);
+    card.append(node('p', 'field-hint', `${kindNames[entry.kind] ?? entry.kind} · ${new Date(entry.occurred_at).toLocaleDateString()} · ${entry.sources.map(source => sourceNames[source] ?? source).join('、')} · ${pendingStatus === 'pending' ? '待确认' : '已忽略'}`));
+    const rowActions = node('div', 'pending-actions');
+    if (pendingStatus === 'pending') {
+      rowActions.append(button('编辑 / 确认', 'text-button', () => openPendingEdit(entry)), button('忽略', 'text-button', () => void pendingAction(() => api.ignorePending([entry.id]), '已忽略')));
+    } else rowActions.append(button('恢复待确认', 'text-button', () => void pendingAction(() => api.restorePending(entry.id), '已恢复')));
+    const possible = node('details', 'duplicate-details'); possible.append(node('summary', '', '查看来源 / 疑似重复'));
+    possible.append(node('p', 'field-hint', `来源：${entry.sources.map(source => sourceNames[source] ?? source).join('、') || '未知'}。仅金额和日期相同不会自动合并。`));
+    possible.addEventListener('toggle', () => { if (!possible.open || possible.dataset.loaded) return; possible.dataset.loaded = 'true'; void showSuspected(entry, possible); }); card.append(rowActions, possible); content.append(card);
+  }
+  if (!pendingPage.items.length) content.append(node('p', 'empty-platforms', '没有符合条件的记录'));
+  const pager = node('div', 'record-pager'); const previous = button('上一页', 'text-button', () => { pendingOffset -= 20; void loadPending(); }); const next = button('下一页', 'text-button', () => { pendingOffset += 20; void loadPending(); }); previous.disabled = pendingOffset === 0; next.disabled = pendingOffset + 20 >= pendingPage.total; pager.append(previous, node('span', '', `${Math.floor(pendingOffset / 20) + 1} / ${Math.max(1, Math.ceil(pendingPage.total / 20))}`), next); content.append(pager);
+}
+async function showSuspected(entry: PageEntry, container: HTMLElement): Promise<void> {
+  try {
+    const date = new Date(entry.occurred_at); const from = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const page = await api.queryEntries({ from_date: from, until_date: moveDate(from, 1), offset: 0, limit: 200 });
+    const matches = page.items.filter(candidate => candidate.id !== entry.id && candidate.amount === entry.amount);
+    container.append(node('p', 'field-hint', matches.length ? matches.map(item => `${item.merchant || item.description || kindNames[item.kind]} · ${item.status} · ${item.id}`).join('\n') : '未发现同日同金额候选。'));
+  } catch (error) { container.append(node('p', 'form-error', errorText(error))); }
+}
+async function pendingAction(action: () => Promise<void>, success: string): Promise<void> {
+  if (saving) return; saving = true; renderDay();
+  try { await action(); notify(success); await loadPending(); } catch (error) { feedback(errorText(error)); } finally { saving = false; renderDay(); }
+}
+function openPendingEdit(entry: PageEntry): void {
+  const content = openSheet('检查候选记录'); const { form, fields, error } = formBase(content, '保存并确认');
+  const account = selectField(fields, '记入平台', accounts.map(item => [item.id, item.name]), entry.account_id ?? selectedAccount, () => {});
+  const date = field(fields, '日期', 'date', '', 'date'); const occurred = new Date(entry.occurred_at); date.value = `${occurred.getFullYear()}-${String(occurred.getMonth() + 1).padStart(2, '0')}-${String(occurred.getDate()).padStart(2, '0')}`;
+  const amount = field(fields, '金额（元）', 'amount', '0.00'); amount.value = entry.amount ?? '';
+  const kind = selectField(fields, '类型', Object.entries(kindNames), entry.kind, () => {});
+  const merchant = field(fields, '商户', 'merchant', '选填'); merchant.value = entry.merchant ?? ''; merchant.maxLength = 100;
+  const description = field(fields, '备注', 'description', '选填'); description.value = entry.description ?? ''; description.maxLength = 200;
+  const category = selectField(fields, '分类', [['', '未分类']], entry.category_id ?? '', () => {});
+  void api.categories().then(items => { for (const item of items) { const option = node('option', '', item.name); option.value = item.id; category.append(option); } category.value = entry.category_id ?? ''; }).catch(() => {});
+  const original = field(fields, '退款原消费 ID（退款必填）', 'original', '原消费交易 ID'); original.value = entry.original_transaction_id ?? '';
+  const edit = (): PendingEdit => ({ id: entry.id, expected_version: entry.edit_version, account_id: account.value, date: date.value, amount: amount.value.trim(), kind: kind.value, merchant: merchant.value.trim(), description: description.value.trim(), category_id: category.value || null, original_transaction_id: original.value.trim() || null });
+  fields.append(button('仅保存修改', 'button button-secondary', () => { void save(form, error, () => api.editPending(edit()), '候选已更新'); }));
+  form.addEventListener('submit', event => { event.preventDefault(); if (!validAmount(amount.value.trim())) return invalid(error, '请输入有效正金额', amount); void save(form, error, () => api.confirmPending([entry.id], [edit()]), '已确认'); });
+}
+function openImport(): void {
+  const content = openSheet('导入账单'); content.append(node('p', 'sheet-description', '选择 UTF-8 CSV 文件。有效候选先进入待确认，精确重复不再次导入。支持微信、支付宝和银行的日期/金额表头。'));
+  const provider = selectField(content, '来源', [['wechat', '微信'], ['alipay', '支付宝'], ['bank', '银行卡']], 'wechat', () => {});
+  const label = node('label', 'form-field', '账单 CSV（最多 5 MiB / 1000 行）'); const file = node('input'); file.type = 'file'; file.accept = '.csv,text/csv'; label.append(file); content.append(label);
+  const error = node('p', 'form-error'); error.hidden = true; content.append(error);
+  file.addEventListener('change', () => { const chosen = file.files?.[0]; if (!chosen) return; if (chosen.size > 5 * 1024 * 1024) { error.textContent = '文件不能超过 5 MiB'; error.hidden = false; return; } file.disabled = provider.disabled = true; void chosen.arrayBuffer().then(bytes => api.previewBill(provider.value, Array.from(new Uint8Array(bytes)))).then(preview => showImportPreview(preview)).catch(cause => { error.textContent = errorText(cause); error.hidden = false; }).finally(() => { file.disabled = provider.disabled = false; }); });
+}
+function showImportPreview(preview: BillPreview): void {
+  const content = openSheet('核对导入预览'); content.append(node('p', 'sheet-description', `新增 ${preview.new_count} · 精确重复 ${preview.exact_duplicates} · 疑似重复 ${preview.suspected_duplicates} · 可待确认 ${preview.pending_count}`));
+  const { form, fields, error } = formBase(content, '加入待确认收件箱');
+  const account = selectField(fields, '记入平台', accounts.map(item => [item.id, item.name]), selectedAccount, () => {});
+  const selected = new Set(preview.rows.filter(row => row.decision === 'new').map(row => row.id));
+  for (const issue of preview.errors) fields.append(node('p', 'form-error', `第 ${issue.row} 行：${issue.message}`));
+  const edits = new Map<string, PendingEdit>();
+  for (const row of preview.rows) {
+    const card = node('article', 'pending-card'); const top = node('label', 'pending-top'); const check = node('input'); check.type = 'checkbox'; check.checked = selected.has(row.id); check.disabled = row.decision === 'exact_duplicate'; check.addEventListener('change', () => { if (check.checked) selected.add(row.id); else selected.delete(row.id); });
+    top.append(check, node('strong', '', `第 ${row.row} 行 · ${row.merchant || row.description || kindNames[row.kind]}`), node('span', '', `¥${money(row.amount)}`)); card.append(top);
+    card.append(node('p', 'field-hint', `${row.date} · ${kindNames[row.kind]} · ${row.decision === 'new' ? '新增' : row.decision === 'exact_duplicate' ? '精确重复（不导入）' : '疑似重复（请核对后勾选）'}`));
+    if (row.duplicate_id) card.append(node('p', 'field-hint', `已存交易：${row.duplicate_id}`));
+    for (const warning of row.warnings) card.append(node('p', 'field-hint', warning));
+    if (row.decision !== 'exact_duplicate') {
+      const details = node('details'); details.append(node('summary', '', '修订金额、日期、商户或备注'));
+      const date = field(details, '日期', 'date', '', 'date'); date.value = row.date;
+      const amount = field(details, '金额（元）', 'amount', '0.00'); amount.value = row.amount;
+      const merchant = field(details, '商户', 'merchant', '选填'); merchant.value = row.merchant;
+      const description = field(details, '备注', 'description', '选填'); description.value = row.description;
+      for (const input of [date, amount, merchant, description]) input.addEventListener('input', () => { edits.set(row.id, { id: row.id, expected_version: 0, account_id: account.value, date: date.value, amount: amount.value, kind: row.kind, merchant: merchant.value, description: description.value, category_id: null, original_transaction_id: null }); }); card.append(details);
+    }
+    fields.append(card);
+  }
+  form.addEventListener('submit', event => { event.preventDefault(); if (!selected.size) { error.textContent = '请选择至少一条有效候选记录'; error.hidden = false; return; } const ids = [...selected]; const selectedEdits = [...edits.values()].filter(edit => selected.has(edit.id)).map(edit => ({...edit, account_id: account.value})); void save(form, error, async () => { await api.stageBill(preview.preview_id, account.value, ids, selectedEdits); activeView = 'pending'; }, '已加入待确认'); });
+}

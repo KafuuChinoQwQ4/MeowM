@@ -43,6 +43,7 @@ impl SqliteLedgerRepository {
         repo.apply_migrations()?;
         repo.apply_optional_balance_migration()?;
         repo.apply_feature_migration()?;
+        repo.apply_pending_import_migration()?;
         repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
             account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
             category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))
@@ -129,7 +130,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 4
+                && v <= 5
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -141,10 +142,10 @@ impl SqliteLedgerRepository {
                     self.apply_classification_migration(1)?;
                     return Ok(());
                 }
-                (2, Some(2)) | (3, Some(3)) | (4, Some(4)) => return Ok(()),
-                (_, Some(version)) if version > 4 => {
+                (2, Some(2)) | (3, Some(3)) | (4, Some(4)) | (5, Some(5)) => return Ok(()),
+                (_, Some(version)) if version > 5 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 4"
+                        "database schema version {version} is newer than supported version 5"
                     )));
                 }
                 _ => {
@@ -260,6 +261,27 @@ impl SqliteLedgerRepository {
             .map_err(storage_error)?;
         tx.execute(
             "INSERT INTO schema_version VALUES(4,?1)",
+            [SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_micros() as i64],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    fn apply_pending_import_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 5 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!("../migrations/0005_pending_import.sql"))
+            .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO schema_version VALUES(5,?1)",
             [SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap_or_default()
@@ -1016,6 +1038,7 @@ fn source_kind_str(kind: SourceKind) -> &'static str {
     match kind {
         SourceKind::Alipay => "alipay",
         SourceKind::WeChat => "wechat",
+        SourceKind::Bank => "bank",
         SourceKind::Notification => "notification",
         SourceKind::Manual => "manual",
     }
@@ -1063,7 +1086,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
                 "invalid page or date range".into(),
             ));
         }
-        let sql = "FROM transactions t WHERE (?1 IS NULL OR status=?1) AND (?2 IS NULL OR occurred_at_utc_micros>=?2) AND (?3 IS NULL OR occurred_at_utc_micros<?3) AND (?4 IS NULL OR EXISTS(SELECT 1 FROM postings p WHERE p.transaction_id=t.id AND p.account_id=?4)) AND (?5 IS NULL OR category_id=?5) AND (?6 IS NULL OR instr(lower(coalesce(merchant,'')),lower(?6))>0) AND (?7 IS NULL OR instr(lower(coalesce(merchant,'')||' '||coalesce(description,'')),lower(?7))>0)";
+        let sql = "FROM transactions t WHERE (?1 IS NULL OR status=?1) AND (?2 IS NULL OR occurred_at_utc_micros>=?2) AND (?3 IS NULL OR occurred_at_utc_micros<?3) AND (?4 IS NULL OR EXISTS(SELECT 1 FROM postings p WHERE p.transaction_id=t.id AND p.account_id=?4)) AND (?5 IS NULL OR category_id=?5) AND (?6 IS NULL OR instr(lower(coalesce(merchant,'')),lower(?6))>0) AND (?7 IS NULL OR instr(lower(coalesce(merchant,'')||' '||coalesce(description,'')),lower(?7))>0) AND (?8 IS NULL OR EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND e.source_kind=?8))";
         let values = params![
             q.status.map(transaction_status_str),
             q.from_utc_inclusive.map(|t| t.timestamp_micros()),
@@ -1071,7 +1094,8 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
             q.account_id.map(|v| v.as_uuid().to_string()),
             q.category_id.map(|v| v.as_uuid().to_string()),
             q.merchant,
-            q.keyword
+            q.keyword,
+            q.source_kind.map(source_kind_str)
         ];
         let snapshot = self
             .connection
@@ -1115,21 +1139,90 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
             limit: q.limit,
         })
     }
-    fn confirm_bulk(&self, r: ledger_domain::BulkConfirmation) -> Result<(), RepositoryError> {
+    fn confirm_bulk(
+        &self,
+        request: ledger_domain::BulkConfirmation,
+    ) -> Result<(), RepositoryError> {
+        self.confirm_bulk_with_edits(request, Vec::new())
+    }
+    fn confirm_bulk_with_edits(
+        &self,
+        request: ledger_domain::BulkConfirmation,
+        edits: Vec<ledger_domain::TransactionEdit>,
+    ) -> Result<(), RepositoryError> {
         let tx = self
             .connection
             .unchecked_transaction()
             .map_err(storage_error)?;
-        for id in r.transaction_ids {
-            let mut t = self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?;
-            match t.status {
-                TransactionStatus::Confirmed => continue,
-                TransactionStatus::Ignored => return Err(RepositoryError::Conflict),
-                TransactionStatus::Pending => {}
+        let ids = request.transaction_ids;
+        if ids.len() > 200 || edits.iter().any(|edit| !ids.contains(&edit.transaction.id)) {
+            return Err(RepositoryError::InvalidData(
+                "invalid confirmation selection".into(),
+            ));
+        }
+        let mut seen_edits = std::collections::HashSet::new();
+        for edit in &edits {
+            if !seen_edits.insert(edit.transaction.id) {
+                return Err(RepositoryError::Conflict);
             }
-            t.status = TransactionStatus::Confirmed;
-            self.validate_feature_transaction(&t)?;
-            Self::write_transaction(&tx, &t, false)?;
+        }
+        let mut seen = std::collections::HashSet::new();
+        for id in ids {
+            if !seen.insert(id) {
+                continue;
+            }
+            let current = self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?;
+            let edit = edits.iter().find(|edit| edit.transaction.id == id);
+            if current.status == TransactionStatus::Confirmed {
+                if let Some(edit) = edit {
+                    let mut proposed = edit.transaction.clone();
+                    proposed.status = TransactionStatus::Confirmed;
+                    if proposed != current {
+                        return Err(RepositoryError::Conflict);
+                    }
+                }
+                continue;
+            }
+            if current.status != TransactionStatus::Pending {
+                return Err(RepositoryError::Conflict);
+            }
+            let mut proposed = if let Some(edit) = edit {
+                if edit.transaction.status != TransactionStatus::Pending
+                    || self.metadata(id)?.edit_version != edit.expected_version
+                {
+                    return Err(RepositoryError::Conflict);
+                }
+                edit.transaction.clone()
+            } else {
+                current
+            };
+            proposed.status = TransactionStatus::Confirmed;
+            self.validate_feature_transaction(&proposed)?;
+            Self::write_transaction(&tx, &proposed, false)?;
+        }
+        tx.commit().map_err(storage_error)
+    }
+    fn ignore_bulk(&self, ids: &[TransactionId]) -> Result<(), RepositoryError> {
+        if ids.len() > 200 {
+            return Err(RepositoryError::InvalidData(
+                "selection is too large".into(),
+            ));
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        for id in ids {
+            let mut current = self
+                .get_transaction(*id)?
+                .ok_or(RepositoryError::NotFound)?;
+            if current.status == TransactionStatus::Confirmed {
+                return Err(RepositoryError::Conflict);
+            }
+            if current.status == TransactionStatus::Pending {
+                current.status = TransactionStatus::Ignored;
+                Self::write_transaction(&tx, &current, false)?;
+            }
         }
         tx.commit().map_err(storage_error)
     }
@@ -1255,6 +1348,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
                 source_kind: match k.as_str() {
                     "alipay" => SourceKind::Alipay,
                     "wechat" => SourceKind::WeChat,
+                    "bank" => SourceKind::Bank,
                     "notification" => SourceKind::Notification,
                     "manual" => SourceKind::Manual,
                     _ => return Err(rusqlite::Error::InvalidQuery),
@@ -1307,5 +1401,111 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
             tx.execute("INSERT INTO app_settings VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,value]).map_err(storage_error)?;
         }
         tx.commit().map_err(storage_error)
+    }
+}
+
+impl ledger_app::ImportRepository for SqliteLedgerRepository {
+    fn find_source_transaction(
+        &self,
+        source: SourceKind,
+        external_id: &str,
+    ) -> Result<Option<TransactionId>, RepositoryError> {
+        let id: Option<String> = self.connection.query_row(
+            "SELECT transaction_id FROM source_evidence WHERE source_kind=?1 AND external_transaction_id=?2",
+            params![source_kind_str(source), external_id], |row| row.get(0),
+        ).optional().map_err(storage_error)?;
+        id.map(|id| {
+            Uuid::parse_str(&id)
+                .map(TransactionId::from_uuid)
+                .map_err(|_| RepositoryError::InvalidData("invalid transaction ID".into()))
+        })
+        .transpose()
+    }
+
+    fn insert_pending_batch(
+        &self,
+        batch_id: Uuid,
+        items: Vec<(Transaction, SourceEvidence)>,
+    ) -> Result<Vec<TransactionId>, RepositoryError> {
+        if items.is_empty() || items.len() > 10_000 {
+            return Err(RepositoryError::InvalidData(
+                "import batch must contain 1..10000 candidates".into(),
+            ));
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        let prior: Vec<(String, Vec<u8>)> = {
+            let mut stmt = tx.prepare("SELECT transaction_id,source_fields_digest FROM import_receipt_rows WHERE batch_id=?1 ORDER BY ordinal").map_err(storage_error)?;
+            let rows = stmt
+                .query_map([batch_id.to_string()], |row| Ok((row.get(0)?, row.get(1)?)))
+                .map_err(storage_error)?;
+            rows.collect::<Result<_, _>>().map_err(storage_error)?
+        };
+        if !prior.is_empty() {
+            if prior.len() != items.len()
+                || prior
+                    .iter()
+                    .zip(&items)
+                    .any(|((_, digest), (_, evidence))| {
+                        digest.as_slice() != evidence.source_fields_digest
+                    })
+            {
+                return Err(RepositoryError::Conflict);
+            }
+            return prior
+                .into_iter()
+                .map(|(id, _)| {
+                    Uuid::parse_str(&id)
+                        .map(TransactionId::from_uuid)
+                        .map_err(|_| RepositoryError::InvalidData("invalid receipt ID".into()))
+                })
+                .collect();
+        }
+        let accounts = self.list_accounts()?;
+        tx.execute(
+            "INSERT INTO import_batches(id) VALUES(?1)",
+            [batch_id.to_string()],
+        )
+        .map_err(map_insert_error)?;
+        let mut receipt = Vec::with_capacity(items.len());
+        for (ordinal, (transaction, evidence)) in items.iter().enumerate() {
+            if transaction.status != TransactionStatus::Pending
+                || evidence.import_batch_id != batch_id
+                || evidence
+                    .external_transaction_id
+                    .as_deref()
+                    .is_some_and(|id| id.trim().is_empty())
+            {
+                return Err(RepositoryError::InvalidData(
+                    "invalid pending import candidate".into(),
+                ));
+            }
+            // An imported refund has no reliable parent until the user links it.
+            // Validate its account/amount now; confirmation still requires a parent.
+            let mut shape = transaction.clone();
+            if shape.kind == TransactionKind::Refund && shape.original_transaction_id.is_none() {
+                shape.kind = TransactionKind::Income;
+            }
+            ledger_domain::validate_transaction_shape(&shape, &accounts)
+                .map_err(|error| RepositoryError::InvalidData(error.to_string()))?;
+            let existing = evidence
+                .external_transaction_id
+                .as_deref()
+                .map(|external_id| self.find_source_transaction(evidence.source_kind, external_id))
+                .transpose()?
+                .flatten();
+            let id = if let Some(id) = existing {
+                id
+            } else {
+                Self::write_transaction_with_evidence(&tx, transaction, Some(evidence))?;
+                transaction.id
+            };
+            tx.execute("INSERT INTO import_receipt_rows(batch_id,ordinal,transaction_id,source_fields_digest) VALUES(?1,?2,?3,?4)", params![batch_id.to_string(), ordinal as i64, id.as_uuid().to_string(), evidence.source_fields_digest.as_slice()]).map_err(map_insert_error)?;
+            receipt.push(id);
+        }
+        tx.commit().map_err(storage_error)?;
+        Ok(receipt)
     }
 }

@@ -41,6 +41,7 @@ pub struct DayView {
 
 pub struct Ledger {
     path: PathBuf,
+    preview: std::cell::RefCell<Option<PreviewSession>>,
 }
 fn cny() -> CurrencyCode {
     CurrencyCode::new("CNY", 2).expect("constant currency")
@@ -55,6 +56,16 @@ fn account_id(value: &str) -> Result<AccountId> {
 }
 fn date(value: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|_| "请选择有效日期".into())
+}
+fn parse_source(value: &str) -> Result<ledger_domain::SourceKind> {
+    match value {
+        "wechat" => Ok(ledger_domain::SourceKind::WeChat),
+        "alipay" => Ok(ledger_domain::SourceKind::Alipay),
+        "bank" => Ok(ledger_domain::SourceKind::Bank),
+        "notification" => Ok(ledger_domain::SourceKind::Notification),
+        "manual" => Ok(ledger_domain::SourceKind::Manual),
+        _ => Err("无效的来源".into()),
+    }
 }
 fn time(day: NaiveDate, closing: bool) -> Result<chrono::DateTime<Local>> {
     let naive = if closing {
@@ -100,7 +111,10 @@ impl Ledger {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
-        let ledger = Self { path: path.into() };
+        let ledger = Self {
+            path: path.into(),
+            preview: std::cell::RefCell::new(None),
+        };
         let repo = ledger.repo()?;
         if repo.list_accounts().map_err(|e| e.to_string())?.is_empty() {
             for name in ["微信", "支付宝", "现金"] {
@@ -442,6 +456,7 @@ mod tests {
 #[derive(serde::Deserialize)]
 pub struct PageQuery {
     pub status: Option<String>,
+    pub source: Option<String>,
     pub account_id: Option<String>,
     pub category_id: Option<String>,
     pub from_date: Option<String>,
@@ -462,6 +477,10 @@ pub struct PageEntry {
     pub description: Option<String>,
     pub edit_version: u32,
     pub reversal_of: Option<String>,
+    pub account_id: Option<String>,
+    pub category_id: Option<String>,
+    pub original_transaction_id: Option<String>,
+    pub sources: Vec<String>,
 }
 #[derive(Serialize)]
 pub struct EntryPage {
@@ -503,6 +522,12 @@ impl Ledger {
         };
         let query = ledger_domain::PendingQuery {
             status,
+            source_kind: q
+                .source
+                .as_deref()
+                .map(parse_source)
+                .transpose()
+                .map_err(CommandError::invalid)?,
             account_id: q
                 .account_id
                 .as_deref()
@@ -566,16 +591,559 @@ impl Ledger {
                             TransactionStatus::Ignored => "ignored",
                         }
                         .into(),
-                        kind: format!("{:?}", t.kind),
+                        kind: kind_label(t.kind).into(),
                         occurred_at: t.occurred_at.to_rfc3339(),
                         amount: t.report_amount_cny.map(|v| v.decimal_string()),
                         merchant: t.merchant,
                         description: t.description,
                         edit_version: c.metadata.edit_version,
                         reversal_of: c.metadata.reversal_of.map(|v| v.as_uuid().to_string()),
+                        account_id: t
+                            .postings
+                            .first()
+                            .map(|p| p.account_id.as_uuid().to_string()),
+                        category_id: t.category_id.map(|id| id.as_uuid().to_string()),
+                        original_transaction_id: t
+                            .original_transaction_id
+                            .map(|id| id.as_uuid().to_string()),
+                        sources: repo
+                            .source_evidence(t.id)
+                            .unwrap_or_default()
+                            .iter()
+                            .map(|e| source_label(e.source_kind).into())
+                            .collect(),
                     }
                 })
                 .collect(),
         })
+    }
+}
+
+pub fn ignore_pending(ledger: &Ledger, ids: Vec<String>) -> Result<()> {
+    use ledger_app::FeatureRepository;
+    let repo = ledger.repo()?;
+    let ids = ids
+        .into_iter()
+        .map(|id| {
+            uuid::Uuid::parse_str(&id)
+                .map(ledger_domain::TransactionId::from_uuid)
+                .map_err(|_| "无效的流水标识".to_owned())
+        })
+        .collect::<Result<Vec<_>>>()?;
+    repo.ignore_bulk(&ids).map_err(|e| e.to_string())
+}
+pub fn restore_pending(ledger: &Ledger, id: String) -> Result<()> {
+    use ledger_app::FeatureRepository;
+    let id = uuid::Uuid::parse_str(&id)
+        .map(ledger_domain::TransactionId::from_uuid)
+        .map_err(|_| "无效的流水标识".to_owned())?;
+    ledger
+        .repo()?
+        .restore_pending_atomic(id)
+        .map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+pub struct BillPreview {
+    pub preview_id: String,
+    pub rows: Vec<BillRow>,
+    pub errors: Vec<BillIssue>,
+    pub new_count: usize,
+    pub exact_duplicates: usize,
+    pub suspected_duplicates: usize,
+    pub pending_count: usize,
+}
+#[derive(Serialize)]
+pub struct BillIssue {
+    pub row: usize,
+    pub message: String,
+}
+#[derive(Serialize)]
+pub struct BillRow {
+    pub id: String,
+    pub row: usize,
+    pub date: String,
+    pub amount: String,
+    pub kind: String,
+    pub merchant: String,
+    pub description: String,
+    pub decision: String,
+    pub duplicate_id: Option<String>,
+    pub warnings: Vec<String>,
+}
+struct PreviewSession {
+    id: uuid::Uuid,
+    rows: Vec<(
+        String,
+        ledger_import::NormalizedImportRow,
+        ledger_import::PreviewDecision,
+    )>,
+}
+#[derive(serde::Deserialize)]
+pub struct PendingEdit {
+    pub id: String,
+    pub expected_version: u32,
+    pub account_id: String,
+    pub date: String,
+    pub amount: String,
+    pub kind: String,
+    pub merchant: String,
+    pub description: String,
+    pub category_id: Option<String>,
+    pub original_transaction_id: Option<String>,
+}
+#[derive(Serialize)]
+pub struct CategoryOption {
+    pub id: String,
+    pub name: String,
+}
+
+fn transaction_id(value: &str) -> Result<TransactionId> {
+    uuid::Uuid::parse_str(value)
+        .map(TransactionId::from_uuid)
+        .map_err(|_| "无效的流水标识".into())
+}
+fn source_label(source: ledger_domain::SourceKind) -> &'static str {
+    match source {
+        ledger_domain::SourceKind::WeChat => "wechat",
+        ledger_domain::SourceKind::Alipay => "alipay",
+        ledger_domain::SourceKind::Bank => "bank",
+        ledger_domain::SourceKind::Notification => "notification",
+        ledger_domain::SourceKind::Manual => "manual",
+    }
+}
+impl Ledger {
+    pub fn bill_preview(&self, provider: &str, bytes: Vec<u8>) -> Result<BillPreview> {
+        use ledger_app::FeatureRepository;
+        if bytes.len() > 5 * 1024 * 1024 {
+            return Err("账单文件不能超过 5 MiB".into());
+        }
+        let parsed = match provider {
+            "wechat" => ledger_import::parse_wechat_csv(&bytes),
+            "alipay" => ledger_import::parse_alipay_csv(&bytes),
+            "bank" => ledger_import::parse_bank_csv(&bytes),
+            _ => return Err("请选择账单来源".into()),
+        }
+        .map_err(|error| error.to_string())?;
+        if parsed.rows.len() > 1000 {
+            return Err("每次最多预览 1000 行，请拆分文件".into());
+        }
+        let repo = self.repo()?;
+        let mut existing = Vec::new();
+        for row in &parsed.rows {
+            // Only retrieve possible matches; do not copy the entire ledger into
+            // the WebView or retain raw source data in the preview cache.
+            let page = repo
+                .query_transactions(ledger_domain::PendingQuery {
+                    from_utc_inclusive: Some(row.occurred_at - chrono::Duration::hours(24)),
+                    until_utc_exclusive: Some(row.occurred_at + chrono::Duration::hours(24)),
+                    limit: 200,
+                    ..Default::default()
+                })
+                .map_err(|error| error.to_string())?;
+            for candidate in page.items {
+                let tx = candidate.transaction;
+                for evidence in repo
+                    .source_evidence(tx.id)
+                    .map_err(|error| error.to_string())?
+                {
+                    existing.push(ledger_import::ExistingImport {
+                        transaction_id: Some(tx.id),
+                        source_kind: evidence.source_kind,
+                        external_transaction_id: evidence.external_transaction_id,
+                        occurred_at: tx.occurred_at,
+                        kind: tx.kind,
+                        amount_minor: tx
+                            .report_amount_cny
+                            .as_ref()
+                            .map(Money::minor_units)
+                            .unwrap_or_default(),
+                        merchant: tx.merchant.clone(),
+                    });
+                }
+            }
+            if let Some(external_id) = &row.external_transaction_id {
+                use ledger_app::ImportRepository;
+                if let Some(id) = repo
+                    .find_source_transaction(row.source_kind, external_id)
+                    .map_err(|error| error.to_string())?
+                {
+                    if !existing.iter().any(|item| item.transaction_id == Some(id)) {
+                        if let Some(tx) = repo
+                            .get_transaction(id)
+                            .map_err(|error| error.to_string())?
+                        {
+                            existing.push(ledger_import::ExistingImport {
+                                transaction_id: Some(id),
+                                source_kind: row.source_kind,
+                                external_transaction_id: Some(external_id.clone()),
+                                occurred_at: tx.occurred_at,
+                                kind: tx.kind,
+                                amount_minor: tx
+                                    .report_amount_cny
+                                    .as_ref()
+                                    .map(Money::minor_units)
+                                    .unwrap_or_default(),
+                                merchant: tx.merchant,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+        let preview = ledger_import::ImportPreview::build(&parsed.rows, &existing);
+        let preview_id = uuid::Uuid::new_v4();
+        let rows = preview
+            .rows
+            .iter()
+            .map(|item| {
+                let id = uuid::Uuid::new_v4().to_string();
+                (id, item.row.clone(), item.decision.clone())
+            })
+            .collect::<Vec<_>>();
+        let result = BillPreview {
+            preview_id: preview_id.to_string(),
+            rows: rows
+                .iter()
+                .map(|(id, row, decision)| {
+                    let (status, duplicate_id) = match decision {
+                        ledger_import::PreviewDecision::New => ("new", None),
+                        ledger_import::PreviewDecision::ExactDuplicate { transaction_id } => (
+                            "exact_duplicate",
+                            transaction_id.map(|id| id.as_uuid().to_string()),
+                        ),
+                        ledger_import::PreviewDecision::SuspectedDuplicate { transaction_id } => (
+                            "suspected_duplicate",
+                            transaction_id.map(|id| id.as_uuid().to_string()),
+                        ),
+                    };
+                    BillRow {
+                        id: id.clone(),
+                        row: row.row_number,
+                        date: row
+                            .occurred_at
+                            .with_timezone(&Local)
+                            .date_naive()
+                            .to_string(),
+                        amount: Money::new(row.amount_minor, row.currency.clone()).decimal_string(),
+                        kind: kind_label(row.kind).into(),
+                        merchant: row.merchant.clone().unwrap_or_default(),
+                        description: row.description.clone().unwrap_or_default(),
+                        decision: status.into(),
+                        duplicate_id,
+                        warnings: row
+                            .warnings
+                            .iter()
+                            .map(|warning| warning.message.clone())
+                            .collect(),
+                    }
+                })
+                .collect(),
+            errors: parsed
+                .errors
+                .iter()
+                .chain(parsed.warnings.iter())
+                .map(|issue| BillIssue {
+                    row: issue.row,
+                    message: issue.message.clone(),
+                })
+                .collect(),
+            new_count: preview.counts.new,
+            exact_duplicates: preview.counts.exact_duplicates,
+            suspected_duplicates: preview.counts.suspected_duplicates,
+            pending_count: preview.counts.pending,
+        };
+        self.preview.replace(Some(PreviewSession {
+            id: preview_id,
+            rows,
+        }));
+        Ok(result)
+    }
+    pub fn stage_preview(
+        &self,
+        preview_id: &str,
+        account: &str,
+        ids: Vec<String>,
+        edits: Vec<PendingEdit>,
+    ) -> Result<Vec<String>> {
+        let session = self.preview.borrow();
+        let session = session.as_ref().ok_or("预览已失效，请重新选择文件")?;
+        if session.id.to_string() != preview_id {
+            return Err("预览已失效，请重新选择文件".into());
+        }
+        if ids.is_empty()
+            || ids.len() > 1000
+            || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
+        {
+            return Err("请选择有效候选行".into());
+        }
+        if edits.iter().any(|edit| !ids.contains(&edit.id))
+            || edits
+                .iter()
+                .map(|edit| &edit.id)
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+                != edits.len()
+        {
+            return Err("修订字段与候选行不匹配".into());
+        }
+        let account = self.account(account)?;
+        let mut items = Vec::new();
+        for id in ids {
+            let (_, row, decision) = session
+                .rows
+                .iter()
+                .find(|item| item.0 == id)
+                .ok_or("候选行不存在")?;
+            if matches!(
+                decision,
+                ledger_import::PreviewDecision::ExactDuplicate { .. }
+            ) {
+                return Err("精确重复行不能再次导入".into());
+            }
+            let amount = row.amount_minor;
+            let positive = matches!(row.kind, TransactionKind::Income | TransactionKind::Refund);
+            let sign = if positive == (account.kind == AccountKind::Asset) {
+                1
+            } else {
+                -1
+            };
+            let mut tx = Transaction {
+                id: transaction_id(&id)?,
+                occurred_at: row.occurred_at,
+                kind: row.kind,
+                status: TransactionStatus::Pending,
+                postings: vec![Posting {
+                    account_id: account.id,
+                    delta: money(amount * sign),
+                }],
+                category_id: None,
+                original_transaction_id: None,
+                report_amount_cny: Some(money(amount)),
+                merchant: row.merchant.clone(),
+                description: row.description.clone(),
+            };
+            if let Some(edit) = edits.iter().find(|edit| edit.id == id) {
+                tx = self.apply_pending_edit(tx, edit)?;
+            }
+            items.push((
+                tx,
+                ledger_domain::SourceEvidence {
+                    source_kind: row.source_kind,
+                    external_transaction_id: row.external_transaction_id.clone(),
+                    import_batch_id: session.id,
+                    source_fields_digest: row.source_fields_digest,
+                },
+            ));
+        }
+        ledger_app::PendingService::new(self.repo()?)
+            .stage_batch(session.id, items)
+            .map(|ids| ids.iter().map(|id| id.as_uuid().to_string()).collect())
+            .map_err(|error| error.to_string())
+    }
+    fn apply_pending_edit(&self, mut tx: Transaction, edit: &PendingEdit) -> Result<Transaction> {
+        let account = self.account(&edit.account_id)?;
+        if edit.merchant.chars().count() > 100 || edit.description.chars().count() > 200 {
+            return Err("商户最多 100 字，备注最多 200 字".into());
+        }
+        tx.kind = match edit.kind.as_str() {
+            "income" => TransactionKind::Income,
+            "expense" => TransactionKind::Expense,
+            "refund" => TransactionKind::Refund,
+            _ => return Err("无效的候选类型".into()),
+        };
+        let amount = parse_amount(&edit.amount, false)?;
+        let positive = matches!(tx.kind, TransactionKind::Income | TransactionKind::Refund);
+        let sign = if positive == (account.kind == AccountKind::Asset) {
+            1
+        } else {
+            -1
+        };
+        let proposed_date = date(&edit.date)?;
+        if tx.occurred_at.with_timezone(&Local).date_naive() != proposed_date {
+            tx.occurred_at = time(proposed_date, false)?.with_timezone(&Utc);
+        }
+        tx.postings = vec![Posting {
+            account_id: account.id,
+            delta: money(amount * sign),
+        }];
+        tx.report_amount_cny = Some(money(amount));
+        tx.merchant = (!edit.merchant.trim().is_empty()).then(|| edit.merchant.trim().into());
+        tx.description =
+            (!edit.description.trim().is_empty()).then(|| edit.description.trim().into());
+        tx.original_transaction_id = edit
+            .original_transaction_id
+            .as_deref()
+            .filter(|id| !id.is_empty())
+            .map(transaction_id)
+            .transpose()?;
+        tx.category_id = edit
+            .category_id
+            .as_deref()
+            .filter(|id| !id.is_empty())
+            .map(|id| {
+                uuid::Uuid::parse_str(id)
+                    .map(ledger_domain::CategoryId::from_uuid)
+                    .map_err(|_| "无效分类".to_owned())
+            })
+            .transpose()?;
+        Ok(tx)
+    }
+    pub fn confirm_pending(&self, ids: Vec<String>, edits: Vec<PendingEdit>) -> Result<()> {
+        let repo = self.repo()?;
+        let mut domain_edits = Vec::new();
+        for edit in edits {
+            let id = transaction_id(&edit.id)?;
+            let tx = repo
+                .get_transaction(id)
+                .map_err(|error| error.to_string())?
+                .ok_or("流水不存在")?;
+            domain_edits.push(ledger_domain::TransactionEdit {
+                transaction: self.apply_pending_edit(tx, &edit)?,
+                expected_version: edit.expected_version,
+            });
+        }
+        ledger_app::PendingService::new(repo)
+            .confirm(
+                ids.iter()
+                    .map(|id| transaction_id(id))
+                    .collect::<Result<Vec<_>>>()?,
+                domain_edits,
+            )
+            .map_err(|error| error.to_string())
+    }
+    pub fn edit_pending(&self, edit: PendingEdit) -> Result<()> {
+        use ledger_app::FeatureRepository;
+        let repo = self.repo()?;
+        let tx = repo
+            .get_transaction(transaction_id(&edit.id)?)
+            .map_err(|error| error.to_string())?
+            .ok_or("流水不存在")?;
+        if tx.status != TransactionStatus::Pending {
+            return Err("只能修改待确认记录".into());
+        }
+        repo.edit_atomic(ledger_domain::TransactionEdit {
+            transaction: self.apply_pending_edit(tx, &edit)?,
+            expected_version: edit.expected_version,
+        })
+        .map_err(|error| error.to_string())
+    }
+    pub fn categories(&self) -> Result<Vec<CategoryOption>> {
+        use ledger_app::ClassificationRuleRepository;
+        self.repo()?
+            .list_categories()
+            .map(|categories| {
+                categories
+                    .into_iter()
+                    .filter(|category| category.enabled)
+                    .map(|category| CategoryOption {
+                        id: category.id.as_uuid().to_string(),
+                        name: category.name,
+                    })
+                    .collect()
+            })
+            .map_err(|error| error.to_string())
+    }
+}
+fn kind_label(kind: TransactionKind) -> &'static str {
+    match kind {
+        TransactionKind::Income => "income",
+        TransactionKind::Expense => "expense",
+        TransactionKind::Refund => "refund",
+        TransactionKind::Transfer => "transfer",
+        TransactionKind::BalanceAdjustment => "adjustment",
+    }
+}
+
+#[cfg(test)]
+mod pending_tests {
+    use super::*;
+    #[test]
+    fn bill_preview_stage_and_pending_confirmation_use_real_sqlite_without_raw_text() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("pending.sqlite");
+        let ledger = Ledger::open(&path).unwrap();
+        let account = ledger.accounts().unwrap()[0].id.clone();
+        ledger.set_reference(&account, "2026-10-01", "100").unwrap();
+        let raw = "header private marker\n交易时间,交易类型,交易对方,商品,收/支,金额(元),交易单号,私密原始列\n2026-10-02 08:00:00,消费,商户,午餐,支出,12.30,test-wx-1,RAW_PRIVATE_TEST_SENTINEL\ninvalid-date,消费,商户,,支出,1,test-wx-bad,RAW_PRIVATE_TEST_SENTINEL\n";
+        let preview = ledger
+            .bill_preview("wechat", raw.as_bytes().to_vec())
+            .unwrap();
+        assert_eq!(preview.rows.len(), 1);
+        assert_eq!(preview.errors.len(), 1);
+        let selected = vec![preview.rows[0].id.clone()];
+        let ids = ledger
+            .stage_preview(&preview.preview_id, &account, selected.clone(), vec![])
+            .unwrap();
+        assert_eq!(
+            ledger
+                .stage_preview(&preview.preview_id, &account, selected, vec![])
+                .unwrap(),
+            ids
+        );
+        assert_eq!(ledger.day(&account, "2026-10-02").unwrap().expense, "0.00");
+        assert_eq!(
+            ledger
+                .day(&account, "2026-10-02")
+                .unwrap()
+                .balance
+                .as_deref(),
+            Some("100.00")
+        );
+        ledger.confirm_pending(ids.clone(), vec![]).unwrap();
+        ledger.confirm_pending(ids, vec![]).unwrap();
+        assert_eq!(ledger.day(&account, "2026-10-02").unwrap().expense, "12.30");
+        drop(ledger);
+        let ledger = Ledger::open(&path).unwrap();
+        assert_eq!(ledger.day(&account, "2026-10-02").unwrap().expense, "12.30");
+        let preview = ledger
+            .bill_preview("wechat", raw.as_bytes().to_vec())
+            .unwrap();
+        assert_eq!(preview.exact_duplicates, 1);
+        assert!(
+            ledger
+                .stage_preview(
+                    &preview.preview_id,
+                    &account,
+                    vec![preview.rows[0].id.clone()],
+                    vec![]
+                )
+                .is_err()
+        );
+        let persisted = std::fs::read(&path).unwrap();
+        assert!(
+            !persisted
+                .windows("RAW_PRIVATE_TEST_SENTINEL".len())
+                .any(|window| window == b"RAW_PRIVATE_TEST_SENTINEL")
+        );
+    }
+    #[test]
+    fn imported_refund_requires_explicit_parent_at_confirmation() {
+        let directory = tempfile::tempdir().unwrap();
+        let ledger = Ledger::open(&directory.path().join("refund.sqlite")).unwrap();
+        let account = ledger.accounts().unwrap()[0].id.clone();
+        let raw = "交易时间,交易类型,交易对方,商品,收/支,金额(元),交易单号\n2026-10-02,退款,商户,退款,收入,5,w-refund\n";
+        let preview = ledger
+            .bill_preview("wechat", raw.as_bytes().to_vec())
+            .unwrap();
+        let ids = ledger
+            .stage_preview(
+                &preview.preview_id,
+                &account,
+                vec![preview.rows[0].id.clone()],
+                vec![],
+            )
+            .unwrap();
+        assert!(ledger.confirm_pending(ids.clone(), vec![]).is_err());
+        assert_eq!(
+            ledger
+                .repo()
+                .unwrap()
+                .get_transaction(transaction_id(&ids[0]).unwrap())
+                .unwrap()
+                .unwrap()
+                .status,
+            TransactionStatus::Pending
+        );
     }
 }

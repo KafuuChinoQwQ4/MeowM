@@ -1650,6 +1650,7 @@ dependencies = [
  "chrono",
  "ledger-domain",
  "ledger-storage",
+ "uuid",
 ]
 
 [[package]]
@@ -1657,6 +1658,17 @@ name = "ledger-domain"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "uuid",
+]
+
+[[package]]
+name = "ledger-import"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ledger-app",
+ "ledger-domain",
+ "sha2",
  "uuid",
 ]
 
@@ -1679,6 +1691,7 @@ dependencies = [
  "chrono",
  "ledger-app",
  "ledger-domain",
+ "ledger-import",
  "ledger-storage",
  "serde",
  "tauri",

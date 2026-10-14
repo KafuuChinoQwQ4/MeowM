@@ -624,3 +624,163 @@ fn sqlite_feature_workflow_keeps_pending_out_of_reports_then_reverses_confirmati
     );
     assert_eq!(reports.repository().list_transactions().unwrap().len(), 2);
 }
+
+#[test]
+fn sqlite_pending_batch_and_edited_confirmation_are_atomic_and_idempotent() {
+    use ledger_app::{FeatureRepository, PendingService};
+    use ledger_domain::{PendingQuery, SourceEvidence, SourceKind, TransactionEdit};
+    use ledger_storage::sqlite::SqliteLedgerRepository;
+    use uuid::Uuid;
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let wallet = Account::new(
+        "import wallet",
+        AccountKind::Asset,
+        CurrencyCode::new("CNY", 2).unwrap(),
+    );
+    repo.insert_account(wallet.clone()).unwrap();
+    let pending = expense_for(wallet.id, 1250, utc("2026-10-15T12:00:00Z"));
+    let batch = Uuid::new_v4();
+    let evidence = SourceEvidence {
+        source_kind: SourceKind::Bank,
+        external_transaction_id: Some("bank-1".into()),
+        import_batch_id: batch,
+        source_fields_digest: [5; 32],
+    };
+    let service = PendingService::new(repo);
+    let ids = service
+        .stage_batch(batch, vec![(pending.clone(), evidence.clone())])
+        .unwrap();
+    assert_eq!(ids, vec![pending.id]);
+    assert_eq!(
+        service
+            .stage_batch(batch, vec![(pending.clone(), evidence)])
+            .unwrap(),
+        ids
+    );
+    assert_eq!(
+        service.repository().source_evidence(pending.id).unwrap()[0].source_kind,
+        SourceKind::Bank
+    );
+    let mut edited = pending.clone();
+    edited.description = Some("corrected".into());
+    assert!(
+        service
+            .confirm(
+                vec![pending.id, TransactionId::new()],
+                vec![TransactionEdit {
+                    transaction: edited.clone(),
+                    expected_version: 0
+                }]
+            )
+            .is_err()
+    );
+    assert_eq!(
+        service.repository().get_transaction(pending.id).unwrap(),
+        Some(pending.clone())
+    );
+    service
+        .confirm(
+            vec![pending.id],
+            vec![TransactionEdit {
+                transaction: edited.clone(),
+                expected_version: 0,
+            }],
+        )
+        .unwrap();
+    service
+        .confirm(
+            vec![pending.id],
+            vec![TransactionEdit {
+                transaction: edited,
+                expected_version: 0,
+            }],
+        )
+        .unwrap();
+    assert_eq!(
+        service
+            .list(PendingQuery {
+                status: Some(TransactionStatus::Confirmed),
+                limit: 10,
+                ..Default::default()
+            })
+            .unwrap()
+            .total,
+        1
+    );
+}
+
+#[test]
+fn sqlite_pending_ignore_batch_rolls_back_and_restore_retries() {
+    use ledger_app::PendingService;
+    use ledger_storage::sqlite::SqliteLedgerRepository;
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let wallet = Account::new(
+        "wallet",
+        AccountKind::Asset,
+        CurrencyCode::new("CNY", 2).unwrap(),
+    );
+    repo.insert_account(wallet.clone()).unwrap();
+    let pending = expense_for(wallet.id, 100, utc("2026-10-01T00:00:00Z"));
+    repo.insert_transaction(pending.clone()).unwrap();
+    let service = PendingService::new(repo);
+    assert!(service.ignore(&[pending.id, TransactionId::new()]).is_err());
+    assert_eq!(
+        service
+            .repository()
+            .get_transaction(pending.id)
+            .unwrap()
+            .unwrap()
+            .status,
+        TransactionStatus::Pending
+    );
+    service.ignore(&[pending.id]).unwrap();
+    service.ignore(&[pending.id]).unwrap();
+    service.undo_ignore(pending.id).unwrap();
+    service.undo_ignore(pending.id).unwrap();
+    assert_eq!(
+        service
+            .repository()
+            .get_transaction(pending.id)
+            .unwrap()
+            .unwrap()
+            .status,
+        TransactionStatus::Pending
+    );
+}
+
+#[test]
+fn sqlite_invalid_import_row_rolls_back_batch_postings_and_evidence() {
+    use ledger_app::PendingService;
+    use ledger_domain::{SourceEvidence, SourceKind};
+    use ledger_storage::sqlite::SqliteLedgerRepository;
+    use uuid::Uuid;
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let wallet = Account::new(
+        "wallet",
+        AccountKind::Asset,
+        CurrencyCode::new("CNY", 2).unwrap(),
+    );
+    repo.insert_account(wallet.clone()).unwrap();
+    let first = expense_for(wallet.id, 100, utc("2026-10-01T00:00:00Z"));
+    let bad = expense_for(AccountId::new(), 100, utc("2026-10-02T00:00:00Z"));
+    let batch = Uuid::new_v4();
+    let evidence = |id: &str| SourceEvidence {
+        source_kind: SourceKind::WeChat,
+        external_transaction_id: Some(id.into()),
+        import_batch_id: batch,
+        source_fields_digest: [7; 32],
+    };
+    let service = PendingService::new(repo);
+    assert!(
+        service
+            .stage_batch(
+                batch,
+                vec![(first, evidence("first")), (bad, evidence("bad"))]
+            )
+            .is_err()
+    );
+    assert!(service.repository().list_transactions().unwrap().is_empty());
+    assert_eq!(service.repository().posting_count().unwrap(), 0);
+    assert_eq!(service.repository().source_evidence_count().unwrap(), 0);
+    assert_eq!(service.repository().import_batch_count().unwrap(), 0);
+}

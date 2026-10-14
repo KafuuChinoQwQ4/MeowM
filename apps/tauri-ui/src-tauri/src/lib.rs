@@ -70,6 +70,50 @@ fn query_entries(
     })?;
     ledger.page(query)
 }
+#[tauri::command]
+fn ignore_pending(state: State<'_, LedgerState>, ids: Vec<String>) -> Result<()> {
+    access(state, |l| ledger::ignore_pending(l, ids))
+}
+#[tauri::command]
+fn restore_pending(state: State<'_, LedgerState>, id: String) -> Result<()> {
+    access(state, |l| ledger::restore_pending(l, id))
+}
+#[tauri::command]
+fn preview_bill(
+    state: State<'_, LedgerState>,
+    provider: String,
+    bytes: Vec<u8>,
+) -> Result<ledger::BillPreview> {
+    access(state, |l| l.bill_preview(&provider, bytes))
+}
+#[tauri::command]
+fn stage_bill(
+    state: State<'_, LedgerState>,
+    preview_id: String,
+    account_id: String,
+    ids: Vec<String>,
+    edits: Vec<ledger::PendingEdit>,
+) -> Result<Vec<String>> {
+    access(state, |l| {
+        l.stage_preview(&preview_id, &account_id, ids, edits)
+    })
+}
+#[tauri::command]
+fn confirm_pending(
+    state: State<'_, LedgerState>,
+    ids: Vec<String>,
+    edits: Vec<ledger::PendingEdit>,
+) -> Result<()> {
+    access(state, |l| l.confirm_pending(ids, edits))
+}
+#[tauri::command]
+fn edit_pending(state: State<'_, LedgerState>, edit: ledger::PendingEdit) -> Result<()> {
+    access(state, |l| l.edit_pending(edit))
+}
+#[tauri::command]
+fn list_categories(state: State<'_, LedgerState>) -> Result<Vec<ledger::CategoryOption>> {
+    access(state, |l| l.categories())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -87,7 +131,14 @@ pub fn run() {
             save_entry,
             set_reference,
             clear_reference,
-            query_entries
+            query_entries,
+            ignore_pending,
+            restore_pending,
+            preview_bill,
+            stage_bill,
+            confirm_pending,
+            edit_pending,
+            list_categories
         ])
         .run(tauri::generate_context!())
         .expect("启动 MeowM 失败");

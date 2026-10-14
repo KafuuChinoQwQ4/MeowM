@@ -1,6 +1,10 @@
 //! Storage interfaces consumed by application use cases.
 
-use ledger_domain::{Account, AccountId, Category, CategoryId, Money, Transaction, TransactionId};
+use ledger_domain::{
+    Account, AccountId, Category, CategoryId, Money, SourceEvidence, SourceKind, Transaction,
+    TransactionEdit, TransactionId,
+};
+use uuid::Uuid;
 
 use crate::{RepositoryError, Timestamp, classification::ClassificationRule};
 
@@ -61,6 +65,31 @@ pub trait FeatureRepository: LedgerRepository {
     ) -> Result<ledger_domain::TransactionPage, RepositoryError>;
     fn confirm_bulk(&self, request: ledger_domain::BulkConfirmation)
     -> Result<(), RepositoryError>;
+    /// Confirms and applies user edits as one transaction. The default keeps
+    /// compatibility for repositories that only implement the original batch API.
+    fn confirm_bulk_with_edits(
+        &self,
+        request: ledger_domain::BulkConfirmation,
+        edits: Vec<TransactionEdit>,
+    ) -> Result<(), RepositoryError> {
+        if !edits.is_empty() {
+            return Err(RepositoryError::InvalidData(
+                "repository does not support atomic confirmation edits".into(),
+            ));
+        }
+        self.confirm_bulk(request)
+    }
+    fn ignore_bulk(&self, ids: &[TransactionId]) -> Result<(), RepositoryError> {
+        if ids.len() > 1 {
+            return Err(RepositoryError::InvalidData(
+                "repository does not support atomic bulk ignore".into(),
+            ));
+        }
+        if let Some(id) = ids.first() {
+            self.ignore_atomic(*id)?;
+        }
+        Ok(())
+    }
     fn restore_pending_atomic(&self, id: TransactionId) -> Result<(), RepositoryError>;
     fn ignore_atomic(&self, id: TransactionId) -> Result<(), RepositoryError>;
     /// Returns the existing reversal on retries, regardless of the proposed new ID.
@@ -80,4 +109,19 @@ pub trait FeatureRepository: LedgerRepository {
         &self,
         settings: ledger_domain::PrivacySettings,
     ) -> Result<(), RepositoryError>;
+}
+
+/// Storage boundary for creating pending import candidates and their evidence.
+/// Implementations must insert the complete batch atomically.
+pub trait ImportRepository: FeatureRepository {
+    fn insert_pending_batch(
+        &self,
+        batch_id: Uuid,
+        items: Vec<(Transaction, SourceEvidence)>,
+    ) -> Result<Vec<TransactionId>, RepositoryError>;
+    fn find_source_transaction(
+        &self,
+        source: SourceKind,
+        external_transaction_id: &str,
+    ) -> Result<Option<TransactionId>, RepositoryError>;
 }

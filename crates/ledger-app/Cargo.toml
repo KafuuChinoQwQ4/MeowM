@@ -7,6 +7,7 @@ license.workspace = true
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 ledger-domain = { path = "../ledger-domain" }
+uuid = "1"
 
 [dev-dependencies]
 ledger-storage = { path = "../ledger-storage" }
