@@ -1,0 +1,3 @@
+adb devices
+adb install -r "D:\MeowMTest\app-debug.apk"
+adb shell am start -n com.example.localledger/.LedgerActivity

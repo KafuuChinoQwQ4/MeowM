@@ -2,6 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `build_android.sh` — Build Rust native library and package an Android debug APK for a selected ABI.
 - `tree_descriptions.json` — Required descriptions used to generate every directory tree index.
 - `update_tree.py` — Generator and stale-index checker for per-directory tree files.
 - `tree` — 本目录直接文件的说明索引。

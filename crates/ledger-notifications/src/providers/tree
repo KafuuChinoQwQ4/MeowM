@@ -1,7 +1,0 @@
-# 本目录直接文件说明
-
-仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
-
-- `alipay.rs` — Alipay notification field extraction with shared normalization and confirmation policy.
-- `wechat.rs` — WeChat notification field extraction with shared normalization and confirmation policy.
-- `tree` — 本目录直接文件的说明索引。

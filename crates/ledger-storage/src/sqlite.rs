@@ -5,8 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use chrono::{DateTime, Utc};
 use ledger_app::{
-    ClassificationRule, ClassificationRuleRepository, DeletionRepository, DeletionScope,
-    ImportRecord, ImportRepository, LedgerRepository, RepositoryError, Timestamp,
+    ClassificationRule, ClassificationRuleRepository, LedgerRepository, RepositoryError, Timestamp,
 };
 use ledger_domain::{
     Account, AccountId, AccountKind, Category, CategoryId, CurrencyCode, Money, Posting, RuleId,
@@ -17,11 +16,10 @@ use uuid::Uuid;
 
 const INITIAL_MIGRATION: &str = include_str!("../migrations/0001_initial.sql");
 const CLASSIFICATION_MIGRATION: &str = include_str!("../migrations/0002_classification_rules.sql");
-const IMPORT_SOURCE_MIGRATION: &str = include_str!("../migrations/0003_bank_csv_source.sql");
 
 /// SQLite-backed local ledger repository.
 pub struct SqliteLedgerRepository {
-    pub(crate) connection: Connection,
+    connection: Connection,
 }
 
 impl SqliteLedgerRepository {
@@ -29,11 +27,6 @@ impl SqliteLedgerRepository {
     pub fn open(path: &Path) -> Result<Self, RepositoryError> {
         let connection = Connection::open(path).map_err(storage_error)?;
         Self::from_connection(connection)
-    }
-
-    /// The active database path, used to prevent exporting over the open ledger.
-    pub fn database_path(&self) -> Option<&str> {
-        self.connection.path()
     }
 
     /// Creates an isolated in-memory ledger database.
@@ -44,17 +37,71 @@ impl SqliteLedgerRepository {
 
     fn from_connection(connection: Connection) -> Result<Self, RepositoryError> {
         connection
-            .busy_timeout(std::time::Duration::from_secs(15))
-            .map_err(storage_error)?;
-        connection
-            .execute_batch("PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;")
+            .execute_batch("PRAGMA foreign_keys = ON;")
             .map_err(storage_error)?;
         let repo = Self { connection };
         repo.apply_migrations()?;
-        repo.apply_mobile_migration()?;
-        // Device grants are deliberately outside the portable backup schema.
-        repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS provider_settings (id INTEGER PRIMARY KEY CHECK(id=1), wechat INTEGER NOT NULL DEFAULT 0 CHECK(wechat IN (0,1)), alipay INTEGER NOT NULL DEFAULT 0 CHECK(alipay IN (0,1)), bank INTEGER NOT NULL DEFAULT 0 CHECK(bank IN (0,1))); INSERT OR IGNORE INTO provider_settings(id) VALUES(1);").map_err(storage_error)?;
+        repo.apply_optional_balance_migration()?;
+        repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
+            account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+            category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))
+        );").map_err(storage_error)?;
         Ok(repo)
+    }
+
+    pub fn platform_category(&self, id: AccountId) -> Result<Option<String>, RepositoryError> {
+        self.connection
+            .query_row(
+                "SELECT category FROM platform_metadata WHERE account_id=?1",
+                [id.as_uuid().to_string()],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(storage_error)
+    }
+
+    /// Stores platform identity and classification together, preserving postings and balances.
+    pub fn save_platform(
+        &self,
+        id: AccountId,
+        name: &str,
+        category: &str,
+        create: bool,
+    ) -> Result<(), RepositoryError> {
+        if !["wallet", "bank", "securities", "exchange", "cash", "other"].contains(&category) {
+            return Err(RepositoryError::InvalidData(
+                "invalid platform category".into(),
+            ));
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        let id = id.as_uuid().to_string();
+        let duplicate: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM accounts WHERE display_name=?1 AND id<>?2)",
+                params![name, id],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        if duplicate {
+            return Err(RepositoryError::InvalidData("平台名称已存在".into()));
+        }
+        if create {
+            tx.execute("INSERT INTO accounts(id,display_name,kind,currency_code,currency_exponent) VALUES (?1,?2,'asset','CNY',2)", params![id,name]).map_err(storage_error)?;
+        } else if tx
+            .execute(
+                "UPDATE accounts SET display_name=?2 WHERE id=?1",
+                params![id, name],
+            )
+            .map_err(storage_error)?
+            == 0
+        {
+            return Err(RepositoryError::InvalidData("平台不存在".into()));
+        }
+        tx.execute("INSERT INTO platform_metadata(account_id,category) VALUES (?1,?2) ON CONFLICT(account_id) DO UPDATE SET category=excluded.category", params![id,category]).map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
     }
 
     fn apply_migrations(&self) -> Result<(), RepositoryError> {
@@ -75,17 +122,12 @@ impl SqliteLedgerRepository {
             match (version_count, recorded_version) {
                 (1, Some(1)) => {
                     self.apply_classification_migration(1)?;
-                    self.apply_import_source_migration(2)?;
                     return Ok(());
                 }
-                (2, Some(2)) => {
-                    self.apply_import_source_migration(2)?;
-                    return Ok(());
-                }
-                (3, Some(3)) | (4, Some(4)) => return Ok(()),
-                (_, Some(version)) if version > 4 => {
+                (2, Some(2)) | (3, Some(3)) => return Ok(()),
+                (_, Some(version)) if version > 3 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 4"
+                        "database schema version {version} is newer than supported version 3"
                     )));
                 }
                 _ => {
@@ -119,8 +161,7 @@ impl SqliteLedgerRepository {
                 .as_micros() as i64],
         )
         .map_err(storage_error)?;
-        tx.commit().map_err(storage_error)?;
-        self.apply_import_source_migration(2)
+        tx.commit().map_err(storage_error)
     }
 
     fn apply_classification_migration(&self, current_version: i64) -> Result<(), RepositoryError> {
@@ -146,48 +187,48 @@ impl SqliteLedgerRepository {
         tx.commit().map_err(storage_error)
     }
 
-    fn apply_import_source_migration(&self, current_version: i64) -> Result<(), RepositoryError> {
-        if current_version != 2 {
-            return Err(RepositoryError::Storage(format!(
-                "cannot migrate schema version {current_version}"
-            )));
-        }
-        let tx = self
-            .connection
-            .unchecked_transaction()
-            .map_err(storage_error)?;
-        tx.execute_batch(IMPORT_SOURCE_MIGRATION)
-            .map_err(storage_error)?;
-        tx.execute(
-            "INSERT INTO schema_version(version, applied_at_utc_micros) VALUES (3, ?1)",
-            [SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_micros() as i64],
-        )
-        .map_err(storage_error)?;
-        tx.commit().map_err(storage_error)
-    }
-
-    fn apply_mobile_migration(&self) -> Result<(), RepositoryError> {
-        if self.schema_version()? == 4 {
+    fn apply_optional_balance_migration(&self) -> Result<(), RepositoryError> {
+        let version = self.schema_version()?;
+        if version == 3 {
             return Ok(());
         }
-        let tx = self
-            .connection
-            .unchecked_transaction()
+        // Rebuild the referenced table atomically without rewriting posting foreign keys.
+        self.connection
+            .execute_batch("PRAGMA foreign_keys = OFF;")
             .map_err(storage_error)?;
-        tx.execute_batch(include_str!("../migrations/0004_mobile_workflows.sql"))
+        let result = (|| {
+            let tx = self
+                .connection
+                .unchecked_transaction()
+                .map_err(storage_error)?;
+            tx.execute_batch(include_str!("../migrations/0003_optional_balance.sql"))
+                .map_err(storage_error)?;
+            let violations: i64 = tx
+                .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                    row.get(0)
+                })
+                .map_err(storage_error)?;
+            if violations != 0 {
+                return Err(RepositoryError::InvalidData(
+                    "foreign key violations during migration".into(),
+                ));
+            }
+            if version < 3 {
+                tx.execute(
+                    "INSERT INTO schema_version VALUES (3, ?1)",
+                    [SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_micros() as i64],
+                )
+                .map_err(storage_error)?;
+            }
+            tx.commit().map_err(storage_error)
+        })();
+        self.connection
+            .execute_batch("PRAGMA foreign_keys = ON;")
             .map_err(storage_error)?;
-        tx.execute(
-            "INSERT INTO schema_version(version, applied_at_utc_micros) VALUES(4, ?1)",
-            [SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_micros() as i64],
-        )
-        .map_err(storage_error)?;
-        tx.commit().map_err(storage_error)
+        result
     }
 
     /// Returns the highest applied schema version.
@@ -352,8 +393,8 @@ impl LedgerRepository for SqliteLedgerRepository {
                 params![
                     account.id.as_uuid().to_string(), account.display_name,
                     account_kind_str(account.kind), account.currency.code(),
-                    account.currency.minor_unit_exponent(), account.opening_balance.minor_units(),
-                    account.opening_balance_effective_at.timestamp_micros(),
+                    account.currency.minor_unit_exponent(), account.opening_balance.as_ref().map(Money::minor_units),
+                    account.opening_balance_effective_at.as_ref().map(DateTime::timestamp_micros),
                 ],
             )
             .map_err(map_insert_error)?;
@@ -388,8 +429,8 @@ impl LedgerRepository for SqliteLedgerRepository {
             params![
                 account.id.as_uuid().to_string(), account.display_name,
                 account_kind_str(account.kind), account.currency.code(),
-                account.currency.minor_unit_exponent(), account.opening_balance.minor_units(),
-                account.opening_balance_effective_at.timestamp_micros(),
+                account.currency.minor_unit_exponent(), account.opening_balance.as_ref().map(Money::minor_units),
+                account.opening_balance_effective_at.as_ref().map(DateTime::timestamp_micros),
             ],
         ).map_err(map_insert_error)?;
         if changed == 0 {
@@ -459,21 +500,29 @@ impl LedgerRepository for SqliteLedgerRepository {
         &self,
         account_id: AccountId,
         cutoff_utc: Timestamp,
-    ) -> Result<Money, RepositoryError> {
+    ) -> Result<Option<Money>, RepositoryError> {
         let account = self
             .get_account(account_id)?
             .ok_or(RepositoryError::NotFound)?;
-        let mut balance = account.opening_balance;
+        let (Some(mut balance), Some(reference)) = (
+            account.opening_balance,
+            account.opening_balance_effective_at,
+        ) else {
+            return Ok(None);
+        };
+        let reference = reference.timestamp_micros();
+        let cutoff = cutoff_utc.timestamp_micros();
+        let (lower, upper, direction) = if cutoff >= reference {
+            (reference, cutoff, 1_i64)
+        } else {
+            (cutoff, reference, -1_i64)
+        };
         let mut statement = self.connection.prepare(
             "SELECT p.delta_minor, p.currency_code, p.currency_exponent FROM postings p JOIN transactions t ON t.id = p.transaction_id WHERE p.account_id = ?1 AND t.status = 'confirmed' AND t.occurred_at_utc_micros > ?2 AND t.occurred_at_utc_micros <= ?3 ORDER BY t.occurred_at_utc_micros, t.rowid, p.ordinal",
         ).map_err(storage_error)?;
         let rows = statement
             .query_map(
-                params![
-                    account_id.as_uuid().to_string(),
-                    account.opening_balance_effective_at.timestamp_micros(),
-                    cutoff_utc.timestamp_micros()
-                ],
+                params![account_id.as_uuid().to_string(), lower, upper],
                 |row| {
                     Ok((
                         row.get::<_, i64>(0)?,
@@ -490,202 +539,14 @@ impl LedgerRepository for SqliteLedgerRepository {
                 CurrencyCode::new(&code, exponent)
                     .map_err(|e| RepositoryError::InvalidData(e.to_string()))?,
             );
-            balance = balance
-                .checked_add(money)
-                .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
-        }
-        Ok(balance)
-    }
-}
-
-impl ImportRepository for SqliteLedgerRepository {
-    fn list_import_records(&self) -> Result<Vec<ImportRecord>, RepositoryError> {
-        let mut statement = self.connection.prepare(
-            "SELECT transaction_id, source_kind, external_transaction_id, import_batch_id, source_fields_digest FROM source_evidence ORDER BY id",
-        ).map_err(storage_error)?;
-        let rows = statement
-            .query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, Option<String>>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, Vec<u8>>(4)?,
-                ))
-            })
-            .map_err(storage_error)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(storage_error)?;
-        rows.into_iter()
-            .map(|(transaction_id, source, external, batch, digest)| {
-                let id = TransactionId::from_uuid(
-                    parse_uuid(&transaction_id).map_err(RepositoryError::InvalidData)?,
-                );
-                let transaction = self.get_transaction(id)?.ok_or_else(|| {
-                    RepositoryError::Storage(
-                        "import evidence references missing transaction".into(),
-                    )
-                })?;
-                if digest.len() != 32 {
-                    return Err(RepositoryError::InvalidData(
-                        "invalid source digest length".into(),
-                    ));
-                }
-                let mut source_fields_digest = [0; 32];
-                source_fields_digest.copy_from_slice(&digest);
-                Ok(ImportRecord {
-                    transaction,
-                    evidence: SourceEvidence {
-                        source_kind: parse_source_kind(&source)
-                            .map_err(RepositoryError::InvalidData)?,
-                        external_transaction_id: external,
-                        import_batch_id: parse_uuid(&batch)
-                            .map_err(RepositoryError::InvalidData)?,
-                        source_fields_digest,
-                    },
-                })
-            })
-            .collect()
-    }
-
-    fn confirm_import_batch(
-        &self,
-        batch_id: Uuid,
-        records: Vec<ImportRecord>,
-    ) -> Result<usize, RepositoryError> {
-        let tx = self
-            .connection
-            .unchecked_transaction()
-            .map_err(storage_error)?;
-        let existing: bool = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM import_batches WHERE id = ?1)",
-                [batch_id.to_string()],
-                |row| row.get(0),
-            )
-            .map_err(storage_error)?;
-        if existing {
-            tx.rollback().map_err(storage_error)?;
-            return Ok(0);
-        }
-        tx.execute(
-            "INSERT INTO import_batches(id) VALUES (?1)",
-            [batch_id.to_string()],
-        )
-        .map_err(map_insert_error)?;
-        let mut inserted = 0;
-        for record in records {
-            if record.evidence.import_batch_id != batch_id {
-                return Err(RepositoryError::InvalidData(
-                    "import record batch ID mismatch".into(),
-                ));
-            }
-            if record.transaction.kind == TransactionKind::Refund {
-                let parent_id = record.transaction.original_transaction_id.ok_or_else(|| {
-                    RepositoryError::InvalidData(
-                        "refund import requires a mapped parent transaction".into(),
-                    )
-                })?;
-                let valid_parent: bool = tx.query_row(
-                    "SELECT EXISTS(SELECT 1 FROM transactions WHERE id = ?1 AND kind = 'expense' AND status = 'confirmed')",
-                    [parent_id.as_uuid().to_string()],
-                    |row| row.get(0),
-                ).map_err(storage_error)?;
-                if !valid_parent {
-                    return Err(RepositoryError::InvalidData(
-                        "refund parent must be an existing confirmed expense".into(),
-                    ));
-                }
-            }
-            if let Some(old) = self.get_transaction(record.transaction.id)? {
-                if old.status == TransactionStatus::Pending
-                    && record.transaction.status == TransactionStatus::Confirmed
-                {
-                    Self::write_transaction(&tx, &record.transaction, false)?;
-                } else if old != record.transaction {
-                    return Err(RepositoryError::Conflict);
-                }
+            balance = if direction > 0 {
+                balance.checked_add(money)
             } else {
-                Self::write_transaction(&tx, &record.transaction, true)?;
+                balance.checked_sub(money)
             }
-            tx.execute("INSERT INTO source_evidence(transaction_id, source_kind, external_transaction_id, import_batch_id, source_fields_digest) VALUES (?1, ?2, ?3, ?4, ?5)", params![
-                record.transaction.id.as_uuid().to_string(), source_kind_str(record.evidence.source_kind), record.evidence.external_transaction_id,
-                batch_id.to_string(), record.evidence.source_fields_digest.as_slice(),
-            ]).map_err(map_insert_error)?;
-            inserted += 1;
+            .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
         }
-        tx.commit().map_err(storage_error)?;
-        Ok(inserted)
-    }
-}
-
-impl DeletionRepository for SqliteLedgerRepository {
-    fn delete_scope(&self, scope: DeletionScope) -> Result<(), RepositoryError> {
-        let tx = self
-            .connection
-            .unchecked_transaction()
-            .map_err(storage_error)?;
-        match scope {
-            DeletionScope::Transaction(id) => {
-                let referenced: bool = tx.query_row("SELECT EXISTS(SELECT 1 FROM transactions WHERE original_transaction_id=?1)", [id.as_uuid().to_string()], |r| r.get(0)).map_err(storage_error)?;
-                if referenced {
-                    return Err(RepositoryError::InvalidData(
-                        "cannot delete a transaction referenced by a refund".into(),
-                    ));
-                }
-                tx.execute(
-                    "DELETE FROM transactions WHERE id=?1",
-                    [id.as_uuid().to_string()],
-                )
-                .map_err(storage_error)?;
-            }
-            DeletionScope::ImportBatch(batch) => {
-                // A merged transaction belongs to every linked source. Remove only
-                // this batch's evidence when another source still owns the record.
-                let ids = {
-                    let mut s=tx.prepare("SELECT DISTINCT transaction_id FROM source_evidence e WHERE import_batch_id=?1 AND NOT EXISTS(SELECT 1 FROM source_evidence other WHERE other.transaction_id=e.transaction_id AND other.import_batch_id<>?1)").map_err(storage_error)?;
-                    s.query_map([batch.to_string()], |r| r.get::<_, String>(0))
-                        .map_err(storage_error)?
-                        .collect::<Result<Vec<_>, _>>()
-                        .map_err(storage_error)?
-                };
-                for id in &ids {
-                    let refs = {
-                        let mut s = tx
-                            .prepare("SELECT id FROM transactions WHERE original_transaction_id=?1")
-                            .map_err(storage_error)?;
-                        s.query_map([id], |r| r.get::<_, String>(0))
-                            .map_err(storage_error)?
-                            .collect::<Result<Vec<_>, _>>()
-                            .map_err(storage_error)?
-                    };
-                    if refs.iter().any(|r| !ids.contains(r)) {
-                        return Err(RepositoryError::InvalidData("batch contains an expense referenced by a retained refund; delete the refund first".into()));
-                    }
-                }
-                tx.execute_batch("PRAGMA defer_foreign_keys=ON;")
-                    .map_err(storage_error)?;
-                tx.execute(
-                    "DELETE FROM source_evidence WHERE import_batch_id=?1",
-                    [batch.to_string()],
-                )
-                .map_err(storage_error)?;
-                for id in ids {
-                    tx.execute("DELETE FROM transactions WHERE id=?1", [id])
-                        .map_err(storage_error)?;
-                }
-                tx.execute(
-                    "DELETE FROM import_batches WHERE id=?1",
-                    [batch.to_string()],
-                )
-                .map_err(storage_error)?;
-            }
-            DeletionScope::AllLocal => {
-                tx.execute_batch("PRAGMA defer_foreign_keys=ON; DELETE FROM transactions; DELETE FROM accounts; DELETE FROM classification_rules; DELETE FROM categories; DELETE FROM import_batches; DELETE FROM mobile_settings; INSERT INTO mobile_settings(id) VALUES(1); DELETE FROM provider_settings; INSERT INTO provider_settings(id) VALUES(1);").map_err(storage_error)?;
-            }
-        }
-        tx.execute("DELETE FROM import_batches WHERE NOT EXISTS(SELECT 1 FROM source_evidence WHERE import_batch_id=import_batches.id)",[]).map_err(storage_error)?;
-        tx.commit().map_err(storage_error)
+        Ok(Some(balance))
     }
 }
 
@@ -895,20 +756,23 @@ fn account_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Account> {
     let kind: String = row.get(2)?;
     let code: String = row.get(3)?;
     let exponent: u8 = row.get(4)?;
-    let amount: i64 = row.get(5)?;
-    let effective: i64 = row.get(6)?;
+    let amount: Option<i64> = row.get(5)?;
+    let effective: Option<i64> = row.get(6)?;
     Ok(Account {
         id: AccountId::from_uuid(parse_uuid(&id).map_err(to_sql_conversion_error)?),
         display_name: row.get(1)?,
         kind: parse_account_kind(&kind).map_err(to_sql_conversion_error)?,
         currency: CurrencyCode::new(&code, exponent)
             .map_err(|e| to_sql_conversion_error(e.to_string()))?,
-        opening_balance: Money::new(
-            amount,
-            CurrencyCode::new(&code, exponent)
-                .map_err(|e| to_sql_conversion_error(e.to_string()))?,
-        ),
-        opening_balance_effective_at: parse_timestamp(effective)
+        opening_balance: amount
+            .map(|amount| {
+                CurrencyCode::new(&code, exponent).map(|currency| Money::new(amount, currency))
+            })
+            .transpose()
+            .map_err(|e| to_sql_conversion_error(e.to_string()))?,
+        opening_balance_effective_at: effective
+            .map(parse_timestamp)
+            .transpose()
             .map_err(to_sql_conversion_error)?,
     })
 }
@@ -1108,132 +972,6 @@ fn source_kind_str(kind: SourceKind) -> &'static str {
         SourceKind::Alipay => "alipay",
         SourceKind::WeChat => "wechat",
         SourceKind::Notification => "notification",
-        SourceKind::BankCsv => "bank_csv",
         SourceKind::Manual => "manual",
-    }
-}
-fn parse_source_kind(value: &str) -> Result<SourceKind, String> {
-    match value {
-        "alipay" => Ok(SourceKind::Alipay),
-        "wechat" => Ok(SourceKind::WeChat),
-        "notification" => Ok(SourceKind::Notification),
-        "bank_csv" => Ok(SourceKind::BankCsv),
-        "manual" => Ok(SourceKind::Manual),
-        _ => Err(format!("unknown source kind {value}")),
-    }
-}
-
-impl ledger_app::MobileRepository for SqliteLedgerRepository {
-    fn settings(&self) -> Result<ledger_app::MobileSettings, RepositoryError> {
-        let (mut settings,id)=self.connection.query_row("SELECT notification_wechat,notification_alipay,import_wechat,import_alipay,import_bank,api_enabled,backup_enabled,default_account FROM mobile_settings WHERE id=1",[],|r|Ok((ledger_app::MobileSettings{notification_wechat:r.get(0)?,notification_alipay:r.get(1)?,import_wechat:r.get(2)?,import_alipay:r.get(3)?,import_bank:r.get(4)?,api_enabled:r.get(5)?,backup_enabled:r.get(6)?,default_account:None,..Default::default()},r.get::<_,Option<String>>(7)?))).map_err(storage_error)?;
-        (settings.api_wechat, settings.api_alipay, settings.api_bank) = self
-            .connection
-            .query_row(
-                "SELECT wechat,alipay,bank FROM provider_settings WHERE id=1",
-                [],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            )
-            .map_err(storage_error)?;
-        settings.default_account = id
-            .map(|v| {
-                parse_uuid(&v)
-                    .map(AccountId::from_uuid)
-                    .map_err(RepositoryError::InvalidData)
-            })
-            .transpose()?;
-        Ok(settings)
-    }
-    fn save_settings(&self, v: &ledger_app::MobileSettings) -> Result<(), RepositoryError> {
-        let tx = self
-            .connection
-            .unchecked_transaction()
-            .map_err(storage_error)?;
-        tx.execute("UPDATE mobile_settings SET notification_wechat=?1,notification_alipay=?2,import_wechat=?3,import_alipay=?4,import_bank=?5,api_enabled=?6,backup_enabled=?7,default_account=?8 WHERE id=1",params![v.notification_wechat,v.notification_alipay,v.import_wechat,v.import_alipay,v.import_bank,v.api_enabled,v.backup_enabled,v.default_account.map(|i|i.as_uuid().to_string())]).map_err(storage_error)?;
-        tx.execute(
-            "UPDATE provider_settings SET wechat=?1,alipay=?2,bank=?3 WHERE id=1",
-            params![v.api_wechat, v.api_alipay, v.api_bank],
-        )
-        .map_err(storage_error)?;
-        tx.commit().map_err(storage_error)?;
-        Ok(())
-    }
-    fn pending_details(
-        &self,
-        id: TransactionId,
-    ) -> Result<Option<ledger_app::PendingDetails>, RepositoryError> {
-        let row=self.connection.query_row("SELECT amount_minor,currency_code,currency_exponent,source,account_hint,original_external_id FROM pending_details WHERE transaction_id=?1",[id.as_uuid().to_string()],|r|Ok((r.get::<_,Option<i64>>(0)?,r.get::<_,Option<String>>(1)?,r.get::<_,Option<u8>>(2)?,r.get::<_,String>(3)?,r.get::<_,Option<String>>(4)?,r.get::<_,Option<String>>(5)?))).optional().map_err(storage_error)?;
-        row.map(|(n, c, e, source, account_hint, original_external_id)| {
-            let amount = match (n, c, e) {
-                (Some(n), Some(c), Some(e)) => Some(Money::new(
-                    n,
-                    CurrencyCode::new(&c, e).map_err(|_| {
-                        RepositoryError::InvalidData("Invalid pending currency".into())
-                    })?,
-                )),
-                (None, None, None) => None,
-                _ => {
-                    return Err(RepositoryError::InvalidData(
-                        "Invalid pending amount".into(),
-                    ));
-                }
-            };
-            Ok(ledger_app::PendingDetails {
-                amount,
-                source,
-                account_hint,
-                original_external_id,
-            })
-        })
-        .transpose()
-    }
-    fn capture_pending(
-        &self,
-        record: ImportRecord,
-        details: ledger_app::PendingDetails,
-    ) -> Result<usize, RepositoryError> {
-        if record.transaction.status != TransactionStatus::Pending {
-            return Err(RepositoryError::InvalidData(
-                "Captured records must be pending".into(),
-            ));
-        }
-        let tx = self
-            .connection
-            .unchecked_transaction()
-            .map_err(storage_error)?;
-        let batch = record.evidence.import_batch_id.to_string();
-        let exists: bool = tx
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM import_batches WHERE id=?1)",
-                [&batch],
-                |r| r.get(0),
-            )
-            .map_err(storage_error)?;
-        if exists {
-            return Ok(0);
-        }
-        tx.execute("INSERT INTO import_batches(id) VALUES(?1)", [&batch])
-            .map_err(map_insert_error)?;
-        Self::write_transaction(&tx, &record.transaction, true)?;
-        tx.execute("INSERT INTO source_evidence(transaction_id,source_kind,external_transaction_id,import_batch_id,source_fields_digest) VALUES(?1,?2,?3,?4,?5)",params![record.transaction.id.as_uuid().to_string(),source_kind_str(record.evidence.source_kind),record.evidence.external_transaction_id,batch,record.evidence.source_fields_digest.as_slice()]).map_err(map_insert_error)?;
-        tx.execute("INSERT INTO pending_details(transaction_id,amount_minor,currency_code,currency_exponent,source,account_hint,original_external_id) VALUES(?1,?2,?3,?4,?5,?6,?7)",params![record.transaction.id.as_uuid().to_string(),details.amount.as_ref().map(Money::minor_units),details.amount.as_ref().map(|m|m.currency().code()),details.amount.as_ref().map(|m|m.currency().minor_unit_exponent()),details.source,details.account_hint,details.original_external_id]).map_err(map_insert_error)?;
-        tx.commit().map_err(storage_error)?;
-        Ok(1)
-    }
-    fn replace_transaction(
-        &self,
-        expected: &Transaction,
-        replacement: &Transaction,
-    ) -> Result<(), RepositoryError> {
-        let tx = self
-            .connection
-            .unchecked_transaction()
-            .map_err(storage_error)?;
-        if expected.id != replacement.id
-            || self.get_transaction(expected.id)?.as_ref() != Some(expected)
-        {
-            return Err(RepositoryError::Conflict);
-        }
-        Self::write_transaction(&tx, replacement, false)?;
-        tx.commit().map_err(storage_error)
     }
 }

@@ -4,4 +4,6 @@
 
 - `2026-10-07-local-expense-manager-core.md` — Task-by-task implementation plan for the Rust ledger core.
 - `2026-10-07-local-expense-manager-next-phases.md` — Execution plan for bill imports, Android notification capture, UI, backups, provider adapters, and release hardening.
+- `2026-10-14-tauri-migration.md` — Approved migration scope, implementation steps and validation checklist.
+- `2026-10-15-meowm-nine-features.md` — Detailed implementation plan for nine local ledger features and release validation.
 - `tree` — 本目录直接文件的说明索引。

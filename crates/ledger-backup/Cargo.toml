@@ -7,15 +7,3 @@ license.workspace = true
 [dependencies]
 ledger-domain = { path = "../ledger-domain" }
 ledger-storage = { path = "../ledger-storage" }
-ledger-app = { path = "../ledger-app" }
-serde_json = "1"
-aes-gcm = "0.10"
-argon2 = "0.5"
-rand = "0.8"
-zeroize = "1"
-
-[dev-dependencies]
-chrono = "0.4"
-uuid = { version = "1", features = ["v4"] }
-tempfile = "3"
-rusqlite = "0.32"

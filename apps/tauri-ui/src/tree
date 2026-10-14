@@ -1,0 +1,9 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `api.ts` — Typed Tauri invoke commands and account/day response contracts.
+- `format.ts` — Exact decimal formatting, input validation and calendar helpers.
+- `main.ts` — Daily ledger interface and account, entry, reference balance workflows.
+- `styles.css` — Responsive ledger styles and mobile dialog layouts.
+- `tree` — 本目录直接文件的说明索引。

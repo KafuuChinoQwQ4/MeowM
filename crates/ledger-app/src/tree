@@ -3,10 +3,8 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `accounts.rs` — Account and opening-balance use cases.
-- `backup.rs` — Explicit consent backup use cases, typed archive and persistence/codec ports.
 - `classification.rs` — Category management and explainable classification rules.
 - `lib.rs` — Application service module declarations.
-- `mobile.rs` — Mobile application facade for ledger CRUD, pending workflows, filters, settings, reports, and import confirmation.
 - `ports.rs` — Repository ports used by application services.
 - `reports.rs` — Income, expense, and balance report queries.
 - `transactions.rs` — Transaction confirmation and balance use cases.

@@ -1,9 +1,0 @@
-# 本目录直接文件说明
-
-仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
-
-- `adapter.rs` — UI application adapter for ledger snapshots, editing, pending confirmation, reports, settings, and import previews.
-- `import_review.rs` — Explicit import row selection and refund parent mapping before atomic confirmation, with integration regressions.
-- `lib.rs` — Slint composition root with desktop and Android NativeActivity entry points.
-- `main.rs` — Desktop Slint launcher.
-- `tree` — 本目录直接文件的说明索引。

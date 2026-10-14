@@ -93,7 +93,7 @@ impl<R: LedgerRepository> TransactionService<R> {
         &self,
         account_id: AccountId,
         at_utc: Timestamp,
-    ) -> Result<ledger_domain::Money, AppError> {
+    ) -> Result<Option<ledger_domain::Money>, AppError> {
         match self.repository.balance_as_of(account_id, at_utc) {
             Ok(balance) => Ok(balance),
             Err(crate::RepositoryError::NotFound) => Err(AppError::AccountNotFound),

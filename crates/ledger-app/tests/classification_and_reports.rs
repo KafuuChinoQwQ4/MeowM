@@ -83,7 +83,11 @@ impl LedgerRepository for MemoryRepository {
         state.transactions.insert(transaction.id, transaction);
         Ok(())
     }
-    fn balance_as_of(&self, account_id: AccountId, _: Timestamp) -> Result<Money, RepositoryError> {
+    fn balance_as_of(
+        &self,
+        account_id: AccountId,
+        _: Timestamp,
+    ) -> Result<Option<Money>, RepositoryError> {
         self.state
             .lock()
             .unwrap()

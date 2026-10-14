@@ -31,48 +31,37 @@ impl<R: ClassificationRuleRepository> ClassificationService<R> {
 
     pub fn suggest(&self, transaction: &Transaction) -> Result<Option<CategoryId>, AppError> {
         let categories = self.repository.list_categories()?;
-        Ok(suggest_category(
-            transaction,
-            &self.repository.list_rules()?,
-            &categories,
-        ))
+        let enabled_categories = categories
+            .into_iter()
+            .filter(|category| category.enabled)
+            .map(|category| category.id)
+            .collect::<std::collections::HashSet<_>>();
+        let merchant = transaction.merchant.as_deref().map(str::to_lowercase);
+        let description = transaction.description.as_deref().map(str::to_lowercase);
+
+        let mut matches = self
+            .repository
+            .list_rules()?
+            .into_iter()
+            .filter(|rule| rule.enabled && enabled_categories.contains(&rule.category_id))
+            .filter(|rule| {
+                let merchant_matches = rule.merchant_contains.as_ref().is_none_or(|needle| {
+                    merchant
+                        .as_deref()
+                        .is_some_and(|value| value.contains(&needle.to_lowercase()))
+                });
+                let description_matches = rule.description_contains.as_ref().is_none_or(|needle| {
+                    description
+                        .as_deref()
+                        .is_some_and(|value| value.contains(&needle.to_lowercase()))
+                });
+                merchant_matches && description_matches
+            })
+            .collect::<Vec<_>>();
+
+        matches.sort_by_key(|rule| (rule.priority, rule.id));
+        Ok(matches.first().map(|rule| rule.category_id))
     }
-}
-
-/// Shared deterministic suggestion used by file/API review and application services.
-pub fn suggest_category(
-    transaction: &Transaction,
-    rules: &[ClassificationRule],
-    categories: &[Category],
-) -> Option<CategoryId> {
-    let enabled_categories = categories
-        .iter()
-        .filter(|category| category.enabled)
-        .map(|category| category.id)
-        .collect::<std::collections::HashSet<_>>();
-    let merchant = transaction.merchant.as_deref().map(str::to_lowercase);
-    let description = transaction.description.as_deref().map(str::to_lowercase);
-
-    let mut matches = rules
-        .iter()
-        .filter(|rule| rule.enabled && enabled_categories.contains(&rule.category_id))
-        .filter(|rule| {
-            let merchant_matches = rule.merchant_contains.as_ref().is_none_or(|needle| {
-                merchant
-                    .as_deref()
-                    .is_some_and(|value| value.contains(&needle.to_lowercase()))
-            });
-            let description_matches = rule.description_contains.as_ref().is_none_or(|needle| {
-                description
-                    .as_deref()
-                    .is_some_and(|value| value.contains(&needle.to_lowercase()))
-            });
-            merchant_matches && description_matches
-        })
-        .collect::<Vec<_>>();
-
-    matches.sort_by_key(|rule| (rule.priority, rule.id));
-    matches.first().map(|rule| rule.category_id)
 }
 
 /// Category CRUD use cases. Historical transaction references remain valid when

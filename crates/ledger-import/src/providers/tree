@@ -1,8 +1,0 @@
-# 本目录直接文件说明
-
-仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
-
-- `alipay.rs` — Synthetic Alipay adapter contract; no live platform endpoints.
-- `bank.rs` — Synthetic generic bank adapter contract; no live institution endpoints.
-- `wechat.rs` — Synthetic WeChat adapter contract; no live platform endpoints.
-- `tree` — 本目录直接文件的说明索引。

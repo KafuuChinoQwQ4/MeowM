@@ -171,8 +171,8 @@ mod tests {
             display_name: name.to_owned(),
             kind: AccountKind::Asset,
             currency: currency.clone(),
-            opening_balance: Money::new(0, currency),
-            opening_balance_effective_at: timestamp(),
+            opening_balance: Some(Money::new(0, currency)),
+            opening_balance_effective_at: Some(timestamp()),
         }
     }
 
@@ -183,8 +183,8 @@ mod tests {
             display_name: name.to_owned(),
             kind: AccountKind::Liability,
             currency: currency.clone(),
-            opening_balance: Money::new(0, currency),
-            opening_balance_effective_at: timestamp(),
+            opening_balance: Some(Money::new(0, currency)),
+            opening_balance_effective_at: Some(timestamp()),
         }
     }
 

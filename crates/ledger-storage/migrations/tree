@@ -4,6 +4,5 @@
 
 - `0001_initial.sql` — Initial local ledger schema migration.
 - `0002_classification_rules.sql` — Classification rule schema migration.
-- `0003_bank_csv_source.sql` — Adds a distinct bank CSV provenance source kind.
-- `0004_mobile_workflows.sql` — Mobile settings and sanitized pending candidate metadata schema migration.
+- `0003_optional_balance.sql` — Optional reference balance migration preserving existing accounts and postings.
 - `tree` — 本目录直接文件的说明索引。

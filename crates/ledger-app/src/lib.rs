@@ -2,9 +2,7 @@
 
 pub mod accounts;
 pub mod classification;
-pub mod mobile;
 pub mod ports;
-pub use mobile::*;
 pub mod reports;
 pub mod transactions;
 
@@ -14,10 +12,7 @@ use ledger_domain::DomainError;
 
 pub use accounts::AccountService;
 pub use classification::{CategoryService, ClassificationRule, ClassificationService};
-pub use ports::{
-    ClassificationRuleRepository, DeletionRepository, DeletionScope, ImportRecord,
-    ImportRepository, LedgerRepository,
-};
+pub use ports::{ClassificationRuleRepository, LedgerRepository};
 pub use reports::{MonthBoundary, ReportQuery, ReportService, ReportSummary};
 pub use transactions::TransactionService;
 
@@ -93,6 +88,3 @@ impl From<DomainError> for AppError {
         Self::Domain(error)
     }
 }
-
-pub mod backup;
-pub use backup::*;

@@ -1,8 +1,6 @@
 //! Storage interfaces consumed by application use cases.
 
-use ledger_domain::{
-    Account, AccountId, Category, CategoryId, Money, SourceEvidence, Transaction, TransactionId,
-};
+use ledger_domain::{Account, AccountId, Category, CategoryId, Money, Transaction, TransactionId};
 
 use crate::{RepositoryError, Timestamp, classification::ClassificationRule};
 
@@ -21,40 +19,14 @@ pub trait LedgerRepository {
     fn list_transactions(&self) -> Result<Vec<Transaction>, RepositoryError>;
     fn update_transaction(&self, transaction: Transaction) -> Result<(), RepositoryError>;
 
+    /// Returns None when no reference balance is set (distinct from known zero).
+    /// Confirmed postings in (reference, cutoff] are added; for earlier cutoffs,
+    /// postings in (cutoff, reference] are subtracted. Uses microsecond precision.
     fn balance_as_of(
         &self,
         account_id: AccountId,
         cutoff_utc: Timestamp,
-    ) -> Result<Money, RepositoryError>;
-}
-
-/// One stored transaction and its import provenance.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImportRecord {
-    pub transaction: Transaction,
-    pub evidence: SourceEvidence,
-}
-
-/// Persistence boundary for atomic imports. Implementations must commit a batch
-/// as one unit and return zero for a batch that has already been committed.
-pub trait ImportRepository {
-    fn list_import_records(&self) -> Result<Vec<ImportRecord>, RepositoryError>;
-    fn confirm_import_batch(
-        &self,
-        batch_id: uuid::Uuid,
-        records: Vec<ImportRecord>,
-    ) -> Result<usize, RepositoryError>;
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DeletionScope {
-    Transaction(TransactionId),
-    ImportBatch(uuid::Uuid),
-    AllLocal,
-}
-
-pub trait DeletionRepository {
-    fn delete_scope(&self, scope: DeletionScope) -> Result<(), RepositoryError>;
+    ) -> Result<Option<Money>, RepositoryError>;
 }
 
 /// Persistence boundary for user-managed categories and classification rules.
@@ -70,45 +42,4 @@ pub trait ClassificationRuleRepository {
     fn get_category(&self, id: CategoryId) -> Result<Option<Category>, RepositoryError>;
     fn update_category(&self, category: Category) -> Result<(), RepositoryError>;
     fn list_categories(&self) -> Result<Vec<Category>, RepositoryError>;
-}
-
-/// Device-local provider consent/credential namespace, independent of ledger accounts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ProviderId {
-    WeChat,
-    Alipay,
-    Bank,
-}
-impl ProviderId {
-    pub fn key(self) -> &'static str {
-        match self {
-            Self::WeChat => "wechat",
-            Self::Alipay => "alipay",
-            Self::Bank => "bank",
-        }
-    }
-}
-/// No Display/serialization/Clone implementation. Copies remain the caller's responsibility.
-pub struct SecretToken(zeroize::Zeroizing<Vec<u8>>);
-impl SecretToken {
-    pub fn new(bytes: Vec<u8>) -> Self {
-        Self(zeroize::Zeroizing::new(bytes))
-    }
-    pub fn expose(&self) -> &[u8] {
-        &self.0
-    }
-}
-impl std::fmt::Debug for SecretToken {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("SecretToken([REDACTED])")
-    }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CredentialError;
-/// Android implementations must encrypt bytes with a non-exportable Keystore key.
-/// Desktop has no insecure fallback. Credentials never enter repository or backup ports.
-pub trait CredentialStore {
-    fn load(&mut self, provider: ProviderId) -> Result<Option<SecretToken>, CredentialError>;
-    fn save(&mut self, provider: ProviderId, token: &SecretToken) -> Result<(), CredentialError>;
-    fn delete(&mut self, provider: ProviderId) -> Result<(), CredentialError>;
 }

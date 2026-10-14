@@ -1,45 +1,66 @@
 # 本地优先个人收支管理
 
-安卓优先、离线可用的个人账本。Rust 负责记账、SQLite、通知/CSV 解析、去重、分类、报表与加密备份；Slint 提供账户、交易、待确认、报表和设置界面，Android 接入通知权限、系统文件选择、Keystore 与可选系统凭证应用锁。无需账号、服务端或 Token。
+安卓优先、离线可用的个人账本。Rust 工作区承载领域模型、账务用例、导入解析、通知解析和备份逻辑；Tauri + TypeScript 提供界面，Android 使用 Tauri WebView 壳。
 
-首次使用在设置创建账户，填写期初余额和基准日期，再手工记账或确认通知。通知默认关闭、默认 Pending，未确认和忽略记录不改变余额/报表。微信与支付宝 UTF-8 CSV 经系统文件选择、预览、处理退款与疑似重复后明确确认导入。疑似重复可人工关联已有交易保留多份来源证据，或声明独立交易；重复文件/通知/确认可安全重放。退款保留原支出并抵减净支出，转账与信用卡还款不重复计入消费。外币账户显示原币余额，报表使用保存的 CNY 估值。
+## 目录约定
 
-设置支持分类与商户/关键词规则、来源开关、默认账户、加密备份/恢复和删除。删除单笔、批次、全部本地数据均需明确确认。备份是完整加密导出，恢复完整覆盖；错误密码不会改账本。参见 [架构](docs/architecture.md)、[隐私、权限、删除及日志策略](docs/privacy-and-deletion.md) 与 [发布前验证记录](docs/validation.md)。
+每个目录的 `tree` 只描述该目录的直接文件。新增或删除文件时，先更新 `scripts/tree_descriptions.json`，再运行 `python3 scripts/update_tree.py`；用 `python3 scripts/update_tree.py --check` 检查索引。生成目录 `gen`、构建产物及已退役界面目录不生成索引，避免将 `tree` 当成 Android 资源编译。
 
-## 构建运行
+账本核心和每日收支界面已接通 SQLite。导入、通知解析和备份模块尚未接入新界面。
 
-需要 Rust stable、桌面 Linux 图形/字体依赖；Android 需要 JDK 17、Gradle 8.7、Android SDK 35、NDK 与 Rust Android targets：
+## 收支与可选参考余额
 
-```sh
-cargo run -p ledger-slint-ui
-# 默认当前目录 ledger.sqlite3；指定数据库：
-MEOWM_DATABASE=/path/to/ledger.sqlite3 cargo run -p ledger-slint-ui
-rustup target add aarch64-linux-android x86_64-linux-android
-# 配置 JAVA_HOME、ANDROID_SDK_ROOT；可选 ANDROID_NDK_ROOT、CARGO_TARGET_DIR
-cd apps/android
-gradle assembleDebug testDebugUnitTest
-gradle assembleRelease                 # 未签名 release APK
-adb install -r app/build/outputs/apk/debug/app-debug.apk
-gradle connectedDebugAndroidTest       # 需要在线 emulator/device
+新平台默认不记录初始金额，日末余额显示“尚未设置”，收入、支出和净额仍按已确认流水统计。设置参考余额时，金额代表所选本地日期的日末余额。例如 4 号日末为 100 元，5 号净收入 20 元，则 5 号日末为 120 元；若 4 号净收入 15 元，则 3 号日末为 85 元。
+
+每个平台独立保存一个参考金额和时间，再次设置会替换参考点；清除参考不会删除流水。参考金额本身不产生流水，查询根据最新的已确认流水推算。余额支持零和负数，金额使用整数分计算。数据库自动升级到版本 3，保留旧账户金额、时间和流水，不会自动清理旧账本。
+
+## 运行界面
+
+```bash
+cd apps/tauri-ui
+npm ci
+npm run tauri -- dev
 ```
 
-Gradle 为 arm64-v8a 与 x86_64 编译 Rust release 库并封装。release 尚需自己的签名配置才能发行；不要把签名密钥/密码放进仓库。Windows NDK host 配置已支持，但 native Windows 编译未经本次环境验证。
+桌面需要 Tauri 的系统构建依赖。数据库位于 Tauri 应用数据目录下的 `ledger.sqlite3`，Android 使用应用私有存储。首次启动创建微信、支付宝、现金三个无参考余额的平台。「新建平台」可添加其他平台，顶部选择平台和日期，「记一笔」保存所选日期的收支（本地中午），「设置参考余额」保存所选日期的日末参考金额。当前手动录入使用人民币。
 
-内存有限的 WSL 环境请设置 `CARGO_BUILD_JOBS=1`，按顺序运行构建和测试。Android 构建默认单 worker、单个 Rust 编译任务，并在 Gradle 进程内编译 Kotlin，避免多个常驻 JVM。先完成 APK 构建，再启动模拟器验证，不同时运行两者；将工作树和 `CARGO_TARGET_DIR` 放在持久磁盘，避免 `/tmp` 被重启清空。运行期间关注可用内存和 swap，资源不足时停止当前构建后重试。
+## Android 打包
 
-```sh
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --all --check
+需要 JDK 17、Android SDK 35 和 36（Tauri Android 库需要 36）、NDK（已验证 26.1.10909125）和 Rust Android target。Gradle 由 Android 工程的 wrapper 提供。
+
+```bash
+export ANDROID_HOME=/path/to/android-sdk
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/26.1.10909125"
+export JAVA_HOME=/path/to/jdk17
+export PATH="$JAVA_HOME/bin:$PATH"
+rustup target add aarch64-linux-android x86_64-linux-android
+bash scripts/build_android.sh arm64-v8a
+# 模拟器
+bash scripts/build_android.sh x86_64
+```
+
+调试 APK 位于 `apps/tauri-ui/src-tauri/gen/android/app/build/outputs/apk/` 下的架构目录，安装时指定对应设备与实际文件路径：
+
+```bash
+adb -s DEVICE_SERIAL install -r /path/to/app-debug.apk
+adb -s DEVICE_SERIAL shell am start -n com.example.localledger/.MainActivity
+```
+
+应用 ID 沿用 `com.example.localledger`。覆盖安装保留数据，旧账本清理需单独执行且只针对指定设备；启动逻辑不删除数据。
+
+## 验证
+
+```bash
+cd apps/tauri-ui
+npm run build
+node --experimental-strip-types --test tests/format.test.ts
+cd ../..
+cargo test -p ledger-tauri-ui --lib
 python3 scripts/update_tree.py --check
 ```
 
-新增/删除文件时更新 `scripts/tree_descriptions.json` 并运行 `python3 scripts/update_tree.py`。每个目录的 `tree` 只列直接文件。
+Rust 接口测试使用真实 SQLite，覆盖默认无余额、日末参考金额、双向推算和重启保存；Android 仍需安装 APK 验证实际 WebView 到 Rust 的调用。
 
-## 当前边界
+## 平台管理
 
-- 微信/支付宝真实通知格式及厂商后台限制需要各自设备验证；不能保证每笔支付都捕获。银行通知及通用银行 CSV 解析器尚未提供。
-- API 仅有独立接口和离线合成 fixtures，无真实平台连接、OAuth、网络请求或后台同步；开关只记录未来意向。
-- CSV 转账尚无双账户映射、缺少 CNY 估值的外币行需排除后手工补录，不会半批写入。报告按设备当时 UTC offset 计算月份，不是历史 IANA 夏令时规则引擎。
-- Android 系统自动云备份/设备迁移被禁用，手动加密备份由用户自行保管。应用锁只保护 UI，SQLite 依赖设备私有存储与系统磁盘加密。
-- KDF/大账本恢复在 UI 回调执行，可能短暂阻塞界面；第三方 SAF 提供器不保证原子文件发布。
+左下角打开导航，进入「平台管理」可新建平台、重命名、修改分类及切换到账本。支持支付钱包、银行账户、证券账户、虚拟币交易所、现金、其他六类；列表支持分类筛选和分页。分类存入 SQLite 的 `platform_metadata` 表，重命名保留原账户 ID 和全部流水。旧微信/支付宝默认为支付钱包，现金默认为现金，其他旧平台默认为其他。当前仍按人民币记账，分类不包含多币种换算、持仓或行情同步。

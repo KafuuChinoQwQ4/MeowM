@@ -4,35 +4,14 @@
 /local.properties
 *.apk
 *.aab
-
-# Local configuration and credentials
-.env
-.env.*
-!.env.example
-*.secret
-*.token
-*.credentials
-credentials.json
-secrets.json
-config/local/
-config/*.local.*
-
-# Private keys, certificates, and signing material
-*.pem
-*.key
-*.p12
-*.pfx
-*.jks
-*.keystore
-*.mobileprovision
-
-# Local databases, exports, logs, and caches
-*.db
-*.sqlite
-*.log
-
 /apps/android/.gradle/
-*.sqlite3
-*.sqlite3-journal
-
+/apps/android/build/
+/apps/android/app/build/
+/apps/android/local.properties
 /apps/android/.kotlin/
+node_modules/
+dist/
+/apps/tauri-ui/src-tauri/gen/schemas/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm

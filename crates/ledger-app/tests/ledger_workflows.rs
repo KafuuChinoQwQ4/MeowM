@@ -96,29 +96,37 @@ impl LedgerRepository for InMemoryRepository {
         &self,
         account_id: AccountId,
         cutoff_utc: Timestamp,
-    ) -> Result<Money, RepositoryError> {
+    ) -> Result<Option<Money>, RepositoryError> {
         let state = self.state.lock().unwrap();
         let account = state
             .accounts
             .get(&account_id)
             .ok_or(RepositoryError::NotFound)?;
-        let mut balance = account.opening_balance.clone();
+        let Some(mut balance) = account.opening_balance.clone() else {
+            return Ok(None);
+        };
+        let reference = account.opening_balance_effective_at.unwrap();
+        let lower = reference.min(cutoff_utc);
+        let upper = reference.max(cutoff_utc);
         for transaction in state.transactions.values().filter(|transaction| {
             transaction.status == TransactionStatus::Confirmed
-                && transaction.occurred_at > account.opening_balance_effective_at
-                && transaction.occurred_at <= cutoff_utc
+                && transaction.occurred_at > lower
+                && transaction.occurred_at <= upper
         }) {
             for posting in transaction
                 .postings
                 .iter()
                 .filter(|posting| posting.account_id == account_id)
             {
-                balance = balance
-                    .checked_add(posting.delta.clone())
-                    .map_err(|error| RepositoryError::InvalidData(error.to_string()))?;
+                balance = if cutoff_utc >= reference {
+                    balance.checked_add(posting.delta.clone())
+                } else {
+                    balance.checked_sub(posting.delta.clone())
+                }
+                .map_err(|error| RepositoryError::InvalidData(error.to_string()))?;
             }
         }
-        Ok(balance)
+        Ok(Some(balance))
     }
 }
 
@@ -139,8 +147,8 @@ fn service_with_account(
         display_name: "Wallet".into(),
         kind: AccountKind::Asset,
         currency: code.clone(),
-        opening_balance: Money::new(opening_minor, code),
-        opening_balance_effective_at: utc("2026-01-01T00:00:00Z"),
+        opening_balance: Some(Money::new(opening_minor, code)),
+        opening_balance_effective_at: Some(utc("2026-01-01T00:00:00Z")),
     };
     let account_id = account.id;
     repo.insert_account(account).unwrap();
@@ -180,12 +188,14 @@ fn confirming_expense_changes_balance_once_and_only_after_its_time() {
         service
             .account_balance(account_id, utc("2026-01-01T00:00:00Z"))
             .unwrap()
+            .unwrap()
             .minor_units(),
         10_000
     );
     assert_eq!(
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
+            .unwrap()
             .unwrap()
             .minor_units(),
         7_500
@@ -202,6 +212,7 @@ fn pending_and_ignored_transactions_do_not_affect_balance() {
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
             .unwrap()
+            .unwrap()
             .minor_units(),
         10_000
     );
@@ -209,6 +220,7 @@ fn pending_and_ignored_transactions_do_not_affect_balance() {
     assert_eq!(
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
+            .unwrap()
             .unwrap()
             .minor_units(),
         10_000
@@ -229,6 +241,7 @@ fn stored_pending_transaction_applies_balance_once_when_confirmed() {
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
             .unwrap()
+            .unwrap()
             .minor_units(),
         10_000
     );
@@ -248,6 +261,7 @@ fn stored_pending_transaction_applies_balance_once_when_confirmed() {
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
             .unwrap()
+            .unwrap()
             .minor_units(),
         9_000
     );
@@ -257,6 +271,7 @@ fn stored_pending_transaction_applies_balance_once_when_confirmed() {
     assert_eq!(
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
+            .unwrap()
             .unwrap()
             .minor_units(),
         9_000
@@ -292,6 +307,7 @@ fn ignored_transaction_cannot_be_confirmed_or_written_again() {
     assert_eq!(
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
+            .unwrap()
             .unwrap()
             .minor_units(),
         10_000
@@ -348,6 +364,7 @@ fn invalid_stored_pending_candidate_is_rejected_without_update() {
         service
             .account_balance(account_id, utc("2026-01-03T00:00:00Z"))
             .unwrap()
+            .unwrap()
             .minor_units(),
         10_000
     );
@@ -384,16 +401,16 @@ fn transfer_changes_both_account_balances_without_changing_total_funds() {
         display_name: "cash".into(),
         kind: AccountKind::Asset,
         currency: cny.clone(),
-        opening_balance: Money::new(5_000, cny.clone()),
-        opening_balance_effective_at: utc("2026-01-01T00:00:00Z"),
+        opening_balance: Some(Money::new(5_000, cny.clone())),
+        opening_balance_effective_at: Some(utc("2026-01-01T00:00:00Z")),
     };
     let bank = Account {
         id: AccountId::new(),
         display_name: "bank".into(),
         kind: AccountKind::Asset,
         currency: cny.clone(),
-        opening_balance: Money::new(2_000, cny.clone()),
-        opening_balance_effective_at: utc("2026-01-01T00:00:00Z"),
+        opening_balance: Some(Money::new(2_000, cny.clone())),
+        opening_balance_effective_at: Some(utc("2026-01-01T00:00:00Z")),
     };
     repo.insert_account(cash.clone()).unwrap();
     repo.insert_account(bank.clone()).unwrap();
@@ -425,12 +442,14 @@ fn transfer_changes_both_account_balances_without_changing_total_funds() {
         service
             .account_balance(cash.id, cutoff)
             .unwrap()
+            .unwrap()
             .minor_units(),
         3_500
     );
     assert_eq!(
         service
             .account_balance(bank.id, cutoff)
+            .unwrap()
             .unwrap()
             .minor_units(),
         3_500
@@ -464,6 +483,7 @@ fn refund_can_be_confirmed_when_parent_is_a_confirmed_expense() {
         service
             .account_balance(account_id, utc("2026-01-04T00:00:00Z"))
             .unwrap()
+            .unwrap()
             .minor_units(),
         9_250
     );
@@ -484,6 +504,7 @@ fn opening_balance_update_applies_from_its_effective_time() {
         service
             .account_balance(account_id, utc("2026-01-01T12:00:00Z"))
             .unwrap()
+            .unwrap()
             .minor_units(),
         2_000
     );
@@ -501,6 +522,7 @@ fn cutoff_and_opening_balance_effective_time_are_respected() {
     assert_eq!(
         service
             .account_balance(account_id, utc("2026-01-02T00:00:00Z"))
+            .unwrap()
             .unwrap()
             .minor_units(),
         10_000

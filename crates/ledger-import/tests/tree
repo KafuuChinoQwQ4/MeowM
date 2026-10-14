@@ -1,8 +1,0 @@
-# 本目录直接文件说明
-
-仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
-
-- `import_preview.rs` — Import preview deduplication, atomic confirmation, refund, and replay integration tests.
-- `provider_boundary.rs` — Offline provider HTTP fixture tests for consent, retries, dedupe, classification and atomic confirmation.
-- `provider_parsers.rs` — Sanitized provider CSV parser integration tests for WeChat, Alipay, amounts, refunds, and malformed rows.
-- `tree` — 本目录直接文件的说明索引。

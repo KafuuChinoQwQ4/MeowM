@@ -8,6 +8,5 @@
 - `lib.rs` — Bill import module declarations.
 - `normalize.rs` — Provider row to standard transaction mapping.
 - `preview.rs` — Import preview, warnings, and confirmation boundary.
-- `providers.rs` — Optional offline provider contracts, bounded pagination, recoverable errors and shared Pending previews.
 - `wechat.rs` — WeChat bill file adapter.
 - `tree` — 本目录直接文件的说明索引。

@@ -7,7 +7,6 @@ pub enum SourceKind {
     Alipay,
     WeChat,
     Notification,
-    BankCsv,
     Manual,
 }
 

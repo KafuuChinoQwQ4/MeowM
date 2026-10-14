@@ -1,0 +1,8 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `ledger.rs` — Rust ledger command implementation with real SQLite and integration tests.
+- `lib.rs` — Tauri setup, application data storage and command handlers.
+- `main.rs` — Tauri frontend or Rust application configuration: main.rs.
+- `tree` — 本目录直接文件的说明索引。

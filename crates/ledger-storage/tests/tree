@@ -2,7 +2,5 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `deletion.rs` — Transactional deletion, refund reference guard, full settings reset and rollback tests.
-- `mobile_workflows.rs` — Mobile facade integration tests for confirmation, filtering, reports, settings, and metadata persistence.
 - `sqlite_repository.rs` — Integration tests for SQLite persistence, balances, import provenance, category validation, and rule lifecycle.
 - `tree` — 本目录直接文件的说明索引。

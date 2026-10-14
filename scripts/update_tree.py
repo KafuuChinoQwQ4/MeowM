@@ -9,8 +9,8 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+RETIRED = {"apps/android", "apps/slint-ui"}
 DESCRIPTION_FILE = ROOT / "scripts" / "tree_descriptions.json"
-GENERATED_DIRECTORIES = {"target", ".git", ".gradle", ".kotlin", "build"}
 
 
 def main() -> int:
@@ -24,7 +24,8 @@ def main() -> int:
         for path in ROOT.rglob("*")
         if path.is_file()
         and path.name != "tree"
-        and not GENERATED_DIRECTORIES.intersection(path.relative_to(ROOT).parts)
+        and not any(path.relative_to(ROOT).as_posix() == old or path.relative_to(ROOT).as_posix().startswith(old + "/") for old in RETIRED)
+        and not {"target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
     }
     missing = sorted(files - set(descriptions))
     stale = sorted(set(descriptions) - files)
@@ -39,7 +40,8 @@ def main() -> int:
     directories.update(
         path for path in ROOT.rglob("*")
         if path.is_dir()
-        and not GENERATED_DIRECTORIES.intersection(path.relative_to(ROOT).parts)
+        and not any(path.relative_to(ROOT).as_posix() == old or path.relative_to(ROOT).as_posix().startswith(old + "/") for old in RETIRED)
+        and not {"target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
     )
     failures = []
     for directory in sorted(directories):
