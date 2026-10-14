@@ -4,6 +4,7 @@
 
 - `account.rs` — Account kinds, opening balances, and account invariants.
 - `category.rs` — Editable category and classification rule domain types.
+- `features.rs` — 九项账本功能共用领域类型、分页及版本元数据契约。
 - `lib.rs` — Public domain APIs and errors, including transfer conservation failures.
 - `money.rs` — Currency codes and integer minor-unit money.
 - `source.rs` — Import provenance and source evidence types.

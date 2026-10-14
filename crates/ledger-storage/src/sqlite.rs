@@ -42,6 +42,7 @@ impl SqliteLedgerRepository {
         let repo = Self { connection };
         repo.apply_migrations()?;
         repo.apply_optional_balance_migration()?;
+        repo.apply_feature_migration()?;
         repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
             account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
             category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))
@@ -119,15 +120,31 @@ impl SqliteLedgerRepository {
                     |row| Ok((row.get(0)?, row.get(1)?)),
                 )
                 .map_err(storage_error)?;
+            let versions: Vec<i64> = self
+                .connection
+                .prepare("SELECT version FROM schema_version ORDER BY version")
+                .map_err(storage_error)?
+                .query_map([], |r| r.get(0))
+                .map_err(storage_error)?
+                .collect::<Result<_, _>>()
+                .map_err(storage_error)?;
+            if let Some(v) = recorded_version
+                && v <= 4
+                && versions != (1..=v).collect::<Vec<_>>()
+            {
+                return Err(RepositoryError::Storage(
+                    "database schema history is invalid".into(),
+                ));
+            }
             match (version_count, recorded_version) {
                 (1, Some(1)) => {
                     self.apply_classification_migration(1)?;
                     return Ok(());
                 }
-                (2, Some(2)) | (3, Some(3)) => return Ok(()),
-                (_, Some(version)) if version > 3 => {
+                (2, Some(2)) | (3, Some(3)) | (4, Some(4)) => return Ok(()),
+                (_, Some(version)) if version > 4 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 3"
+                        "database schema version {version} is newer than supported version 4"
                     )));
                 }
                 _ => {
@@ -189,7 +206,7 @@ impl SqliteLedgerRepository {
 
     fn apply_optional_balance_migration(&self) -> Result<(), RepositoryError> {
         let version = self.schema_version()?;
-        if version == 3 {
+        if version >= 3 {
             return Ok(());
         }
         // Rebuild the referenced table atomically without rewriting posting foreign keys.
@@ -229,6 +246,27 @@ impl SqliteLedgerRepository {
             .execute_batch("PRAGMA foreign_keys = ON;")
             .map_err(storage_error)?;
         result
+    }
+
+    fn apply_feature_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 4 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!("../migrations/0004_nine_features.sql"))
+            .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO schema_version VALUES(4,?1)",
+            [SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_micros() as i64],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
     }
 
     /// Returns the highest applied schema version.
@@ -381,11 +419,18 @@ impl SqliteLedgerRepository {
             )
             .map_err(map_insert_error)?;
         }
+        tx.execute("INSERT INTO transaction_metadata(transaction_id,updated_at_utc_micros,edit_version) VALUES(?1,?2,0) ON CONFLICT(transaction_id) DO UPDATE SET updated_at_utc_micros=excluded.updated_at_utc_micros,edit_version=edit_version+1",params![transaction.id.as_uuid().to_string(),SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_micros() as i64]).map_err(storage_error)?;
         Ok(())
     }
 }
 
 impl LedgerRepository for SqliteLedgerRepository {
+    fn report_override(
+        &self,
+        id: TransactionId,
+    ) -> Result<Option<ledger_domain::ReportEffect>, RepositoryError> {
+        self.connection.query_row("SELECT m.report_income_minor,m.report_expense_minor FROM transaction_metadata m JOIN transactions t ON t.id=m.transaction_id WHERE m.transaction_id=?1 AND t.status='confirmed' AND m.report_income_minor IS NOT NULL",[id.as_uuid().to_string()],|r|Ok(ledger_domain::ReportEffect{income_cny_minor:r.get(0)?,expense_cny_minor:r.get(1)?})).optional().map_err(storage_error)
+    }
     fn insert_account(&self, account: Account) -> Result<(), RepositoryError> {
         self.connection
             .execute(
@@ -973,5 +1018,294 @@ fn source_kind_str(kind: SourceKind) -> &'static str {
         SourceKind::WeChat => "wechat",
         SourceKind::Notification => "notification",
         SourceKind::Manual => "manual",
+    }
+}
+
+impl SqliteLedgerRepository {
+    fn validate_feature_transaction(&self, t: &Transaction) -> Result<(), RepositoryError> {
+        ledger_domain::validate_transaction_shape(t, &self.list_accounts()?)
+            .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
+        if t.kind == TransactionKind::Refund {
+            let parent = self
+                .get_transaction(t.original_transaction_id.ok_or(RepositoryError::NotFound)?)?
+                .ok_or(RepositoryError::NotFound)?;
+            if parent.kind != TransactionKind::Expense
+                || parent.status != TransactionStatus::Confirmed
+            {
+                return Err(RepositoryError::InvalidData(
+                    "refund parent must be confirmed expense".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+    fn metadata(
+        &self,
+        id: TransactionId,
+    ) -> Result<ledger_domain::TransactionMetadata, RepositoryError> {
+        self.connection.query_row("SELECT updated_at_utc_micros,edit_version,reversal_of,report_income_minor,report_expense_minor FROM transaction_metadata WHERE transaction_id=?1",[id.as_uuid().to_string()],|r|{
+            let at:i64=r.get(0)?; let reversal:Option<String>=r.get(2)?;let income:Option<i64>=r.get(3)?;
+            Ok(ledger_domain::TransactionMetadata{transaction_id:id,updated_at:DateTime::from_timestamp_micros(at).ok_or(rusqlite::Error::InvalidQuery)?,edit_version:r.get(1)?,reversal_of:reversal.map(|v|Uuid::parse_str(&v).map(TransactionId::from_uuid)).transpose().map_err(|_|rusqlite::Error::InvalidQuery)?,report_override:income.map(|i|Ok::<_,rusqlite::Error>(ledger_domain::ReportEffect{income_cny_minor:i,expense_cny_minor:r.get(4)?})).transpose()?})
+        }).map_err(storage_error)
+    }
+}
+impl ledger_app::FeatureRepository for SqliteLedgerRepository {
+    fn query_transactions(
+        &self,
+        q: ledger_domain::PendingQuery,
+    ) -> Result<ledger_domain::TransactionPage, RepositoryError> {
+        if !(1..=200).contains(&q.limit)
+            || q.from_utc_inclusive
+                .zip(q.until_utc_exclusive)
+                .is_some_and(|(a, b)| a >= b)
+        {
+            return Err(RepositoryError::InvalidData(
+                "invalid page or date range".into(),
+            ));
+        }
+        let sql = "FROM transactions t WHERE (?1 IS NULL OR status=?1) AND (?2 IS NULL OR occurred_at_utc_micros>=?2) AND (?3 IS NULL OR occurred_at_utc_micros<?3) AND (?4 IS NULL OR EXISTS(SELECT 1 FROM postings p WHERE p.transaction_id=t.id AND p.account_id=?4)) AND (?5 IS NULL OR category_id=?5) AND (?6 IS NULL OR instr(lower(coalesce(merchant,'')),lower(?6))>0) AND (?7 IS NULL OR instr(lower(coalesce(merchant,'')||' '||coalesce(description,'')),lower(?7))>0)";
+        let values = params![
+            q.status.map(transaction_status_str),
+            q.from_utc_inclusive.map(|t| t.timestamp_micros()),
+            q.until_utc_exclusive.map(|t| t.timestamp_micros()),
+            q.account_id.map(|v| v.as_uuid().to_string()),
+            q.category_id.map(|v| v.as_uuid().to_string()),
+            q.merchant,
+            q.keyword
+        ];
+        let snapshot = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        let total = self
+            .connection
+            .query_row(&format!("SELECT count(*) {sql}"), values, |r| r.get(0))
+            .map_err(storage_error)?;
+        let mut stmt = self
+            .connection
+            .prepare(&format!(
+                "SELECT id {sql} ORDER BY occurred_at_utc_micros DESC,id LIMIT {} OFFSET {}",
+                q.limit, q.offset
+            ))
+            .map_err(storage_error)?;
+        let ids = stmt
+            .query_map(values, |r| r.get::<_, String>(0))
+            .map_err(storage_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        let items = ids
+            .into_iter()
+            .map(|v| {
+                let id = TransactionId::from_uuid(
+                    Uuid::parse_str(&v)
+                        .map_err(|_| RepositoryError::InvalidData("invalid ID".into()))?,
+                );
+                Ok(ledger_domain::PendingCandidate {
+                    transaction: self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?,
+                    metadata: self.metadata(id)?,
+                })
+            })
+            .collect::<Result<_, RepositoryError>>()?;
+        drop(stmt);
+        snapshot.commit().map_err(storage_error)?;
+        Ok(ledger_domain::TransactionPage {
+            items,
+            total,
+            offset: q.offset,
+            limit: q.limit,
+        })
+    }
+    fn confirm_bulk(&self, r: ledger_domain::BulkConfirmation) -> Result<(), RepositoryError> {
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        for id in r.transaction_ids {
+            let mut t = self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?;
+            match t.status {
+                TransactionStatus::Confirmed => continue,
+                TransactionStatus::Ignored => return Err(RepositoryError::Conflict),
+                TransactionStatus::Pending => {}
+            }
+            t.status = TransactionStatus::Confirmed;
+            self.validate_feature_transaction(&t)?;
+            Self::write_transaction(&tx, &t, false)?;
+        }
+        tx.commit().map_err(storage_error)
+    }
+    fn restore_pending_atomic(&self, id: TransactionId) -> Result<(), RepositoryError> {
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        let mut t = self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?;
+        if t.status == TransactionStatus::Confirmed {
+            return Err(RepositoryError::Conflict);
+        }
+        if t.status == TransactionStatus::Ignored {
+            t.status = TransactionStatus::Pending;
+            Self::write_transaction(&tx, &t, false)?;
+        }
+        tx.commit().map_err(storage_error)
+    }
+    fn ignore_atomic(&self, id: TransactionId) -> Result<(), RepositoryError> {
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        let mut t = self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?;
+        if t.status == TransactionStatus::Confirmed {
+            return Err(RepositoryError::Conflict);
+        }
+        if t.status == TransactionStatus::Pending {
+            t.status = TransactionStatus::Ignored;
+            Self::write_transaction(&tx, &t, false)?;
+        }
+        tx.commit().map_err(storage_error)
+    }
+    fn reverse_atomic(
+        &self,
+        id: TransactionId,
+        new_id: TransactionId,
+        at: Timestamp,
+    ) -> Result<TransactionId, RepositoryError> {
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        if let Some(existing) = tx
+            .query_row(
+                "SELECT transaction_id FROM transaction_metadata WHERE reversal_of=?1",
+                [id.as_uuid().to_string()],
+                |r| r.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(storage_error)?
+        {
+            return Uuid::parse_str(&existing)
+                .map(TransactionId::from_uuid)
+                .map_err(|_| RepositoryError::InvalidData("invalid ID".into()));
+        }
+        let original = self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?;
+        if original.status != TransactionStatus::Confirmed
+            || self.metadata(id)?.reversal_of.is_some()
+        {
+            return Err(RepositoryError::Conflict);
+        }
+        let effect =
+            ledger_domain::report_effect(&original).unwrap_or(ledger_domain::ReportEffect {
+                income_cny_minor: 0,
+                expense_cny_minor: 0,
+            });
+        let mut reverse = original.clone();
+        reverse.id = new_id;
+        reverse.occurred_at = at;
+        reverse.kind = TransactionKind::BalanceAdjustment;
+        reverse.original_transaction_id = Some(id);
+        reverse.report_amount_cny = None;
+        for p in &mut reverse.postings {
+            p.delta = Money::new(
+                p.delta
+                    .minor_units()
+                    .checked_neg()
+                    .ok_or_else(|| RepositoryError::InvalidData("reversal overflow".into()))?,
+                p.delta.currency().clone(),
+            );
+        }
+        self.validate_feature_transaction(&reverse)?;
+        Self::write_transaction(&tx, &reverse, true)?;
+        tx.execute("UPDATE transaction_metadata SET reversal_of=?2,report_income_minor=?3,report_expense_minor=?4 WHERE transaction_id=?1",params![new_id.as_uuid().to_string(),id.as_uuid().to_string(),effect.income_cny_minor.checked_neg().ok_or(RepositoryError::Conflict)?,effect.expense_cny_minor.checked_neg().ok_or(RepositoryError::Conflict)?]).map_err(storage_error)?;
+        tx.commit().map_err(storage_error)?;
+        Ok(new_id)
+    }
+    fn edit_atomic(&self, e: ledger_domain::TransactionEdit) -> Result<(), RepositoryError> {
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        let old = self
+            .get_transaction(e.transaction.id)?
+            .ok_or(RepositoryError::NotFound)?;
+        let m = self.metadata(old.id)?;
+        let reversed: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM transaction_metadata WHERE reversal_of=?1)",
+                [old.id.as_uuid().to_string()],
+                |r| r.get(0),
+            )
+            .map_err(storage_error)?;
+        if m.edit_version != e.expected_version
+            || m.reversal_of.is_some()
+            || reversed
+            || old.status != e.transaction.status
+        {
+            return Err(RepositoryError::Conflict);
+        }
+        self.validate_feature_transaction(&e.transaction)?;
+        Self::write_transaction(&tx, &e.transaction, false)?;
+        tx.commit().map_err(storage_error)
+    }
+    fn source_evidence(&self, id: TransactionId) -> Result<Vec<SourceEvidence>, RepositoryError> {
+        let mut stmt=self.connection.prepare("SELECT source_kind,external_transaction_id,import_batch_id,source_fields_digest FROM source_evidence WHERE transaction_id=?1 ORDER BY id").map_err(storage_error)?;
+        stmt.query_map([id.as_uuid().to_string()], |r| {
+            let k: String = r.get(0)?;
+            let batch: String = r.get(2)?;
+            let digest: Vec<u8> = r.get(3)?;
+            Ok(SourceEvidence {
+                source_kind: match k.as_str() {
+                    "alipay" => SourceKind::Alipay,
+                    "wechat" => SourceKind::WeChat,
+                    "notification" => SourceKind::Notification,
+                    "manual" => SourceKind::Manual,
+                    _ => return Err(rusqlite::Error::InvalidQuery),
+                },
+                external_transaction_id: r.get(1)?,
+                import_batch_id: Uuid::parse_str(&batch)
+                    .map_err(|_| rusqlite::Error::InvalidQuery)?,
+                source_fields_digest: digest
+                    .try_into()
+                    .map_err(|_| rusqlite::Error::InvalidQuery)?,
+            })
+        })
+        .map_err(storage_error)?
+        .collect::<Result<_, _>>()
+        .map_err(storage_error)
+    }
+    fn privacy_settings(&self) -> Result<ledger_domain::PrivacySettings, RepositoryError> {
+        let get = |key: &str| {
+            self.connection
+                .query_row("SELECT value FROM app_settings WHERE key=?1", [key], |r| {
+                    r.get::<_, String>(0)
+                })
+                .optional()
+                .map_err(storage_error)
+        };
+        Ok(ledger_domain::PrivacySettings {
+            hide_amounts: get("hide_amounts")?.as_deref() == Some("1"),
+            lock_enabled: get("lock_enabled")?.as_deref() == Some("1"),
+            password_verifier: get("password_verifier")?,
+        })
+    }
+    fn save_privacy_settings(
+        &self,
+        s: ledger_domain::PrivacySettings,
+    ) -> Result<(), RepositoryError> {
+        // Password verifier format and lock guard are deliberately deferred. Never enable an unguarded lock.
+        if s.lock_enabled || s.password_verifier.is_some() {
+            return Err(RepositoryError::InvalidData(
+                "app lock is not implemented yet".into(),
+            ));
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        for (key, value) in [
+            ("hide_amounts", if s.hide_amounts { "1" } else { "0" }),
+            ("lock_enabled", "0"),
+        ] {
+            tx.execute("INSERT INTO app_settings VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,value]).map_err(storage_error)?;
+        }
+        tx.commit().map_err(storage_error)
     }
 }

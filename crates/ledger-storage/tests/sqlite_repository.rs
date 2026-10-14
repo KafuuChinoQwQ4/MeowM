@@ -51,8 +51,8 @@ fn expense(account_id: AccountId, id: TransactionId, status: TransactionStatus) 
 #[test]
 fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
     let repo = SqliteLedgerRepository::in_memory().unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 3);
-    assert_eq!(repo.schema_version().unwrap(), 3);
+    assert_eq!(repo.schema_version().unwrap(), 4);
+    assert_eq!(repo.schema_version().unwrap(), 4);
 
     let account = account("CNY", 20_000);
     let account_id = account.id;
@@ -74,7 +74,7 @@ fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
 }
 
 #[test]
-fn opening_existing_file_keeps_schema_at_version_three() {
+fn opening_existing_file_keeps_schema_at_version_four() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("ledger.sqlite3");
     assert_eq!(
@@ -82,14 +82,14 @@ fn opening_existing_file_keeps_schema_at_version_three() {
             .unwrap()
             .schema_version()
             .unwrap(),
-        3
+        4
     );
     assert_eq!(
         SqliteLedgerRepository::open(&path)
             .unwrap()
             .schema_version()
             .unwrap(),
-        3
+        4
     );
 }
 
@@ -139,7 +139,7 @@ fn opening_database_with_invalid_schema_version_is_rejected() {
 }
 
 #[test]
-fn opening_version_one_database_upgrades_to_version_three() {
+fn opening_version_one_database_upgrades_to_version_four() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("upgrade.sqlite3");
     let connection = Connection::open(&path).unwrap();
@@ -155,7 +155,7 @@ fn opening_version_one_database_upgrades_to_version_three() {
     drop(connection);
 
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 3);
+    assert_eq!(repo.schema_version().unwrap(), 4);
     let connection = Connection::open(&path).unwrap();
     let has_rules: i64 = connection
         .query_row(
@@ -619,5 +619,269 @@ fn cash_flow_reports_work_without_a_balance_and_ignore_reference_changes() {
             summary.net_cny_minor
         ),
         (0, 1250, -1250)
+    );
+}
+
+#[test]
+fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("v3.sqlite");
+    let db = Connection::open(&path).unwrap();
+    db.execute_batch(include_str!("../migrations/0001_initial.sql"))
+        .unwrap();
+    db.execute_batch(include_str!("../migrations/0002_classification_rules.sql"))
+        .unwrap();
+    db.execute_batch(include_str!("../migrations/0003_optional_balance.sql"))
+        .unwrap();
+    db.execute_batch("INSERT INTO schema_version VALUES(1,0),(2,0),(3,0);
+      INSERT INTO accounts VALUES('00000000-0000-0000-0000-000000000001','old','asset','CNY',2,100,0);
+      INSERT INTO categories VALUES('00000000-0000-0000-0000-000000000002','old',1);
+      INSERT INTO transactions(id,occurred_at_utc_micros,kind,status,category_id) VALUES('00000000-0000-0000-0000-000000000003',0,'expense','pending','00000000-0000-0000-0000-000000000002');
+      INSERT INTO import_batches(id) VALUES('00000000-0000-0000-0000-000000000004');
+      INSERT INTO source_evidence VALUES(1,'00000000-0000-0000-0000-000000000003','manual',NULL,'00000000-0000-0000-0000-000000000004',zeroblob(32));").unwrap();
+    drop(db);
+    for _ in 0..2 {
+        let repo = SqliteLedgerRepository::open(&path).unwrap();
+        assert_eq!(repo.schema_version().unwrap(), 4);
+        assert_eq!(
+            repo.list_accounts().unwrap()[0].id.as_uuid().to_string(),
+            "00000000-0000-0000-0000-000000000001"
+        );
+        assert_eq!(repo.list_transactions().unwrap().len(), 1);
+        assert_eq!(repo.list_categories().unwrap().len(), 1);
+        assert_eq!(repo.source_evidence_count().unwrap(), 1);
+    }
+    let db = Connection::open(path).unwrap();
+    for name in [
+        "budgets",
+        "recurring_templates",
+        "recurring_instances",
+        "reconciliation_sessions",
+        "notification_settings",
+        "app_settings",
+        "audit_events",
+        "transaction_metadata",
+        "pending_review",
+    ] {
+        assert_eq!(
+            db.query_row(
+                "SELECT count(*) FROM sqlite_master WHERE name=?1",
+                [name],
+                |r| r.get::<_, i64>(0)
+            )
+            .unwrap(),
+            1
+        );
+    }
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM schema_version", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        4
+    );
+}
+
+#[test]
+fn bulk_confirmation_rolls_back_and_retries_without_duplicates() {
+    use ledger_app::FeatureRepository;
+    use ledger_domain::BulkConfirmation;
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let wallet = account("CNY", 20000);
+    repo.insert_account(wallet.clone()).unwrap();
+    let pending = expense(wallet.id, TransactionId::new(), TransactionStatus::Pending);
+    repo.insert_transaction(pending.clone()).unwrap();
+    assert!(
+        repo.confirm_bulk(BulkConfirmation {
+            transaction_ids: vec![pending.id, TransactionId::new()]
+        })
+        .is_err()
+    );
+    assert_eq!(
+        repo.get_transaction(pending.id).unwrap().unwrap().status,
+        TransactionStatus::Pending
+    );
+    for _ in 0..2 {
+        repo.confirm_bulk(BulkConfirmation {
+            transaction_ids: vec![pending.id],
+        })
+        .unwrap();
+    }
+    assert_eq!(repo.posting_count().unwrap(), 1);
+}
+
+#[test]
+fn reversal_is_atomic_idempotent_and_cancels_balance_and_report() {
+    use ledger_app::{FeatureRepository, ReportQuery, ReportService};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("reverse.sqlite");
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    let wallet = account("CNY", 20000);
+    repo.insert_account(wallet.clone()).unwrap();
+    let original = expense(
+        wallet.id,
+        TransactionId::new(),
+        TransactionStatus::Confirmed,
+    );
+    repo.insert_transaction(original.clone()).unwrap();
+    assert!(
+        repo.reverse_atomic(original.id, original.id, original.occurred_at)
+            .is_err()
+    );
+    assert_eq!(repo.list_transactions().unwrap().len(), 1);
+    let id = repo
+        .reverse_atomic(original.id, TransactionId::new(), original.occurred_at)
+        .unwrap();
+    assert_eq!(
+        repo.reverse_atomic(original.id, TransactionId::new(), original.occurred_at)
+            .unwrap(),
+        id
+    );
+    assert_eq!(
+        repo.balance_as_of(wallet.id, original.occurred_at)
+            .unwrap()
+            .unwrap()
+            .minor_units(),
+        20000
+    );
+    drop(repo);
+    let report = ReportService::new(SqliteLedgerRepository::open(&path).unwrap())
+        .summarize(ReportQuery {
+            from_utc_inclusive: utc("2026-01-01T00:00:00Z"),
+            until_utc_exclusive: utc("2026-02-01T00:00:00Z"),
+            month_boundaries_utc: vec![],
+        })
+        .unwrap();
+    assert_eq!(
+        (
+            report.income_cny_minor,
+            report.expense_cny_minor,
+            report.net_cny_minor
+        ),
+        (0, 0, 0)
+    );
+}
+
+#[test]
+fn paged_query_and_versioned_edit_reject_stale_writes() {
+    use ledger_app::FeatureRepository;
+    use ledger_domain::{PendingQuery, TransactionEdit};
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let wallet = account("CNY", 1000);
+    repo.insert_account(wallet.clone()).unwrap();
+    for _ in 0..3 {
+        repo.insert_transaction(expense(
+            wallet.id,
+            TransactionId::new(),
+            TransactionStatus::Pending,
+        ))
+        .unwrap();
+    }
+    let q = PendingQuery {
+        status: Some(TransactionStatus::Pending),
+        account_id: Some(wallet.id),
+        limit: 2,
+        ..Default::default()
+    };
+    let page = repo.query_transactions(q).unwrap();
+    assert_eq!(page.total, 3);
+    assert_eq!(page.items.len(), 2);
+    let mut t = page.items[0].transaction.clone();
+    t.description = Some("edited".into());
+    repo.edit_atomic(TransactionEdit {
+        transaction: t.clone(),
+        expected_version: 0,
+    })
+    .unwrap();
+    assert!(
+        repo.edit_atomic(TransactionEdit {
+            transaction: t,
+            expected_version: 0
+        })
+        .is_err()
+    );
+    assert!(
+        repo.query_transactions(PendingQuery {
+            limit: 201,
+            ..Default::default()
+        })
+        .is_err()
+    );
+    let id = page.items[0].transaction.id;
+    repo.ignore_atomic(id).unwrap();
+    repo.ignore_atomic(id).unwrap();
+    repo.restore_pending_atomic(id).unwrap();
+    repo.restore_pending_atomic(id).unwrap();
+    assert_eq!(
+        repo.get_transaction(id).unwrap().unwrap().status,
+        TransactionStatus::Pending
+    );
+}
+
+#[test]
+fn migration_four_failure_rolls_back_all_new_objects() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("broken.sqlite");
+    let db = Connection::open(&path).unwrap();
+    for sql in [
+        include_str!("../migrations/0001_initial.sql"),
+        include_str!("../migrations/0002_classification_rules.sql"),
+        include_str!("../migrations/0003_optional_balance.sql"),
+    ] {
+        db.execute_batch(sql).unwrap();
+    }
+    db.execute_batch(
+        "INSERT INTO schema_version VALUES(1,0),(2,0),(3,0);CREATE TABLE budgets(id TEXT);",
+    )
+    .unwrap();
+    drop(db);
+    assert!(SqliteLedgerRepository::open(&path).is_err());
+    let db = Connection::open(path).unwrap();
+    assert_eq!(
+        db.query_row("SELECT max(version) FROM schema_version", [], |r| r
+            .get::<_, i64>(0))
+            .unwrap(),
+        3
+    );
+    assert_eq!(
+        db.query_row(
+            "SELECT count(*) FROM sqlite_master WHERE name='transaction_metadata'",
+            [],
+            |r| r.get::<_, i64>(0)
+        )
+        .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn recurring_instance_uniqueness_and_nonnegative_budget_are_enforced() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("instances.sqlite");
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    let a = account("CNY", 0);
+    repo.insert_account(a.clone()).unwrap();
+    let t = expense(a.id, TransactionId::new(), TransactionStatus::Pending);
+    repo.insert_transaction(t.clone()).unwrap();
+    let db = Connection::open(path).unwrap();
+    db.execute_batch("PRAGMA foreign_keys=ON").unwrap();
+    assert!(
+        db.execute(
+            "INSERT INTO budgets(id,month,amount_cny_minor) VALUES('b','2026-10',-1)",
+            []
+        )
+        .is_err()
+    );
+    db.execute("INSERT INTO recurring_templates(id,account_id,kind,amount_cny_minor,next_date,interval_months,enabled) VALUES('r',?1,'expense',100,'2026-10-15',1,1)",[a.id.as_uuid().to_string()]).unwrap();
+    db.execute(
+        "INSERT INTO recurring_instances VALUES('r','2026-10-15',?1)",
+        [t.id.as_uuid().to_string()],
+    )
+    .unwrap();
+    assert!(
+        db.execute(
+            "INSERT INTO recurring_instances VALUES('r','2026-10-15',?1)",
+            [t.id.as_uuid().to_string()]
+        )
+        .is_err()
     );
 }

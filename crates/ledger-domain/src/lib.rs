@@ -2,6 +2,7 @@
 
 pub mod account;
 pub mod category;
+pub mod features;
 pub mod money;
 pub mod source;
 pub mod transaction;
@@ -9,6 +10,7 @@ pub mod validation;
 
 pub use account::{Account, AccountId, AccountKind};
 pub use category::{Category, CategoryId, RuleId};
+pub use features::*;
 pub use money::{CurrencyCode, Money};
 pub use source::{SourceEvidence, SourceKind};
 pub use transaction::{Posting, Transaction, TransactionId, TransactionKind, TransactionStatus};

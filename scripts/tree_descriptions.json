@@ -72,5 +72,7 @@
   "apps/tauri-ui/src-tauri/icons/icon.png": "Tauri frontend or Rust application configuration: icon.png.",
   "apps/tauri-ui/tests/format.test.ts": "Money precision, calendar and amount input validation tests.",
   "docs/superpowers/plans/2026-10-14-tauri-migration.md": "Approved migration scope, implementation steps and validation checklist.",
-  "docs/superpowers/plans/2026-10-15-meowm-nine-features.md": "Detailed implementation plan for nine local ledger features and release validation."
+  "docs/superpowers/plans/2026-10-15-meowm-nine-features.md": "Detailed implementation plan for nine local ledger features and release validation.",
+  "crates/ledger-domain/src/features.rs": "九项账本功能共用领域类型、分页及版本元数据契约。",
+  "crates/ledger-storage/migrations/0004_nine_features.sql": "保留旧数据的九项功能表、元数据及查询索引迁移。"
 }

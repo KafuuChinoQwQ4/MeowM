@@ -25,7 +25,7 @@ def main() -> int:
         if path.is_file()
         and path.name != "tree"
         and not any(path.relative_to(ROOT).as_posix() == old or path.relative_to(ROOT).as_posix().startswith(old + "/") for old in RETIRED)
-        and not {"target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
+        and not {".superpowers", "target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
     }
     missing = sorted(files - set(descriptions))
     stale = sorted(set(descriptions) - files)
@@ -41,13 +41,13 @@ def main() -> int:
         path for path in ROOT.rglob("*")
         if path.is_dir()
         and not any(path.relative_to(ROOT).as_posix() == old or path.relative_to(ROOT).as_posix().startswith(old + "/") for old in RETIRED)
-        and not {"target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
+        and not {".superpowers", "target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
     )
     failures = []
     for directory in sorted(directories):
         relative_directory = directory.relative_to(ROOT)
         direct_files = sorted(
-            (path for path in directory.iterdir() if path.is_file() and path.name != "tree"),
+            (path for path in directory.iterdir() if path.is_file() and path.name not in {"tree", ".git"}),
             key=lambda path: path.name,
         )
         lines = [

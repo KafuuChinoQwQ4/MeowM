@@ -19,6 +19,14 @@ pub trait LedgerRepository {
     fn list_transactions(&self) -> Result<Vec<Transaction>, RepositoryError>;
     fn update_transaction(&self, transaction: Transaction) -> Result<(), RepositoryError>;
 
+    /// Allows compatible repositories to supply explicit inverse report contributions.
+    fn report_override(
+        &self,
+        _id: TransactionId,
+    ) -> Result<Option<ledger_domain::ReportEffect>, RepositoryError> {
+        Ok(None)
+    }
+
     /// Returns None when no reference balance is set (distinct from known zero).
     /// Confirmed postings in (reference, cutoff] are added; for earlier cutoffs,
     /// postings in (cutoff, reference] are subtracted. Uses microsecond precision.
@@ -42,4 +50,34 @@ pub trait ClassificationRuleRepository {
     fn get_category(&self, id: CategoryId) -> Result<Option<Category>, RepositoryError>;
     fn update_category(&self, category: Category) -> Result<(), RepositoryError>;
     fn list_categories(&self) -> Result<Vec<Category>, RepositoryError>;
+}
+
+/// Optional atomic feature capability. Implementations must validate and mutate
+/// within a single transaction; page limits are 1..=200, newest first then ID.
+pub trait FeatureRepository: LedgerRepository {
+    fn query_transactions(
+        &self,
+        query: ledger_domain::PendingQuery,
+    ) -> Result<ledger_domain::TransactionPage, RepositoryError>;
+    fn confirm_bulk(&self, request: ledger_domain::BulkConfirmation)
+    -> Result<(), RepositoryError>;
+    fn restore_pending_atomic(&self, id: TransactionId) -> Result<(), RepositoryError>;
+    fn ignore_atomic(&self, id: TransactionId) -> Result<(), RepositoryError>;
+    /// Returns the existing reversal on retries, regardless of the proposed new ID.
+    fn reverse_atomic(
+        &self,
+        original: TransactionId,
+        reversal: TransactionId,
+        at: Timestamp,
+    ) -> Result<TransactionId, RepositoryError>;
+    fn edit_atomic(&self, edit: ledger_domain::TransactionEdit) -> Result<(), RepositoryError>;
+    fn source_evidence(
+        &self,
+        id: TransactionId,
+    ) -> Result<Vec<ledger_domain::SourceEvidence>, RepositoryError>;
+    fn privacy_settings(&self) -> Result<ledger_domain::PrivacySettings, RepositoryError>;
+    fn save_privacy_settings(
+        &self,
+        settings: ledger_domain::PrivacySettings,
+    ) -> Result<(), RepositoryError>;
 }

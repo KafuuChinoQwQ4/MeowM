@@ -12,7 +12,7 @@ use ledger_domain::DomainError;
 
 pub use accounts::AccountService;
 pub use classification::{CategoryService, ClassificationRule, ClassificationService};
-pub use ports::{ClassificationRuleRepository, LedgerRepository};
+pub use ports::{ClassificationRuleRepository, FeatureRepository, LedgerRepository};
 pub use reports::{MonthBoundary, ReportQuery, ReportService, ReportSummary};
 pub use transactions::TransactionService;
 

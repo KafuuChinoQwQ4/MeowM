@@ -59,6 +59,17 @@ fn set_reference(
 fn clear_reference(state: State<'_, LedgerState>, account_id: String) -> Result<()> {
     access(state, |l| l.clear_reference(&account_id))
 }
+#[tauri::command]
+fn query_entries(
+    state: State<'_, LedgerState>,
+    query: ledger::PageQuery,
+) -> std::result::Result<ledger::EntryPage, ledger::CommandError> {
+    let ledger = state.0.lock().map_err(|_| ledger::CommandError {
+        code: "busy".into(),
+        message: "账本忙，请重试".into(),
+    })?;
+    ledger.page(query)
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -75,7 +86,8 @@ pub fn run() {
             get_day,
             save_entry,
             set_reference,
-            clear_reference
+            clear_reference,
+            query_entries
         ])
         .run(tauri::generate_context!())
         .expect("启动 MeowM 失败");

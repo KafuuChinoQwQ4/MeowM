@@ -66,7 +66,11 @@ impl<R: LedgerRepository> ReportService<R> {
             {
                 continue;
             }
-            let Some(effect) = report_effect(&transaction) else {
+            let Some(effect) = self
+                .repository
+                .report_override(transaction.id)?
+                .or_else(|| report_effect(&transaction))
+            else {
                 continue;
             };
             summary.income_cny_minor = summary
