@@ -552,3 +552,75 @@ fn invalid_posting_is_rejected_without_repository_writes() {
     assert!(service.repository().get_transaction(id).unwrap().is_none());
     assert_eq!(service.repository().write_count(), 0);
 }
+
+#[test]
+fn sqlite_feature_workflow_keeps_pending_out_of_reports_then_reverses_confirmation() {
+    use ledger_app::{FeatureRepository, ReportQuery, ReportService};
+    use ledger_domain::{BulkConfirmation, PendingQuery};
+    use ledger_storage::sqlite::SqliteLedgerRepository;
+
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let currency = CurrencyCode::new("CNY", 2).unwrap();
+    let wallet = Account::new("review wallet", AccountKind::Asset, currency);
+    repo.insert_account(wallet.clone()).unwrap();
+    let mut candidate = expense_for(wallet.id, 1250, utc("2026-10-15T12:00:00Z"));
+    candidate.status = TransactionStatus::Pending;
+    repo.insert_transaction(candidate.clone()).unwrap();
+    let reports = ReportService::new(repo);
+    let query = || ReportQuery {
+        from_utc_inclusive: utc("2026-10-01T00:00:00Z"),
+        until_utc_exclusive: utc("2026-11-01T00:00:00Z"),
+        month_boundaries_utc: vec![],
+    };
+    assert_eq!(reports.summarize(query()).unwrap().expense_cny_minor, 0);
+
+    // A missing ID prevents even the valid candidate from being confirmed.
+    assert!(
+        reports
+            .repository()
+            .confirm_bulk(BulkConfirmation {
+                transaction_ids: vec![candidate.id, TransactionId::new()],
+            })
+            .is_err()
+    );
+    let pending = reports
+        .repository()
+        .query_transactions(PendingQuery {
+            status: Some(TransactionStatus::Pending),
+            limit: 1,
+            ..Default::default()
+        })
+        .unwrap();
+    assert_eq!(pending.total, 1);
+    assert_eq!(pending.items[0].transaction.id, candidate.id);
+    for _ in 0..2 {
+        reports
+            .repository()
+            .confirm_bulk(BulkConfirmation {
+                transaction_ids: vec![candidate.id],
+            })
+            .unwrap();
+    }
+    assert_eq!(reports.summarize(query()).unwrap().expense_cny_minor, 1250);
+    let reversal = reports
+        .repository()
+        .reverse_atomic(candidate.id, TransactionId::new(), candidate.occurred_at)
+        .unwrap();
+    assert_eq!(
+        reports
+            .repository()
+            .reverse_atomic(candidate.id, TransactionId::new(), candidate.occurred_at,)
+            .unwrap(),
+        reversal
+    );
+    let summary = reports.summarize(query()).unwrap();
+    assert_eq!(
+        (
+            summary.income_cny_minor,
+            summary.expense_cny_minor,
+            summary.net_cny_minor
+        ),
+        (0, 0, 0)
+    );
+    assert_eq!(reports.repository().list_transactions().unwrap().len(), 2);
+}

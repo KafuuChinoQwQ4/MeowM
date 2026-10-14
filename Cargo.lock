@@ -1649,6 +1649,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "ledger-domain",
+ "ledger-storage",
 ]
 
 [[package]]
