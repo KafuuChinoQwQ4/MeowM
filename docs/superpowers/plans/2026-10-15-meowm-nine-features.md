@@ -91,14 +91,16 @@
 - `ImportPreview::build(rows, existing)` 返回新增、精确重复、疑似重复、警告和待确认计数。
 - `PendingService::list(query)`、`confirm(ids, edits)`、`ignore(ids)`、`undo_ignore(id)` 提供分页和幂等收件箱操作。
 
-- [ ] **Step 1: 写解析与预览失败测试**：覆盖 UTF-8/BOM、中文表头、消费、收入、退款、负号、缺失金额、非法日期、重复外部交易号和只有金额日期的疑似重复。
-- [ ] **Step 2: 实现统一标准化**：供应商适配器只产生 `NormalizedImportRow`，不访问 SQLite；未知表头返回明确错误；金额按整数分解析。
-- [ ] **Step 3: 实现去重与证据**：优先使用 `(source_kind, external_transaction_id)`，没有稳定 ID 时只标记候选，不自动合并；写入来源摘要哈希，不保存原始正文。
-- [ ] **Step 4: 实现预览确认事务**：在一笔 SQLite transaction 中写入导入批次、交易、分录和来源证据；任一行失败全部回滚；重复确认返回原收据。
-- [ ] **Step 5: 增加 Tauri 文件选择和预览命令**：文件进入内存解析，前端显示每行状态和警告，确认按钮提交候选 ID 与用户修订字段。
-- [ ] **Step 6: 增加“待确认”导航页**：按来源、状态、日期和账户筛选，支持单条编辑、批量确认、批量忽略和疑似重复展开。
-- [ ] **Step 7: 运行 `cargo test -p ledger-import -p ledger-app`、`npm run build`**，确认导入失败不会改变余额。
-- [ ] **Step 8: Commit**：`feat: add pending inbox and bill import preview`。
+- [x] **Step 1: 写解析与预览失败测试**：覆盖 UTF-8/BOM、中文表头、消费、收入、退款、负号、缺失金额、非法日期、重复外部交易号和只有金额日期的疑似重复。
+- [x] **Step 2: 实现统一标准化**：供应商适配器只产生 `NormalizedImportRow`，不访问 SQLite；未知表头返回明确错误；金额按整数分解析。
+- [x] **Step 3: 实现去重与证据**：优先使用 `(source_kind, external_transaction_id)`，没有稳定 ID 时只标记候选，不自动合并；写入来源摘要哈希，不保存原始正文。
+- [x] **Step 4: 实现预览确认事务**：在一笔 SQLite transaction 中写入导入批次、交易、分录和来源证据；任一行失败全部回滚；重复确认返回原收据。
+- [x] **Step 5: 增加 Tauri 文件选择和预览命令**：文件进入内存解析，前端显示每行状态和警告，确认按钮提交候选 ID 与用户修订字段。
+- [x] **Step 6: 增加“待确认”导航页**：按来源、状态、日期和账户筛选，支持单条编辑、批量确认、批量忽略和疑似重复展开。
+- [x] **Step 7: 运行 `cargo test -p ledger-import -p ledger-app`、`npm run build`**，确认导入失败不会改变余额。
+- [x] **Step 8: Commit**：`feat: add pending inbox and bill import preview`。
+
+**任务 1 完成记录：** 提交 `aca8b1c`、`aaf9850`；导入预览、待确认编辑/确认/忽略/恢复、跨来源疑似查重已接入。65 项相关 Rust 测试、3 项浏览器模拟 IPC 测试及构建通过，独立复审通过。原生文件选择器及 Android 实机流程保留到任务 10 验证；当前支持 UTF-8 CSV，银行使用统一表头。
 
 ### Task 2: 交易详情、编辑、撤销和关联记录
 
