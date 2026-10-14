@@ -1,7 +1,7 @@
 //! Alipay personal bill CSV adapter.
 
 use crate::{Provider, csv, normalize::*};
-use ledger_domain::{SourceKind, TransactionKind};
+use ledger_domain::SourceKind;
 use std::collections::HashSet;
 
 pub fn parse_alipay_csv(bytes: &[u8]) -> Result<crate::ParsedImport, ImportError> {
@@ -22,7 +22,7 @@ pub(crate) fn normalize_row(
     let (parsed, negative) = parse_minor(amount_text, 2, row_number)?;
     let direction = csv::value(row, headers, &["收/支", "收支", "资金流向"]).unwrap_or("");
     let type_text = csv::value(row, headers, &["交易类型", "类型", "分类"]).unwrap_or("");
-    let kind = kind_for(type_text, direction, negative, row_number)?;
+    let kind = direction_kind(type_text, direction, negative, false, row_number)?;
     let amount_minor =
         parsed
             .unsigned_abs()
@@ -72,36 +72,5 @@ pub(crate) fn normalize_row(
         description,
         source_fields_digest: digest,
         warnings,
-    })
-}
-
-fn kind_for(
-    type_text: &str,
-    direction: &str,
-    negative: bool,
-    row: usize,
-) -> Result<TransactionKind, ImportError> {
-    let text = format!("{type_text}{direction}");
-    if text.contains("退款") || text.contains("退回") {
-        return Ok(TransactionKind::Refund);
-    }
-    if text.contains("收入")
-        || text.contains("收款")
-        || text.contains("转入")
-        || text.contains("贷")
-    {
-        return Ok(TransactionKind::Income);
-    }
-    if text.contains("支出")
-        || text.contains("付款")
-        || text.contains("转出")
-        || text.contains("借")
-        || negative
-    {
-        return Ok(TransactionKind::Expense);
-    }
-    Err(ImportError::InvalidDirection {
-        row,
-        value: direction.to_owned(),
     })
 }

@@ -240,3 +240,41 @@ pub(crate) fn parse_minor(
 pub(crate) fn cny() -> CurrencyCode {
     CurrencyCode::new("CNY", 2).expect("CNY is a valid currency")
 }
+
+/// Provider-independent direction handling; explicit directions outrank amount
+/// signs. Bank exports may infer direction from a sign only when direction is absent.
+pub(crate) fn direction_kind(
+    type_text: &str,
+    direction: &str,
+    negative: bool,
+    infer_sign: bool,
+    row: usize,
+) -> Result<TransactionKind, ImportError> {
+    let text = format!("{type_text}{direction}");
+    if text.contains("退款") || text.contains("退回") {
+        return Ok(TransactionKind::Refund);
+    }
+    if ["支出", "付款", "转出", "借"]
+        .iter()
+        .any(|label| text.contains(label))
+    {
+        return Ok(TransactionKind::Expense);
+    }
+    if ["收入", "收款", "转入", "贷"]
+        .iter()
+        .any(|label| text.contains(label))
+    {
+        return Ok(TransactionKind::Income);
+    }
+    if direction.trim().is_empty() && (infer_sign || negative) {
+        return Ok(if negative {
+            TransactionKind::Expense
+        } else {
+            TransactionKind::Income
+        });
+    }
+    Err(ImportError::InvalidDirection {
+        row,
+        value: direction.to_owned(),
+    })
+}

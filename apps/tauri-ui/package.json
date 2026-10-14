@@ -7,13 +7,15 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "test:ui": "node --test tests/pending-inbox.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.11.3",
+    "playwright": "^1.61.1",
     "typescript": "^5.9.0",
     "vite": "^7.0.0"
   }

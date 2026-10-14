@@ -583,7 +583,11 @@ impl Ledger {
                 .into_iter()
                 .map(|c| {
                     let t = c.transaction;
-                    PageEntry {
+                    let sources = repo.source_evidence(t.id).map_err(|_| CommandError {
+                        code: "storage_error".into(),
+                        message: "无法读取流水来源，请重试".into(),
+                    })?;
+                    Ok::<PageEntry, CommandError>(PageEntry {
                         id: t.id.as_uuid().to_string(),
                         status: match t.status {
                             TransactionStatus::Pending => "pending",
@@ -606,15 +610,13 @@ impl Ledger {
                         original_transaction_id: t
                             .original_transaction_id
                             .map(|id| id.as_uuid().to_string()),
-                        sources: repo
-                            .source_evidence(t.id)
-                            .unwrap_or_default()
+                        sources: sources
                             .iter()
                             .map(|e| source_label(e.source_kind).into())
                             .collect(),
-                    }
+                    })
                 })
-                .collect(),
+                .collect::<std::result::Result<Vec<_>, _>>()?,
         })
     }
 }
@@ -730,36 +732,56 @@ impl Ledger {
         }
         let repo = self.repo()?;
         let mut existing = Vec::new();
+        let mut seen_transactions = std::collections::HashSet::new();
         for row in &parsed.rows {
-            // Only retrieve possible matches; do not copy the entire ledger into
-            // the WebView or retain raw source data in the preview cache.
-            let page = repo
-                .query_transactions(ledger_domain::PendingQuery {
-                    from_utc_inclusive: Some(row.occurred_at - chrono::Duration::hours(24)),
-                    until_utc_exclusive: Some(row.occurred_at + chrono::Duration::hours(24)),
-                    limit: 200,
-                    ..Default::default()
-                })
-                .map_err(|error| error.to_string())?;
-            for candidate in page.items {
-                let tx = candidate.transaction;
-                for evidence in repo
-                    .source_evidence(tx.id)
-                    .map_err(|error| error.to_string())?
-                {
-                    existing.push(ledger_import::ExistingImport {
-                        transaction_id: Some(tx.id),
-                        source_kind: evidence.source_kind,
-                        external_transaction_id: evidence.external_transaction_id,
-                        occurred_at: tx.occurred_at,
-                        kind: tx.kind,
-                        amount_minor: tx
-                            .report_amount_cny
-                            .as_ref()
-                            .map(Money::minor_units)
-                            .unwrap_or_default(),
-                        merchant: tx.merchant.clone(),
-                    });
+            // Page nearby candidates in Rust. Provenance is optional for advisory
+            // matching; stable source IDs are indexed separately for exact matches.
+            let mut offset = 0;
+            loop {
+                let page = repo
+                    .query_transactions(ledger_domain::PendingQuery {
+                        from_utc_inclusive: Some(row.occurred_at - chrono::Duration::hours(24)),
+                        until_utc_exclusive: Some(row.occurred_at + chrono::Duration::hours(24)),
+                        offset,
+                        limit: 200,
+                        ..Default::default()
+                    })
+                    .map_err(|error| error.to_string())?;
+                let count = page.items.len() as u32;
+                for candidate in page.items {
+                    let tx = candidate.transaction;
+                    if !seen_transactions.insert(tx.id) {
+                        continue;
+                    }
+                    if let Some(amount) = &tx.report_amount_cny {
+                        existing.push(ledger_import::ExistingImport {
+                            transaction_id: Some(tx.id),
+                            source_kind: ledger_domain::SourceKind::Manual,
+                            external_transaction_id: None,
+                            occurred_at: tx.occurred_at,
+                            kind: tx.kind,
+                            amount_minor: amount.minor_units(),
+                            merchant: tx.merchant.clone(),
+                        });
+                        for evidence in repo
+                            .source_evidence(tx.id)
+                            .map_err(|error| error.to_string())?
+                        {
+                            existing.push(ledger_import::ExistingImport {
+                                transaction_id: Some(tx.id),
+                                source_kind: evidence.source_kind,
+                                external_transaction_id: evidence.external_transaction_id,
+                                occurred_at: tx.occurred_at,
+                                kind: tx.kind,
+                                amount_minor: amount.minor_units(),
+                                merchant: tx.merchant.clone(),
+                            });
+                        }
+                    }
+                }
+                offset = offset.checked_add(count).ok_or("候选流水数量超出范围")?;
+                if count == 0 || u64::from(offset) >= page.total {
+                    break;
                 }
             }
             if let Some(external_id) = &row.external_transaction_id {
@@ -768,7 +790,10 @@ impl Ledger {
                     .find_source_transaction(row.source_kind, external_id)
                     .map_err(|error| error.to_string())?
                 {
-                    if !existing.iter().any(|item| item.transaction_id == Some(id)) {
+                    if !existing.iter().any(|item| {
+                        item.source_kind == row.source_kind
+                            && item.external_transaction_id.as_deref() == Some(external_id)
+                    }) {
                         if let Some(tx) = repo
                             .get_transaction(id)
                             .map_err(|error| error.to_string())?
@@ -1118,6 +1143,30 @@ mod pending_tests {
         );
     }
     #[test]
+    fn preview_matches_manual_records_even_beyond_first_neighbor_page() {
+        let directory = tempfile::tempdir().unwrap();
+        let ledger = Ledger::open(&directory.path().join("manual-preview.sqlite")).unwrap();
+        let account = ledger.accounts().unwrap()[0].id.clone();
+        // Earlier same-day target sorts behind over one full page of later rows.
+        ledger
+            .save_entry(&account, "2026-10-02", "12.30", "manual lunch", false)
+            .unwrap();
+        for _ in 0..205 {
+            ledger
+                .save_entry(&account, "2026-10-03", "1.00", "other", false)
+                .unwrap();
+        }
+        let raw = "交易时间,交易类型,交易对方,商品,收/支,金额(元),交易单号\n2026-10-02 13:00:00,消费,商户,午餐,支出,12.30,manual-later-import\n";
+        let preview = ledger
+            .bill_preview("wechat", raw.as_bytes().to_vec())
+            .unwrap();
+        assert_eq!(preview.new_count, 0);
+        assert_eq!(preview.exact_duplicates, 0);
+        assert_eq!(preview.suspected_duplicates, 1);
+        assert!(preview.rows[0].duplicate_id.is_some());
+    }
+
+    #[test]
     fn imported_refund_requires_explicit_parent_at_confirmation() {
         let directory = tempfile::tempdir().unwrap();
         let ledger = Ledger::open(&directory.path().join("refund.sqlite")).unwrap();
@@ -1133,6 +1182,20 @@ mod pending_tests {
                 vec![preview.rows[0].id.clone()],
                 vec![],
             )
+            .unwrap();
+        ledger
+            .edit_pending(PendingEdit {
+                id: ids[0].clone(),
+                expected_version: 0,
+                account_id: account.clone(),
+                date: "2026-10-02".into(),
+                amount: "4.50".into(),
+                kind: "refund".into(),
+                merchant: "corrected merchant".into(),
+                description: "corrected refund".into(),
+                category_id: None,
+                original_transaction_id: None,
+            })
             .unwrap();
         assert!(ledger.confirm_pending(ids.clone(), vec![]).is_err());
         assert_eq!(

@@ -65,7 +65,17 @@ function toggleNavigation(open: boolean): void {
   get<HTMLButtonElement>('back').disabled = !open && activeView === 'ledger';
   if (!open) get('menu').focus();
 }
-function setView(view: 'ledger' | 'records' | 'platforms' | 'pending'): void { activeView = view; get('nav-pending').classList.toggle('active', view === 'pending'); if (view === 'pending') void loadPending(); get('nav-ledger').classList.toggle('active', view === 'ledger'); get('nav-records').classList.toggle('active', view === 'records'); get('nav-platforms').classList.toggle('active', view === 'platforms'); toggleNavigation(false); renderDay(); }
+function setView(view: 'ledger' | 'records' | 'platforms' | 'pending'): void {
+  activeView = view;
+  get('nav-pending').classList.toggle('active', view === 'pending');
+  get('nav-ledger').classList.toggle('active', view === 'ledger');
+  get('nav-records').classList.toggle('active', view === 'records');
+  get('nav-platforms').classList.toggle('active', view === 'platforms');
+  toggleNavigation(false);
+  if (view === 'pending') void loadPending();
+  else if (view === 'ledger' || view === 'records') void loadDay();
+  else renderDay();
+}
 function controls(): void {
   get<HTMLButtonElement>('back').disabled = saving || (activeView === 'ledger' && !get('side-nav').classList.contains('open'));
   document.querySelector('.ledger-toolbar')!.classList.toggle('platform-mode', (activeView === 'platforms' || activeView === 'pending'));
@@ -377,9 +387,26 @@ function openPendingEdit(entry: PageEntry): void {
   const merchant = field(fields, '商户', 'merchant', '选填'); merchant.value = entry.merchant ?? ''; merchant.maxLength = 100;
   const description = field(fields, '备注', 'description', '选填'); description.value = entry.description ?? ''; description.maxLength = 200;
   const category = selectField(fields, '分类', [['', '未分类']], entry.category_id ?? '', () => {});
-  void api.categories().then(items => { for (const item of items) { const option = node('option', '', item.name); option.value = item.id; category.append(option); } category.value = entry.category_id ?? ''; }).catch(() => {});
+  let categoriesLoaded = false;
+  const categoryError = node('p', 'form-error'); categoryError.hidden = true;
+  const retryCategories = button('重试分类', 'button button-secondary', () => { void loadCategories(); }); retryCategories.hidden = true;
+  fields.append(categoryError, retryCategories);
+  async function loadCategories(): Promise<void> {
+    category.disabled = retryCategories.disabled = true;
+    try {
+      const items = await api.categories();
+      category.replaceChildren();
+      for (const [id, name] of [['', '未分类'], ...items.map(item => [item.id, item.name])]) { const option = node('option', '', name); option.value = id; category.append(option); }
+      category.value = entry.category_id ?? '';
+      categoriesLoaded = true;
+      categoryError.hidden = retryCategories.hidden = true;
+    } catch (cause) {
+      categoryError.textContent = errorText(cause); categoryError.hidden = retryCategories.hidden = false;
+    } finally { category.disabled = saving || !categoriesLoaded; retryCategories.disabled = saving; }
+  }
+  void loadCategories();
   const original = field(fields, '退款原消费 ID（退款必填）', 'original', '原消费交易 ID'); original.value = entry.original_transaction_id ?? '';
-  const edit = (): PendingEdit => ({ id: entry.id, expected_version: entry.edit_version, account_id: account.value, date: date.value, amount: amount.value.trim(), kind: kind.value, merchant: merchant.value.trim(), description: description.value.trim(), category_id: category.value || null, original_transaction_id: original.value.trim() || null });
+  const edit = (): PendingEdit => ({ id: entry.id, expected_version: entry.edit_version, account_id: account.value, date: date.value, amount: amount.value.trim(), kind: kind.value, merchant: merchant.value.trim(), description: description.value.trim(), category_id: categoriesLoaded ? category.value || null : entry.category_id, original_transaction_id: original.value.trim() || null });
   fields.append(button('仅保存修改', 'button button-secondary', () => { void save(form, error, () => api.editPending(edit()), '候选已更新'); }));
   form.addEventListener('submit', event => { event.preventDefault(); if (!validAmount(amount.value.trim())) return invalid(error, '请输入有效正金额', amount); void save(form, error, () => api.confirmPending([entry.id], [edit()]), '已确认'); });
 }

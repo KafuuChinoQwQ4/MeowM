@@ -1046,15 +1046,34 @@ fn source_kind_str(kind: SourceKind) -> &'static str {
 
 impl SqliteLedgerRepository {
     fn validate_feature_transaction(&self, t: &Transaction) -> Result<(), RepositoryError> {
-        ledger_domain::validate_transaction_shape(t, &self.list_accounts()?)
+        let mut shape = t.clone();
+        if t.status == TransactionStatus::Pending
+            && t.kind == TransactionKind::Refund
+            && t.original_transaction_id.is_none()
+        {
+            // Candidate review may correct amount/account/text before the user
+            // resolves a refund parent. Confirmation still validates Refund.
+            shape.kind = TransactionKind::Income;
+        }
+        ledger_domain::validate_transaction_shape(&shape, &self.list_accounts()?)
             .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
         if t.kind == TransactionKind::Refund {
-            let parent = self
-                .get_transaction(t.original_transaction_id.ok_or(RepositoryError::NotFound)?)?
-                .ok_or(RepositoryError::NotFound)?;
-            if parent.kind != TransactionKind::Expense
-                || parent.status != TransactionStatus::Confirmed
-            {
+            if let Some(parent_id) = t.original_transaction_id {
+                let parent = self
+                    .get_transaction(parent_id)?
+                    .ok_or(RepositoryError::NotFound)?;
+                let valid_status = if t.status == TransactionStatus::Pending {
+                    matches!(
+                        parent.status,
+                        TransactionStatus::Pending | TransactionStatus::Confirmed
+                    )
+                } else {
+                    parent.status == TransactionStatus::Confirmed
+                };
+                if parent.kind != TransactionKind::Expense || !valid_status {
+                    return Err(RepositoryError::InvalidData("refund parent must be an expense; confirmation requires a confirmed parent".into()));
+                }
+            } else if t.status != TransactionStatus::Pending {
                 return Err(RepositoryError::InvalidData(
                     "refund parent must be confirmed expense".into(),
                 ));
@@ -1463,7 +1482,6 @@ impl ledger_app::ImportRepository for SqliteLedgerRepository {
                 })
                 .collect();
         }
-        let accounts = self.list_accounts()?;
         tx.execute(
             "INSERT INTO import_batches(id) VALUES(?1)",
             [batch_id.to_string()],
@@ -1482,14 +1500,7 @@ impl ledger_app::ImportRepository for SqliteLedgerRepository {
                     "invalid pending import candidate".into(),
                 ));
             }
-            // An imported refund has no reliable parent until the user links it.
-            // Validate its account/amount now; confirmation still requires a parent.
-            let mut shape = transaction.clone();
-            if shape.kind == TransactionKind::Refund && shape.original_transaction_id.is_none() {
-                shape.kind = TransactionKind::Income;
-            }
-            ledger_domain::validate_transaction_shape(&shape, &accounts)
-                .map_err(|error| RepositoryError::InvalidData(error.to_string()))?;
+            self.validate_feature_transaction(transaction)?;
             let existing = evidence
                 .external_transaction_id
                 .as_deref()

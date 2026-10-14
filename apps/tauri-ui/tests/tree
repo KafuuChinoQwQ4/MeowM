@@ -3,4 +3,5 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
+- `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.
 - `tree` — 本目录直接文件的说明索引。

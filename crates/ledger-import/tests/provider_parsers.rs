@@ -62,3 +62,18 @@ fn row_errors_are_previewed_and_all_decimal_edge_cases_are_integer_checked() {
         Err(ImportError::InvalidUtf8)
     ));
 }
+
+#[test]
+fn bank_positive_debit_labels_take_precedence_and_unknown_directions_are_errors() {
+    let csv = "交易日期,交易金额,交易方向,流水号\n2026-10-03,100,转出,out\n2026-10-03,100,付款,pay\n2026-10-03,100,借,borrow\n2026-10-03,100,支出,expense\n2026-10-03,100,转入,in\n2026-10-03,100,贷,credit\n2026-10-03,100,未知方向,unknown\n2026-10-03,-100,,negative\n";
+    let parsed = parse_bank_csv(csv.as_bytes()).unwrap();
+    assert_eq!(parsed.rows[0].kind, TransactionKind::Expense);
+    assert_eq!(parsed.rows[1].kind, TransactionKind::Expense);
+    assert_eq!(parsed.rows[2].kind, TransactionKind::Expense);
+    assert_eq!(parsed.rows[3].kind, TransactionKind::Expense);
+    assert_eq!(parsed.rows[4].kind, TransactionKind::Income);
+    assert_eq!(parsed.rows[5].kind, TransactionKind::Income);
+    assert_eq!(parsed.rows[6].kind, TransactionKind::Expense);
+    assert_eq!(parsed.errors.len(), 1);
+    assert_eq!(parsed.errors[0].code, "invalid_direction");
+}

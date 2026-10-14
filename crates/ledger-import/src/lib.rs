@@ -8,7 +8,7 @@ pub mod preview;
 pub mod wechat;
 
 use chrono::{DateTime, Utc};
-use ledger_domain::{SourceKind, TransactionKind};
+use ledger_domain::SourceKind;
 use std::collections::HashSet;
 
 pub use alipay::parse_alipay_csv;
@@ -153,17 +153,7 @@ fn bank_row(
     let (parsed, negative) = normalize::parse_minor(amount_text, 2, row_number)?;
     let direction =
         csv::value(row, headers, &["借贷标记", "收支", "借方贷方", "交易方向"]).unwrap_or("");
-    let kind = if direction.contains("退款") {
-        TransactionKind::Refund
-    } else if direction.contains("贷")
-        || direction.contains("收入")
-        || direction.contains("转入")
-        || (!negative && !direction.contains("借") && !direction.contains("支出"))
-    {
-        TransactionKind::Income
-    } else {
-        TransactionKind::Expense
-    };
+    let kind = normalize::direction_kind("", direction, negative, true, row_number)?;
     let amount_minor =
         parsed
             .unsigned_abs()

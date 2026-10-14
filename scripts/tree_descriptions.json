@@ -77,5 +77,6 @@
   "crates/ledger-storage/migrations/0004_nine_features.sql": "保留旧数据的九项功能表、元数据及查询索引迁移。",
   "crates/ledger-import/tests/provider_parsers.rs": "UTF-8/BOM payment and bank parser row validation tests.",
   "crates/ledger-import/tests/import_preview.rs": "Stable-ID and suspected duplicate preview tests.",
-  "crates/ledger-storage/migrations/0005_pending_import.sql": "Bank provenance compatibility and atomic import receipt rows."
+  "crates/ledger-storage/migrations/0005_pending_import.sql": "Bank provenance compatibility and atomic import receipt rows.",
+  "apps/tauri-ui/tests/pending-inbox.test.mjs": "Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry."
 }

@@ -78,3 +78,30 @@ fn preview_separates_new_exact_and_suspected_duplicates_without_merging() {
         PreviewDecision::SuspectedDuplicate { .. }
     ));
 }
+
+#[test]
+fn suspected_duplicates_match_other_origins_while_exact_ids_stay_source_scoped() {
+    let row = row(Some("same-id"), "2026-10-01T00:00:00Z", 100);
+    let transaction_id = ledger_domain::TransactionId::new();
+    for source in [
+        SourceKind::Manual,
+        SourceKind::Notification,
+        SourceKind::Alipay,
+    ] {
+        let existing = ExistingImport {
+            transaction_id: Some(transaction_id),
+            source_kind: source,
+            external_transaction_id: Some("same-id".into()),
+            occurred_at: row.occurred_at,
+            kind: row.kind,
+            amount_minor: row.amount_minor,
+            merchant: row.merchant.clone(),
+        };
+        let preview = ImportPreview::build(std::slice::from_ref(&row), &[existing]);
+        assert_eq!(preview.exact_duplicate_count(), 0);
+        assert_eq!(preview.suspected_duplicate_count(), 1);
+        assert!(
+            matches!(preview.rows[0].decision, PreviewDecision::SuspectedDuplicate { transaction_id: Some(id) } if id == transaction_id)
+        );
+    }
+}

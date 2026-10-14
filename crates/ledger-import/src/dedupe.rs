@@ -40,9 +40,8 @@ pub fn classify_duplicate(
         }
     }
     let candidate = existing.iter().find(|candidate| {
-        candidate.source_kind == row.source_kind
-            && candidate.occurred_at.with_timezone(&Local).date_naive()
-                == row.occurred_at.with_timezone(&Local).date_naive()
+        candidate.occurred_at.with_timezone(&Local).date_naive()
+            == row.occurred_at.with_timezone(&Local).date_naive()
             && candidate.kind == row.kind
             && candidate.amount_minor == row.amount_minor
             && (candidate.merchant.is_none()

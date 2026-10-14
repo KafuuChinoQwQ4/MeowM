@@ -784,3 +784,77 @@ fn sqlite_invalid_import_row_rolls_back_batch_postings_and_evidence() {
     assert_eq!(service.repository().source_evidence_count().unwrap(), 0);
     assert_eq!(service.repository().import_batch_count().unwrap(), 0);
 }
+
+#[test]
+fn sqlite_pending_refund_edits_allow_unresolved_parent_but_confirmation_remains_strict() {
+    use ledger_app::{FeatureRepository, PendingService};
+    use ledger_domain::{SourceEvidence, SourceKind, TransactionEdit};
+    use ledger_storage::sqlite::SqliteLedgerRepository;
+    use uuid::Uuid;
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let wallet = Account::new(
+        "wallet",
+        AccountKind::Asset,
+        CurrencyCode::new("CNY", 2).unwrap(),
+    );
+    repo.insert_account(wallet.clone()).unwrap();
+    let parent = expense_for(wallet.id, 1000, utc("2026-10-01T00:00:00Z"));
+    repo.insert_transaction(parent.clone()).unwrap();
+    let mut refund = expense_for(wallet.id, 500, utc("2026-10-02T00:00:00Z"));
+    refund.kind = TransactionKind::Refund;
+    refund.postings[0].delta = Money::new(500, CurrencyCode::new("CNY", 2).unwrap());
+    let batch = Uuid::new_v4();
+    let service = PendingService::new(repo);
+    service
+        .stage_batch(
+            batch,
+            vec![(
+                refund.clone(),
+                SourceEvidence {
+                    source_kind: SourceKind::WeChat,
+                    external_transaction_id: Some("refund-review".into()),
+                    import_batch_id: batch,
+                    source_fields_digest: [5; 32],
+                },
+            )],
+        )
+        .unwrap();
+    refund.description = Some("corrected refund".into());
+    service
+        .repository()
+        .edit_atomic(TransactionEdit {
+            transaction: refund.clone(),
+            expected_version: 0,
+        })
+        .unwrap();
+    assert!(service.confirm(vec![refund.id], vec![]).is_err());
+    refund.original_transaction_id = Some(parent.id);
+    service
+        .repository()
+        .edit_atomic(TransactionEdit {
+            transaction: refund.clone(),
+            expected_version: 1,
+        })
+        .unwrap();
+    assert!(service.confirm(vec![refund.id], vec![]).is_err());
+    assert_eq!(
+        service
+            .repository()
+            .get_transaction(refund.id)
+            .unwrap()
+            .unwrap()
+            .status,
+        TransactionStatus::Pending
+    );
+    service.confirm(vec![parent.id], vec![]).unwrap();
+    service.confirm(vec![refund.id], vec![]).unwrap();
+    assert_eq!(
+        service
+            .repository()
+            .get_transaction(refund.id)
+            .unwrap()
+            .unwrap()
+            .status,
+        TransactionStatus::Confirmed
+    );
+}
