@@ -64,13 +64,15 @@
 - `LedgerRepository` 增加按状态、日期、账户、分类、商户和关键词查询的接口，以及原子批量确认、原子撤销和导入/通知来源证据查询接口。
 - Tauri 命令统一返回可序列化的 DTO 和用户可读错误；前端 API 不直接暴露 SQLite 行对象。
 
-- [ ] **Step 1: 写迁移失败测试**：从 schema version 3 打开数据库，断言新表和索引存在，旧账户、流水、分类和来源证据数量及 ID 不变；重复打开不重复迁移。
-- [ ] **Step 2: 写领域不变量测试**：Pending 不进入余额；撤销交易必须引用已确认原交易；预算金额非负；周期模板不能生成重复实例；对账差异使用整数分。
-- [ ] **Step 3: 实现迁移和基础类型**：新增 `pending_review` 查询索引、预算表、周期模板/实例表、对账表、通知设置表、应用设置表和审计事件表；为编辑/撤销、规则、来源和备份保留外键。
-- [ ] **Step 4: 扩展 repository/application ports**：为后续任务提供精确的查询、批量事务和设置读写接口；所有新写接口在同一 SQLite transaction 中完成校验和写入。
-- [ ] **Step 5: 暴露最小 Tauri DTO**：增加分页、过滤、状态和错误码字段，确保大账本不会把所有原始记录一次性传到 WebView。
-- [ ] **Step 6: 运行 `cargo test -p ledger-storage -p ledger-app`**，确认旧测试和迁移回放测试通过。
-- [ ] **Step 7: Commit**：`feat: define nine ledger feature contracts`。
+- [x] **Step 1: 写迁移失败测试**：从 schema version 3 打开数据库，断言新表和索引存在，旧账户、流水、分类和来源证据数量及 ID 不变；重复打开不重复迁移。
+- [x] **Step 2: 写领域不变量测试**：Pending 不进入余额；撤销交易必须引用已确认原交易；预算金额非负；周期模板不能生成重复实例；对账差异使用整数分。
+- [x] **Step 3: 实现迁移和基础类型**：新增 `pending_review` 查询索引、预算表、周期模板/实例表、对账表、通知设置表、应用设置表和审计事件表；为编辑/撤销、规则、来源和备份保留外键。
+- [x] **Step 4: 扩展 repository/application ports**：为后续任务提供精确的查询、批量事务和设置读写接口；所有新写接口在同一 SQLite transaction 中完成校验和写入。
+- [x] **Step 5: 暴露最小 Tauri DTO**：增加分页、过滤、状态和错误码字段，确保大账本不会把所有原始记录一次性传到 WebView。
+- [x] **Step 6: 运行 `cargo test -p ledger-storage -p ledger-app`**，确认旧测试和迁移回放测试通过。
+- [x] **Step 7: Commit**：`feat: define nine ledger feature contracts`。
+
+**任务 0 完成记录：** 提交 `7bdf86d`、`1d0ea68`；schema 3/4 迁移、批量回滚、撤销抵消和分页验证通过，独立审查通过。
 
 ### Task 1: 待确认收件箱和账单导入预览
 
