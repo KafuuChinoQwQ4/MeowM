@@ -1,0 +1,70 @@
+dialog {
+  border: 0;
+  border-radius: 25px;
+  background: #fffefa;
+  color: var(--ink);
+  width: min(100% - 28px, 480px);
+  padding: 0;
+  box-shadow: 0 24px 80px rgba(31, 57, 50, 0.25);
+  max-height: min(92vh, 700px);
+}
+dialog::backdrop {
+  background: rgba(28, 54, 48, 0.28);
+  backdrop-filter: blur(3px);
+}
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 28px 28px 8px;
+}
+.sheet-head h2 {
+  font-size: 1.35rem;
+  margin: 0;
+}
+.sheet-form {
+  padding: 14px 28px 28px;
+}
+.sheet-description,
+.sheet-context {
+  font-size: 0.77rem;
+  color: var(--muted);
+  margin: 4px 28px 12px;
+}
+.sheet-context {
+  font-family: 'DM Mono', monospace;
+}
+@media (max-width: 560px) {
+  .sheet-head,
+  .sheet-form {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
+@media (max-width: 560px) {
+  .sheet-description,
+  .sheet-context {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+}
+.sheet-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.sheet-head .icon-button {
+  border: 0;
+  background: #f0f3ee;
+}
+dialog {
+  background: #fcfdff;
+  border-color: var(--line);
+}
+dialog::backdrop {
+  background: rgba(53, 70, 95, 0.22);
+}
+.sheet-head .icon-button {
+  background: #edf2fc;
+  color: #607c9d;
+}

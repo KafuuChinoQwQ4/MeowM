@@ -13,7 +13,8 @@ test('calendar navigation crosses leap day and year boundary', () => {
   assert.equal(validDate('2024-02-29'), true);
 });
 test('entry amounts are positive decimals with at most two places; references allow zero and negative', () => {
-  for (const value of ['0', '-1', '1.001', '1e3', '', 'NaN']) assert.equal(validAmount(value), false, value);
+  for (const value of ['0', '-1', '1.001', '1e3', '', 'NaN'])
+    assert.equal(validAmount(value), false, value);
   for (const value of ['0.01', '12', '12.50']) assert.equal(validAmount(value), true, value);
   assert.equal(validAmount('0', true), true);
   assert.equal(validAmount('-12.50', true), true);

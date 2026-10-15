@@ -1,0 +1,159 @@
+.balance-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.balance-panel {
+  padding: 25px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: flex-start;
+}
+.balance-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.balance-value {
+  font-size: 1.22rem;
+}
+.balance-hint {
+  font-size: 0.68rem;
+  color: #91a099;
+  margin: 7px 0 0;
+}
+.balance-actions {
+  display: flex;
+  gap: 4px;
+}
+@media (max-width: 560px) {
+  .balance-panel {
+    padding: 20px 0;
+    display: block;
+  }
+}
+@media (max-width: 560px) {
+  .balance-actions {
+    margin-top: 10px;
+  }
+}
+.balance-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 12px;
+  padding: 20px 0 0;
+  border-bottom: 0;
+}
+.balance-info {
+  min-width: 0;
+}
+.balance-label {
+  font-size: 1rem;
+}
+.balance-value {
+  display: block;
+  font-size: clamp(1.6rem, 6vw, 2.2rem);
+  overflow-wrap: anywhere;
+}
+.balance-hint {
+  font-size: 0.78rem;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+.balance-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 0;
+}
+.balance-actions .text-button {
+  font-size: 0.95rem;
+  padding: 12px;
+  background: #edf1ed;
+  border-radius: 12px;
+}
+@media (max-height: 600px) {
+  .balance-panel {
+    padding-top: 10px;
+    gap: 6px;
+    flex: 1.4;
+  }
+}
+@media (max-height: 600px) {
+  .balance-value {
+    font-size: 1.4rem;
+  }
+}
+@media (max-height: 600px) {
+  .balance-hint {
+    font-size: 0.68rem;
+    margin-top: 2px;
+  }
+}
+@media (max-height: 600px) {
+  .balance-actions .text-button {
+    padding: 8px;
+    font-size: 0.8rem;
+  }
+}
+.balance-panel {
+  flex: none;
+  min-height: 0;
+  padding: 22px 0 4px;
+  gap: 10px;
+}
+.balance-label {
+  font-size: 0.85rem;
+}
+.balance-value {
+  font-size: 1.5rem;
+}
+.balance-hint {
+  font-size: 0.72rem;
+}
+.balance-actions {
+  gap: 6px;
+}
+.balance-actions .text-button {
+  padding: 10px;
+  font-size: 0.8rem;
+}
+@media (max-height: 600px) {
+  .balance-panel {
+    padding-top: 12px;
+    gap: 6px;
+  }
+}
+@media (max-height: 600px) {
+  .balance-value {
+    font-size: 1.25rem;
+  }
+}
+@media (max-height: 600px) {
+  .balance-hint {
+    font-size: 0.65rem;
+  }
+}
+@media (max-height: 600px) {
+  .balance-actions .text-button {
+    padding: 8px;
+  }
+}
+@media (max-height: 600px) {
+  .balance-panel {
+    padding-top: 8px;
+  }
+}
+.balance-actions .text-button {
+  background: #e7f0fc;
+  color: #42658d;
+}
+.balance-hint {
+  color: #68788e;
+}
+.balance-actions .text-button {
+  background: #d4e5fc;
+}

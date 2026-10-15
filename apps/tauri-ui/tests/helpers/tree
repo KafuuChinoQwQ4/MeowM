@@ -1,0 +1,7 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `browser.mjs` — 浏览器测试共用的 Vite 与 Chromium 启停和页面创建。
+- `workflow-ipc.mjs` — React 工作流测试的可控 Tauri IPC 夹具。
+- `tree` — 本目录直接文件的说明索引。

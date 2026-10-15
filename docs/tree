@@ -2,6 +2,6 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `architecture.md` — Rust ledger and Tauri TypeScript Android interface responsibility boundaries.
+- `architecture.md` — React、Tauri 命令及 SQLite 模块的职责与依赖边界。
 - `命令` — Local command notes.
 - `tree` — 本目录直接文件的说明索引。

@@ -1,0 +1,229 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap');
+:root {
+  font-family: Manrope, 'Noto Sans SC', sans-serif;
+  color: #213b39;
+  background: #f7f8f2;
+  line-height: 1.5;
+  --ink: #213b39;
+  --muted: #71817a;
+  --line: #dbe3dc;
+  --teal: #0f766e;
+  --cream: #f7f8f2;
+  --shadow: 0 20px 50px rgba(37, 69, 62, 0.08);
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--cream);
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.local-badge {
+  color: var(--muted);
+  font-size: 0.74rem;
+  border-left: 1px solid var(--line);
+  padding-left: 16px;
+}
+.local-badge i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #59ad8b;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.button {
+  border: 0;
+  border-radius: 13px;
+  padding: 12px 18px;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+.button-primary {
+  background: var(--teal);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(15, 118, 110, 0.18);
+}
+.button-secondary {
+  background: #e8eeea;
+}
+.button-quiet {
+  background: #edf1ed;
+  color: var(--teal);
+  padding: 10px 14px;
+}
+.icon-button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fffefa;
+  font-size: 1.45rem;
+  line-height: 1;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.text-button {
+  border: 0;
+  background: transparent;
+  color: var(--teal);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 7px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 560px) {
+  .local-badge {
+    font-size: 0.65rem;
+    padding-left: 10px;
+  }
+}
+@media (max-width: 560px) {
+  .button-quiet {
+    font-size: 0.72rem;
+    padding: 9px 10px;
+  }
+}
+.muted-button {
+  color: #97a19b;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline: 3px solid #b6d9cc;
+  outline-offset: 3px;
+}
+html,
+body,
+#app {
+  height: 100%;
+  overflow: hidden;
+}
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+#new-account {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.button-quiet {
+  font-size: 0.85rem;
+  padding: 12px;
+}
+.icon-button {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+}
+#day-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+@media (max-width: 360px) {
+  .icon-button {
+    width: 34px;
+    height: 36px;
+  }
+}
+@media (max-width: 360px) {
+  .button-quiet {
+    font-size: 0.75rem;
+    padding: 10px;
+  }
+}
+@media (max-width: 360px) {
+  .icon-button {
+    width: 30px;
+    height: 34px;
+  }
+}
+:root {
+  --ink: #35465f;
+  --muted: #68788e;
+  --line: #dce5f0;
+  --teal: #426c9e;
+  --cream: #f4f8ff;
+  --shadow: 0 14px 36px rgba(97, 126, 166, 0.09);
+  color: var(--ink);
+  background: var(--cream);
+}
+body {
+  background: linear-gradient(150deg, #eff7ff 0%, #f7f8ff 48%, #fff1f6 100%);
+}
+.button-primary {
+  background: #517dab;
+  color: #fff;
+  box-shadow: 0 5px 14px rgba(81, 125, 171, 0.18);
+}
+.button-quiet,
+.button-secondary {
+  background: #e7f0fc;
+  color: #42658d;
+}
+.icon-button {
+  background: #f7faff;
+  color: #617c9c;
+}
+.muted-button {
+  color: #7f6c85;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
+  outline-color: #9dbce8;
+}
+:root {
+  --cream: #edf3ff;
+  --line: #cbdaf0;
+  --teal: #3669a5;
+}
+body {
+  background: linear-gradient(145deg, #dcecff 0%, #e9ecff 45%, #ffdeec 100%);
+}
+.button-primary {
+  background: #467bb8;
+}
+.button-quiet {
+  background: #d4e5fc;
+}

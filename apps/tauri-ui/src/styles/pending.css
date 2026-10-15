@@ -1,0 +1,77 @@
+.pending-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.pending-filters .form-field {
+  font-size: 0.72rem;
+  min-width: 0;
+}
+.pending-filters input,
+.pending-filters select {
+  width: 100%;
+  min-width: 0;
+}
+.pending-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+  font-size: 0.78rem;
+}
+.pending-actions .button {
+  padding: 9px 12px;
+}
+.pending-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 10px 0;
+  background: #f7faff;
+}
+.pending-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+.pending-top strong:first-of-type {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pending-top input,
+.pending-actions input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--teal);
+}
+.pending-card .field-hint {
+  margin: 8px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pending-card summary {
+  font-size: 0.75rem;
+  color: var(--teal);
+  cursor: pointer;
+}
+.pending-card details .form-field {
+  font-size: 0.75rem;
+  margin-top: 8px;
+}
+.pending-card .form-error {
+  font-size: 0.75rem;
+}
+.pending-actions button:disabled {
+  opacity: 0.45;
+}
+.pending-filters label {
+  margin: 0;
+}
+#day-content:has(.pending-filters) {
+  overflow: auto;
+  max-height: none;
+}

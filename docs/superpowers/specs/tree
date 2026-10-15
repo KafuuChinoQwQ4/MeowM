@@ -3,4 +3,5 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `2026-10-07-local-expense-manager-design.md` — Approved product and architecture design specification.
+- `2026-10-16-react-modularization-design.md` — 已确认的 React 迁移、解耦边界和兼容性设计。
 - `tree` — 本目录直接文件的说明索引。

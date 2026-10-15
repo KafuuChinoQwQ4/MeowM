@@ -2,9 +2,6 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `api.ts` — Typed Tauri ledger, bill preview and pending inbox contracts.
-- `format.ts` — Exact decimal formatting, input validation and calendar helpers.
-- `main.ts` — Ledger, platform management, pending inbox and bill preview workflows.
-- `styles.css` — Responsive ledger styles and mobile dialog layouts.
-- `transactions.ts` — Transaction detail dialog with edit impact preview and reversal confirmation.
+- `format.ts` — 旧格式化工具导出路径的兼容入口。
+- `main.tsx` — React 挂载入口及模块化样式入口。
 - `tree` — 本目录直接文件的说明索引。

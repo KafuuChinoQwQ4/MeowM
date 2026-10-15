@@ -1,18 +1,18 @@
 # 本地优先个人收支管理
 
-安卓优先、离线可用的个人账本。Rust 工作区承载领域模型、账务用例、导入解析、通知解析和备份逻辑；Tauri + TypeScript 提供界面，Android 使用 Tauri WebView 壳。
+安卓优先、离线可用的个人账本。Rust 工作区承载领域模型、账务用例、导入解析、通知解析和备份逻辑；Tauri + React + TypeScript 提供界面，Android 使用 Tauri WebView 壳。
 
 ## 目录约定
 
 每个目录的 `tree` 只描述该目录的直接文件。新增或删除文件时，先更新 `scripts/tree_descriptions.json`，再运行 `python3 scripts/update_tree.py`；用 `python3 scripts/update_tree.py --check` 检查索引。生成目录 `gen`、构建产物及已退役界面目录不生成索引，避免将 `tree` 当成 Android 资源编译。
 
-账本核心和每日收支界面已接通 SQLite。导入、通知解析和备份模块尚未接入新界面。
+账本核心、每日收支、平台管理、交易编辑/撤销和账单导入待确认流程已接通 SQLite。通知采集和备份模块尚未接入界面。
 
 ## 收支与可选参考余额
 
 新平台默认不记录初始金额，日末余额显示“尚未设置”，收入、支出和净额仍按已确认流水统计。设置参考余额时，金额代表所选本地日期的日末余额。例如 4 号日末为 100 元，5 号净收入 20 元，则 5 号日末为 120 元；若 4 号净收入 15 元，则 3 号日末为 85 元。
 
-每个平台独立保存一个参考金额和时间，再次设置会替换参考点；清除参考不会删除流水。参考金额本身不产生流水，查询根据最新的已确认流水推算。余额支持零和负数，金额使用整数分计算。数据库自动升级到版本 3，保留旧账户金额、时间和流水，不会自动清理旧账本。
+每个平台独立保存一个参考金额和时间，再次设置会替换参考点；清除参考不会删除流水。参考金额本身不产生流水，查询根据最新的已确认流水推算。余额支持零和负数，金额使用整数分计算。数据库自动升级到版本 5，保留旧账户金额、时间和流水，不会自动清理旧账本。
 
 ## 运行界面
 
@@ -53,13 +53,15 @@ adb -s DEVICE_SERIAL shell am start -n com.example.localledger/.MainActivity
 ```bash
 cd apps/tauri-ui
 npm run build
+npm run test:ui
+npm run format:check
 node --experimental-strip-types --test tests/format.test.ts
 cd ../..
-cargo test -p ledger-tauri-ui --lib
+cargo test --workspace
 python3 scripts/update_tree.py --check
 ```
 
-Rust 接口测试使用真实 SQLite，覆盖默认无余额、日末参考金额、双向推算和重启保存；Android 仍需安装 APK 验证实际 WebView 到 Rust 的调用。
+Rust 接口测试使用真实 SQLite，覆盖参考余额、导入待确认和交易编辑/撤销等流程；浏览器测试模拟 Tauri IPC，覆盖界面状态与请求参数。Android 仍需安装 APK 验证实际 WebView 到 Rust 的调用。
 
 ## 平台管理
 

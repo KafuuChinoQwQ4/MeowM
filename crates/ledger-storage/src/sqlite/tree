@@ -1,0 +1,17 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `accounts.rs` — 平台分类及元数据持久化。
+- `classification.rs` — 分类与分类规则仓储实现。
+- `core_repository.rs` — 账户、交易、日末余额和来源仓储实现。
+- `diagnostics.rs` — 数据库诊断及审计数量查询。
+- `feature_repository.rs` — 分页查询、候选批处理、版本编辑及隐私仓储实现。
+- `imports.rs` — 来源匹配及导入候选的原子存储。
+- `mapping.rs` — SQLite 行到领域对象及查询结果的映射。
+- `migrations.rs` — 保留旧数据的版本迁移及结构验证。
+- `mod.rs` — 私有 SQLite 连接、初始化和公开仓储入口。
+- `reversals.rs` — 交易撤销、审计链及版本化写入。
+- `transaction_write.rs` — 事务内交易、分录及审计记录写入。
+- `validation.rs` — 写入前的金额、账户、分类及引用校验。
+- `tree` — 本目录直接文件的说明索引。

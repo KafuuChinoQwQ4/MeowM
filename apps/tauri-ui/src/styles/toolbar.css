@@ -1,0 +1,232 @@
+.ledger-toolbar,
+.date-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.account-field label {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.account-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 700;
+}
+.account-select-wrap span {
+  color: var(--teal);
+}
+.account-select-wrap select {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-size: 1.08rem;
+  font-weight: 700;
+  padding-right: 20px;
+}
+.date-bar {
+  border-top: 1px solid var(--line);
+  margin-top: 30px;
+  padding-top: 24px;
+}
+.date-controls {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.date-label input {
+  border: 0;
+  background: transparent;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.9rem;
+  text-align: center;
+  outline: 0;
+}
+.today-button {
+  border: 0;
+  background: transparent;
+  color: var(--teal);
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 7px;
+}
+@media (max-width: 560px) {
+  .ledger-toolbar {
+    align-items: flex-end;
+  }
+}
+@media (max-width: 560px) {
+  .date-bar {
+    margin-top: 24px;
+    padding-top: 19px;
+  }
+}
+@media (max-width: 560px) {
+  .date-label input {
+    font-size: 0.78rem;
+    min-width: 114px;
+  }
+}
+.ledger-toolbar {
+  gap: 12px;
+  align-items: center;
+}
+.account-field {
+  min-width: 0;
+  flex: 1;
+}
+.account-field label {
+  font-size: 0.85rem;
+  margin-bottom: 6px;
+}
+.account-select-wrap {
+  min-width: 0;
+}
+.account-select-wrap select {
+  min-width: 0;
+  width: 100%;
+  font-size: 1.45rem;
+  text-overflow: ellipsis;
+}
+.today-button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.date-bar {
+  gap: 6px;
+  margin-top: clamp(14px, 3vh, 26px);
+  padding-top: 16px;
+}
+.date-controls {
+  min-width: 0;
+  gap: 7px;
+}
+.date-label {
+  min-width: 0;
+}
+.date-label input {
+  width: 136px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 0.9rem;
+}
+.today-button {
+  font-size: 0.85rem;
+  padding: 6px;
+}
+@media (max-width: 360px) {
+  .date-controls {
+    gap: 4px;
+  }
+}
+@media (max-width: 360px) {
+  .date-label input {
+    width: 116px;
+    font-size: 0.78rem;
+  }
+}
+@media (max-width: 360px) {
+  .today-button {
+    font-size: 0.75rem;
+    padding: 4px;
+  }
+}
+@media (max-height: 600px) {
+  .account-select-wrap select {
+    font-size: 1.15rem;
+  }
+}
+@media (max-height: 600px) {
+  .date-bar {
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+}
+.ledger-toolbar {
+  align-items: flex-start;
+  gap: 8px;
+}
+.toolbar-actions {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 8px;
+  flex: none;
+}
+.toolbar-actions .button {
+  padding: 9px 12px;
+  font-size: 0.8rem;
+}
+.account-select-wrap select {
+  font-size: 1.2rem;
+  padding-right: 0;
+}
+.account-field label {
+  font-size: 0.75rem;
+}
+.date-bar {
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.date-controls {
+  flex: 1;
+  justify-content: space-between;
+  gap: 4px;
+}
+.date-label input {
+  width: 122px;
+  font-size: 0.8rem;
+}
+.today-button {
+  margin-left: auto;
+  font-size: 0.75rem;
+}
+@media (max-width: 360px) {
+  .date-label input {
+    width: 114px;
+    font-size: 0.75rem;
+  }
+}
+.ledger-toolbar {
+  padding-left: 26px;
+}
+@media (max-width: 360px) {
+  .ledger-toolbar {
+    padding-left: 22px;
+  }
+}
+@media (max-height: 600px) {
+  .date-bar {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}
+@media (max-height: 600px) {
+  .toolbar-actions {
+    gap: 4px;
+  }
+}
+.ledger-toolbar {
+  padding-left: 52px;
+}
+@media (max-width: 360px) {
+  .ledger-toolbar {
+    padding-left: 48px;
+  }
+}
+@media (max-width: 360px) {
+  .account-select-wrap {
+    gap: 5px;
+  }
+}
+@media (max-width: 360px) {
+  .account-select-wrap select {
+    font-size: 1.05rem;
+  }
+}

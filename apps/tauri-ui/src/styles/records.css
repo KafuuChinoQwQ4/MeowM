@@ -1,0 +1,147 @@
+.records-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.records {
+  padding-top: 28px;
+}
+.records-heading {
+  align-items: baseline;
+}
+.records-heading h2 {
+  font-size: 1.08rem;
+  margin: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.count-badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.63rem;
+  color: var(--teal);
+  background: #e1eee8;
+  border-radius: 20px;
+  padding: 3px 7px;
+}
+.records-caption {
+  color: #8a9992;
+  font-size: 0.7rem;
+}
+.entry-list {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0;
+}
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 0;
+  border-bottom: 1px solid #eef1ed;
+}
+.entry-icon {
+  width: 37px;
+  height: 37px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  flex: none;
+}
+.entry-icon.income {
+  background: #dff0e8;
+  color: #37826a;
+}
+.entry-icon.expense {
+  background: #f8e6dc;
+  color: #bd795b;
+}
+.entry-body {
+  min-width: 0;
+  flex: 1;
+}
+.entry h3 {
+  font-size: 0.84rem;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry p {
+  font-size: 0.68rem;
+  color: #99a49e;
+  margin: 0;
+}
+.entry-amount {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.83rem;
+  white-space: nowrap;
+}
+.income-text {
+  color: #317e68;
+}
+@media (max-width: 560px) {
+  .records-heading {
+    display: block;
+  }
+}
+@media (max-width: 560px) {
+  .records-caption {
+    display: block;
+    margin-top: 4px;
+  }
+}
+.records {
+  display: none;
+}
+.records {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-top: 16px;
+  overflow: hidden;
+}
+.records-heading h2 {
+  font-size: 1rem;
+}
+.entry-list {
+  margin: 8px 0;
+}
+.entry {
+  height: 62px;
+  padding: 8px 0;
+  gap: 8px;
+}
+.entry-icon {
+  display: none;
+}
+.entry-amount {
+  font-size: 0.75rem;
+}
+.record-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  gap: 4px;
+}
+.entry p {
+  color: #68788e;
+}
+.count-badge,
+.entry-icon.income {
+  background: #e3eefc;
+  color: #426c9e;
+}
+.entry-icon.expense {
+  background: #fae6ef;
+  color: #95617e;
+}
+.income-text {
+  color: #426c9e;
+}
+.entry {
+  border-color: #e7edf5;
+}

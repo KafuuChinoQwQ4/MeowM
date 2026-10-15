@@ -1,0 +1,204 @@
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 13px;
+  margin-top: 27px;
+}
+.summary-card {
+  border-radius: 17px;
+  padding: 19px 18px;
+  min-height: 108px;
+}
+.summary-card.income {
+  background: #dff0e8;
+}
+.summary-card.expense {
+  background: #f5d9c7;
+}
+.summary-card.net {
+  background: #e9e7f2;
+}
+.summary-title {
+  display: flex;
+  justify-content: space-between;
+  color: #53716a;
+  font-size: 0.72rem;
+}
+.summary-amount {
+  font-family: 'DM Mono', monospace;
+  font-size: 1.46rem;
+  margin-top: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.currency {
+  font-size: 0.75rem;
+  color: #77918a;
+  margin-right: 4px;
+}
+@media (max-width: 560px) {
+  .summary-grid {
+    gap: 7px;
+  }
+}
+@media (max-width: 560px) {
+  .summary-card {
+    padding: 14px 9px;
+    min-height: 95px;
+  }
+}
+@media (max-width: 560px) {
+  .summary-title {
+    font-size: 0.62rem;
+  }
+}
+@media (max-width: 560px) {
+  .summary-amount {
+    font-size: 1rem;
+    margin-top: 12px;
+  }
+}
+@media (max-width: 360px) {
+  .summary-card {
+    padding: 13px 7px;
+  }
+}
+@media (max-width: 360px) {
+  .summary-amount {
+    font-size: 0.86rem;
+  }
+}
+@media (max-width: 360px) {
+  .summary-title {
+    font-size: 0.57rem;
+  }
+}
+.summary-grid {
+  flex: 1.2;
+  min-height: 92px;
+  margin-top: 18px;
+  gap: 9px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.summary-card {
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.summary-title {
+  font-size: 0.85rem;
+}
+.summary-amount {
+  font-size: clamp(1.05rem, 4.5vw, 1.8rem);
+  margin-top: 16px;
+}
+.currency {
+  font-size: 0.8rem;
+}
+@media (max-width: 360px) {
+  .summary-title {
+    font-size: 0.72rem;
+  }
+}
+@media (max-width: 360px) {
+  .summary-card {
+    padding: 12px 8px;
+  }
+}
+@media (max-width: 360px) {
+  .summary-icon {
+    display: none;
+  }
+}
+@media (max-height: 600px) {
+  .summary-grid {
+    margin-top: 10px;
+    min-height: 70px;
+  }
+}
+@media (max-height: 600px) {
+  .summary-card {
+    padding: 8px;
+  }
+}
+@media (max-height: 600px) {
+  .summary-amount {
+    margin-top: 6px;
+  }
+}
+.summary-grid {
+  flex: none;
+  height: 100px;
+  min-height: 0;
+  margin-top: 12px;
+  gap: 6px;
+}
+.summary-card {
+  padding: 10px 6px;
+  border-radius: 12px;
+}
+.summary-title {
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+.summary-icon {
+  display: none;
+}
+.summary-amount {
+  font-size: 1rem;
+  margin-top: 10px;
+}
+@media (max-width: 360px) {
+  .summary-title {
+    font-size: 0.6rem;
+  }
+}
+@media (max-width: 360px) {
+  .summary-amount {
+    font-size: 0.85rem;
+  }
+}
+@media (max-width: 360px) {
+  .currency {
+    font-size: 0.65rem;
+    margin-right: 2px;
+  }
+}
+@media (max-height: 600px) {
+  .summary-grid {
+    height: 80px;
+  }
+}
+@media (max-height: 600px) {
+  .summary-grid {
+    height: 70px;
+  }
+}
+.summary-card.income {
+  background: #dfedfc;
+}
+.summary-card.expense {
+  background: #f9e3ed;
+}
+.summary-card.net {
+  background: #eae8fb;
+}
+.summary-title {
+  color: #536881;
+}
+.currency {
+  color: #647b96;
+}
+.summary-card.income {
+  background: #c8e1ff;
+}
+.summary-card.expense {
+  background: #f8ccdf;
+}
+.summary-card.net {
+  background: #ddd6fa;
+}

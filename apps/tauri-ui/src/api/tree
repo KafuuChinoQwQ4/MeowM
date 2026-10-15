@@ -1,0 +1,11 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `accounts.ts` — 平台及参考余额的类型与 IPC 接口。
+- `client.ts` — 唯一 Tauri invoke 入口。
+- `entries.ts` — 分页查询、分类及待确认操作的类型与 IPC 接口。
+- `imports.ts` — 账单预览、修订及入箱的类型与 IPC 接口。
+- `ledger.ts` — 每日汇总和流水的类型与 IPC 接口。
+- `transactions.ts` — 交易详情、版本化编辑及撤销的类型与 IPC 接口。
+- `tree` — 本目录直接文件的说明索引。

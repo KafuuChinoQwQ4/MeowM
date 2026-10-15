@@ -2,6 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `.prettierrc.json` — 前端代码和样式的可重复格式化规则。
 - `index.html` — Tauri frontend or Rust application configuration: index.html.
 - `package-lock.json` — Tauri frontend or Rust application configuration: package-lock.json.
 - `package.json` — Tauri frontend or Rust application configuration: package.json.

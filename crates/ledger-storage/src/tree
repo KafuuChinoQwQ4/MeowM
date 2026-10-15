@@ -3,5 +3,4 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `lib.rs` — SQLite storage module declaration.
-- `sqlite.rs` — SQLite connection, schema validation, atomic ledger persistence, and category-aware classification rule updates.
 - `tree` — 本目录直接文件的说明索引。
