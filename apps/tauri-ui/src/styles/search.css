@@ -1,0 +1,40 @@
+.search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.search-grid .form-field {
+  min-width: 0;
+}
+.search-rule-form {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 16px 0;
+  display: grid;
+  gap: 10px;
+}
+.search-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.search-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.search-results .pending-card {
+  margin: 12px 0;
+}
+@media (max-width: 480px) {
+  .search-list-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

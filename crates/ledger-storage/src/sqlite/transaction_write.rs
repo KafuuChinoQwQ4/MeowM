@@ -69,14 +69,14 @@ impl SqliteLedgerRepository {
         let values = transaction_values(transaction);
         let changed = if insert {
             tx.execute(
-                "INSERT INTO transactions(id, occurred_at_utc_micros, kind, status, category_id, original_transaction_id, report_amount_minor, report_currency_code, report_currency_exponent, merchant, description)\
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                params![values.id, values.occurred_at, values.kind, values.status, values.category_id, values.original_transaction_id, values.report_amount_minor, values.report_currency_code, values.report_currency_exponent, values.merchant, values.description],
+                "INSERT INTO transactions(id, occurred_at_utc_micros, kind, status, category_id, original_transaction_id, report_amount_minor, report_currency_code, report_currency_exponent, merchant, description, merchant_normalized)\
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                params![values.id, values.occurred_at, values.kind, values.status, values.category_id, values.original_transaction_id, values.report_amount_minor, values.report_currency_code, values.report_currency_exponent, values.merchant, values.description, transaction.merchant.as_deref().map(ledger_app::classification::normalize_merchant)],
             )
         } else {
             tx.execute(
-                "UPDATE transactions SET occurred_at_utc_micros = ?2, kind = ?3, status = ?4, category_id = ?5, original_transaction_id = ?6, report_amount_minor = ?7, report_currency_code = ?8, report_currency_exponent = ?9, merchant = ?10, description = ?11 WHERE id = ?1",
-                params![values.id, values.occurred_at, values.kind, values.status, values.category_id, values.original_transaction_id, values.report_amount_minor, values.report_currency_code, values.report_currency_exponent, values.merchant, values.description],
+                "UPDATE transactions SET occurred_at_utc_micros = ?2, kind = ?3, status = ?4, category_id = ?5, original_transaction_id = ?6, report_amount_minor = ?7, report_currency_code = ?8, report_currency_exponent = ?9, merchant = ?10, description = ?11, merchant_normalized = ?12 WHERE id = ?1",
+                params![values.id, values.occurred_at, values.kind, values.status, values.category_id, values.original_transaction_id, values.report_amount_minor, values.report_currency_code, values.report_currency_exponent, values.merchant, values.description, transaction.merchant.as_deref().map(ledger_app::classification::normalize_merchant)],
             )
         }
         .map_err(map_insert_error)?;

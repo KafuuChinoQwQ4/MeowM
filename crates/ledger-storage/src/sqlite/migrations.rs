@@ -1,4 +1,5 @@
 use super::*;
+use ledger_app::classification::normalize_merchant;
 
 const INITIAL_MIGRATION: &str = include_str!("../../migrations/0001_initial.sql");
 const CLASSIFICATION_MIGRATION: &str =
@@ -28,7 +29,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 7
+                && v <= 8
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -45,12 +46,13 @@ impl SqliteLedgerRepository {
                 | (4, Some(4))
                 | (5, Some(5))
                 | (6, Some(6))
-                | (7, Some(7)) => {
+                | (7, Some(7))
+                | (8, Some(8)) => {
                     return Ok(());
                 }
-                (_, Some(version)) if version > 7 => {
+                (_, Some(version)) if version > 8 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 7"
+                        "database schema version {version} is newer than supported version 8"
                     )));
                 }
                 _ => {
@@ -242,6 +244,45 @@ impl SqliteLedgerRepository {
             .map_err(storage_error)?;
         tx.execute(
             "INSERT INTO schema_version VALUES(7,?1)",
+            [Utc::now().timestamp_micros()],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+}
+
+impl SqliteLedgerRepository {
+    pub(super) fn apply_search_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 8 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!("../../migrations/0008_search_rules.sql"))
+            .map_err(storage_error)?;
+        let merchants = {
+            let mut query = tx
+                .prepare("SELECT id, merchant FROM transactions WHERE merchant IS NOT NULL")
+                .map_err(storage_error)?;
+            query
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })
+                .map_err(storage_error)?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(storage_error)?
+        };
+        for (id, merchant) in merchants {
+            tx.execute(
+                "UPDATE transactions SET merchant_normalized = ?2 WHERE id = ?1",
+                rusqlite::params![id, normalize_merchant(&merchant)],
+            )
+            .map_err(storage_error)?;
+        }
+        tx.execute(
+            "INSERT INTO schema_version VALUES(8,?1)",
             [Utc::now().timestamp_micros()],
         )
         .map_err(storage_error)?;

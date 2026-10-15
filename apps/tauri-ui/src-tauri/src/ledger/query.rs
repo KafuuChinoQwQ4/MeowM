@@ -10,6 +10,8 @@ pub struct PageQuery {
     pub until_date: Option<String>,
     pub merchant: Option<String>,
     pub keyword: Option<String>,
+    pub min_amount: Option<String>,
+    pub max_amount: Option<String>,
     pub offset: u32,
     pub limit: u32,
 }
@@ -29,6 +31,13 @@ pub struct PageEntry {
     pub category_id: Option<String>,
     pub original_transaction_id: Option<String>,
     pub sources: Vec<String>,
+    pub suggestion: Option<SuggestionView>,
+}
+#[derive(Serialize)]
+pub struct SuggestionView {
+    pub category_id: String,
+    pub rule_id: String,
+    pub reason: String,
 }
 #[derive(Serialize)]
 pub struct EntryPage {
@@ -105,6 +114,18 @@ impl Ledger {
                 .map_err(CommandError::invalid)?,
             merchant: q.merchant,
             keyword: q.keyword,
+            min_amount_cny_minor: q
+                .min_amount
+                .as_deref()
+                .map(search_amount)
+                .transpose()
+                .map_err(CommandError::invalid)?,
+            max_amount_cny_minor: q
+                .max_amount
+                .as_deref()
+                .map(search_amount)
+                .transpose()
+                .map_err(CommandError::invalid)?,
             offset: q.offset,
             limit: q.limit,
         };
@@ -131,6 +152,20 @@ impl Ledger {
                 .into_iter()
                 .map(|c| {
                     let t = c.transaction;
+                    let suggestion = if t.status == TransactionStatus::Pending {
+                        repo.suggest_pending(t.id)
+                            .map_err(|_| CommandError {
+                                code: "storage_error".into(),
+                                message: "无法读取分类建议".into(),
+                            })?
+                            .map(|s| SuggestionView {
+                                category_id: s.category_id.as_uuid().to_string(),
+                                rule_id: s.rule_id.as_uuid().to_string(),
+                                reason: s.reason,
+                            })
+                    } else {
+                        None
+                    };
                     let sources = repo.source_evidence(t.id).map_err(|_| CommandError {
                         code: "storage_error".into(),
                         message: "无法读取流水来源，请重试".into(),
@@ -169,9 +204,17 @@ impl Ledger {
                             .iter()
                             .map(|e| source_label(e.source_kind).into())
                             .collect(),
+                        suggestion,
                     })
                 })
                 .collect::<std::result::Result<Vec<_>, _>>()?,
         })
     }
+}
+
+fn search_amount(value: &str) -> Result<i64> {
+    if value.trim().starts_with('-') {
+        return Err("金额范围不能为负".into());
+    }
+    parse_amount(value, true)
 }

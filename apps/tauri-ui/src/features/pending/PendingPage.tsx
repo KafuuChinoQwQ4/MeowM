@@ -136,6 +136,11 @@ export function PendingPage({
                 {entry.sources.map((source) => sourceNames[source] ?? source).join('、')} ·{' '}
                 {query.status === 'pending' ? '待确认' : '已忽略'}
               </p>
+              {entry.suggestion && (
+                <p className="field-hint">
+                  分类建议：{entry.suggestion.reason}。打开编辑后可选择采用。
+                </p>
+              )}
               <div className="pending-actions">
                 {query.status === 'pending' ? (
                   <>

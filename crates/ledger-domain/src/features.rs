@@ -38,6 +38,8 @@ pub struct PendingQuery {
     pub category_id: Option<CategoryId>,
     pub merchant: Option<String>,
     pub keyword: Option<String>,
+    pub min_amount_cny_minor: Option<i64>,
+    pub max_amount_cny_minor: Option<i64>,
     pub offset: u32,
     pub limit: u32,
 }

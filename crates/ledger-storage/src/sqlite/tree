@@ -14,6 +14,8 @@
 - `mod.rs` — 私有 SQLite 连接、初始化和公开仓储入口。
 - `notifications.rs` — Atomic notification capture receipts, source settings and recent results.
 - `reversals.rs` — 交易撤销、审计链及版本化写入。
+- `search.rs` — 绑定参数的交易组合筛选和稳定分页查询。
+- `search_rules.rs` — 商户别名、规则影响预览和待确认建议。
 - `transaction_write.rs` — 事务内交易、分录及审计记录写入。
 - `validation.rs` — 写入前的金额、账户、分类及引用校验。
 - `tree` — 本目录直接文件的说明索引。

@@ -153,8 +153,8 @@ fn reversing_refund_restores_expense_total_and_pending_cannot_be_reversed() {
 #[test]
 fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
     let repo = SqliteLedgerRepository::in_memory().unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 7);
-    assert_eq!(repo.schema_version().unwrap(), 7);
+    assert_eq!(repo.schema_version().unwrap(), 8);
+    assert_eq!(repo.schema_version().unwrap(), 8);
 
     let account = account("CNY", 20_000);
     let account_id = account.id;
@@ -176,7 +176,7 @@ fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
 }
 
 #[test]
-fn opening_existing_file_keeps_schema_at_version_seven() {
+fn opening_existing_file_keeps_schema_at_version_eight() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("ledger.sqlite3");
     assert_eq!(
@@ -184,14 +184,14 @@ fn opening_existing_file_keeps_schema_at_version_seven() {
             .unwrap()
             .schema_version()
             .unwrap(),
-        7
+        8
     );
     assert_eq!(
         SqliteLedgerRepository::open(&path)
             .unwrap()
             .schema_version()
             .unwrap(),
-        7
+        8
     );
 }
 
@@ -241,7 +241,7 @@ fn opening_database_with_invalid_schema_version_is_rejected() {
 }
 
 #[test]
-fn opening_version_one_database_upgrades_to_version_seven() {
+fn opening_version_one_database_upgrades_to_version_eight() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("upgrade.sqlite3");
     let connection = Connection::open(&path).unwrap();
@@ -257,7 +257,7 @@ fn opening_version_one_database_upgrades_to_version_seven() {
     drop(connection);
 
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 7);
+    assert_eq!(repo.schema_version().unwrap(), 8);
     let connection = Connection::open(&path).unwrap();
     let has_rules: i64 = connection
         .query_row(
@@ -744,7 +744,7 @@ fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
     drop(db);
     for _ in 0..2 {
         let repo = SqliteLedgerRepository::open(&path).unwrap();
-        assert_eq!(repo.schema_version().unwrap(), 7);
+        assert_eq!(repo.schema_version().unwrap(), 8);
         assert_eq!(
             repo.list_accounts().unwrap()[0].id.as_uuid().to_string(),
             "00000000-0000-0000-0000-000000000001"
@@ -780,7 +780,7 @@ fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
         db.query_row("SELECT count(*) FROM schema_version", [], |r| r
             .get::<_, i64>(0))
             .unwrap(),
-        7
+        8
     );
 }
 
@@ -1016,7 +1016,7 @@ fn version_four_bank_migration_preserves_evidence_and_rolls_back_on_failure() {
                 .unwrap()
                 .schema_version()
                 .unwrap(),
-            7
+            8
         );
     }
     let db = Connection::open(&good).unwrap();

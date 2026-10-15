@@ -42,6 +42,7 @@ export function browserSuite(port) {
     newPage: async (options = {}) => {
       const page = await browser.newPage(options);
       page.setDefaultTimeout(5000);
+      page.setDefaultNavigationTimeout(15000);
       return page;
     },
   };

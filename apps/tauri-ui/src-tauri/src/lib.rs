@@ -2,6 +2,8 @@ mod analytics;
 mod ledger;
 mod notifications;
 mod recurring;
+mod search_export;
+mod search_rules;
 mod transactions;
 use ledger::{Account, DayView, Ledger};
 use std::sync::Mutex;
@@ -141,6 +143,7 @@ fn reverse_transaction(
 pub fn run() {
     tauri::Builder::default()
         .plugin(notifications::init())
+        .plugin(search_export::init())
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("ledger.sqlite3");
             let ledger = Ledger::open(&path).map_err(std::io::Error::other)?;
@@ -157,6 +160,13 @@ pub fn run() {
             recurring::commands::set_recurring_enabled,
             recurring::commands::skip_recurring,
             recurring::commands::recurring_instances,
+            search_rules::classification_state,
+            search_rules::preview_classification_rule,
+            search_rules::write_classification_rule,
+            search_rules::write_category,
+            search_rules::save_merchant_alias,
+            search_rules::delete_merchant_alias,
+            search_export::save_search_csv,
             list_accounts,
             create_account,
             update_platform,

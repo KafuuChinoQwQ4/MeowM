@@ -5,68 +5,9 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
         &self,
         q: ledger_domain::PendingQuery,
     ) -> Result<ledger_domain::TransactionPage, RepositoryError> {
-        if !(1..=200).contains(&q.limit)
-            || q.from_utc_inclusive
-                .zip(q.until_utc_exclusive)
-                .is_some_and(|(a, b)| a >= b)
-        {
-            return Err(RepositoryError::InvalidData(
-                "invalid page or date range".into(),
-            ));
-        }
-        let sql = "FROM transactions t WHERE (?1 IS NULL OR status=?1) AND (?2 IS NULL OR occurred_at_utc_micros>=?2) AND (?3 IS NULL OR occurred_at_utc_micros<?3) AND (?4 IS NULL OR EXISTS(SELECT 1 FROM postings p WHERE p.transaction_id=t.id AND p.account_id=?4)) AND (?5 IS NULL OR category_id=?5) AND (?6 IS NULL OR instr(lower(coalesce(merchant,'')),lower(?6))>0) AND (?7 IS NULL OR instr(lower(coalesce(merchant,'')||' '||coalesce(description,'')),lower(?7))>0) AND (?8 IS NULL OR EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND e.source_kind=?8))";
-        let values = params![
-            q.status.map(transaction_status_str),
-            q.from_utc_inclusive.map(|t| t.timestamp_micros()),
-            q.until_utc_exclusive.map(|t| t.timestamp_micros()),
-            q.account_id.map(|v| v.as_uuid().to_string()),
-            q.category_id.map(|v| v.as_uuid().to_string()),
-            q.merchant,
-            q.keyword,
-            q.source_kind.map(source_kind_str)
-        ];
-        let snapshot = self
-            .connection
-            .unchecked_transaction()
-            .map_err(storage_error)?;
-        let total = self
-            .connection
-            .query_row(&format!("SELECT count(*) {sql}"), values, |r| r.get(0))
-            .map_err(storage_error)?;
-        let mut stmt = self
-            .connection
-            .prepare(&format!(
-                "SELECT id {sql} ORDER BY occurred_at_utc_micros DESC,id LIMIT {} OFFSET {}",
-                q.limit, q.offset
-            ))
-            .map_err(storage_error)?;
-        let ids = stmt
-            .query_map(values, |r| r.get::<_, String>(0))
-            .map_err(storage_error)?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(storage_error)?;
-        let items = ids
-            .into_iter()
-            .map(|v| {
-                let id = TransactionId::from_uuid(
-                    Uuid::parse_str(&v)
-                        .map_err(|_| RepositoryError::InvalidData("invalid ID".into()))?,
-                );
-                Ok(ledger_domain::PendingCandidate {
-                    transaction: self.get_transaction(id)?.ok_or(RepositoryError::NotFound)?,
-                    metadata: self.metadata(id)?,
-                })
-            })
-            .collect::<Result<_, RepositoryError>>()?;
-        drop(stmt);
-        snapshot.commit().map_err(storage_error)?;
-        Ok(ledger_domain::TransactionPage {
-            items,
-            total,
-            offset: q.offset,
-            limit: q.limit,
-        })
+        self.search_transactions(q)
     }
+
     fn confirm_bulk(
         &self,
         request: ledger_domain::BulkConfirmation,

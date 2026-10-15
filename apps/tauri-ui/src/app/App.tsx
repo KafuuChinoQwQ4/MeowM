@@ -21,6 +21,7 @@ import { RecurringPage } from '../features/recurring/RecurringPage';
 import { RecurringReminders } from '../features/recurring/RecurringReminders';
 import { useRecurring } from '../features/recurring/useRecurring';
 import { today } from '../shared/format';
+import { SearchPage } from '../features/search/SearchPage';
 import { Navigation, type View } from './Navigation';
 import { Toolbar } from './Toolbar';
 type Modal =
@@ -116,6 +117,19 @@ export function App() {
                 {view === 'reports' && <ReportsPage accounts={accounts} revision={revision} />}
                 {view === 'budgets' && (
                   <BudgetsPage accounts={accounts} revision={revision} onChanged={refresh} />
+                )}
+                {view === 'search' && (
+                  <SearchPage
+                    accounts={accounts}
+                    revision={revision}
+                    onOpen={(entry) =>
+                      setModal(
+                        entry.status === 'pending'
+                          ? { kind: 'pending', entry }
+                          : { kind: 'transaction', id: entry.id },
+                      )
+                    }
+                  />
                 )}
                 {view === 'recurring' && (
                   <RecurringPage accounts={accounts} state={recurringState} onChanged={refresh} />

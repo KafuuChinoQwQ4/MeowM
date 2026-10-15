@@ -7,7 +7,8 @@ export type View =
   | 'reports'
   | 'budgets'
   | 'notifications'
-  | 'recurring';
+  | 'recurring'
+  | 'search';
 const views: [View, string][] = [
   ['ledger', '账本'],
   ['records', '明细'],
@@ -16,6 +17,7 @@ const views: [View, string][] = [
   ['reports', '报表总览'],
   ['budgets', '预算管理'],
   ['recurring', '周期账单'],
+  ['search', '搜索与分类'],
   ['notifications', '通知采集'],
 ];
 export function Navigation({

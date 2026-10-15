@@ -8,6 +8,8 @@ export interface PageQuery {
   until_date?: string;
   merchant?: string;
   keyword?: string;
+  min_amount?: string;
+  max_amount?: string;
   offset: number;
   limit: number;
 }
@@ -26,6 +28,7 @@ export interface PageEntry {
   category_id: string | null;
   original_transaction_id: string | null;
   sources: string[];
+  suggestion?: { category_id: string; rule_id: string; reason: string } | null;
 }
 export interface EntryPage {
   items: PageEntry[];

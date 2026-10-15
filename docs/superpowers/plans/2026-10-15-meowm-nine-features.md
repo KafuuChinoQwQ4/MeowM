@@ -230,13 +230,15 @@
 - `ClassificationRule { priority, merchant_contains, description_contains, category_id, enabled }` 沿用现有类型，新增规则试运行和命中说明。
 - `ClassificationService::suggest(transaction)` 返回分类、命中规则 ID 和置信说明，不直接覆盖用户确认过的分类。
 
-- [ ] **Step 1: 写失败测试**：大小写/空白归一化、中文商户别名、金额范围、分页稳定排序、多个规则优先级、停用分类和手工覆盖。
-- [ ] **Step 2: 实现 SQLite 搜索索引和稳定分页**：使用参数化查询；关键词匹配商户、描述和来源摘要可搜索字段，禁止拼接 SQL。
-- [ ] **Step 3: 实现商户归一化**：保留原始商户显示值，另存规范化值和本地别名映射；规则只作用于规范化值。
-- [ ] **Step 4: 实现规则预览**：创建/编辑规则前显示命中数量和受影响的 Pending 候选；用户确认后只更新候选建议，不批量改动已确认交易。
-- [ ] **Step 5: 增加明细搜索页**：组合筛选、清除筛选、分页、详情跳转和导出当前结果。
-- [ ] **Step 6: 运行 Rust 搜索/规则测试、SQL 注入回归测试、`npm run build`**。
-- [ ] **Step 7: Commit**：`feat: add ledger search and classification rules`。
+- [x] **Step 1: 写失败测试**：大小写/空白归一化、中文商户别名、金额范围、分页稳定排序、多个规则优先级、停用分类和手工覆盖。
+- [x] **Step 2: 实现 SQLite 搜索索引和稳定分页**：使用参数化查询；关键词匹配商户、描述和来源摘要可搜索字段，禁止拼接 SQL。
+- [x] **Step 3: 实现商户归一化**：保留原始商户显示值，另存规范化值和本地别名映射；规则只作用于规范化值。
+- [x] **Step 4: 实现规则预览**：创建/编辑规则前显示命中数量和受影响的 Pending 候选；用户确认后只更新候选建议，不批量改动已确认交易。
+- [x] **Step 5: 增加明细搜索页**：组合筛选、清除筛选、分页、详情跳转和导出当前结果。
+- [x] **Step 6: 运行 Rust 搜索/规则测试、SQL 注入回归测试、`npm run build`**。
+- [x] **Step 7: Commit**：`feat: add ledger search and classification rules`。
+
+**任务 6 完成记录：** 搜索复用现有分页仓储，新增金额范围、稳定参数化排序、商户规范化与本地别名；规则优先级和分类状态给未手工分类的 Pending 提供可解释建议。规则预览对比保存前后的实际建议，确认后不批量改动交易。React 提供跨日期组合筛选、详情和 CSV 导出。数据库迁移 8 保留旧商户及交易。完整验证见 `docs/stage6-search-validation.md`。上传 GitHub 后停止，不进入任务 7。
 
 ### Task 7: 账户对账
 

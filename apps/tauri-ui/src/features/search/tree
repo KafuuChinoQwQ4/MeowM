@@ -1,0 +1,11 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `ClassificationPage.tsx` — 分类与商户别名管理及规则列表。
+- `RuleForm.tsx` — 规则编辑、影响预览和确认保存。
+- `SearchFilters.tsx` — 跨日期组合搜索筛选控件。
+- `SearchPage.tsx` — 搜索结果分页、导出与分类页切换。
+- `SearchResults.tsx` — 流水搜索结果卡片与详情入口。
+- `exportCsv.ts` — 当前筛选全部结果的安全 CSV 导出。
+- `tree` — 本目录直接文件的说明索引。

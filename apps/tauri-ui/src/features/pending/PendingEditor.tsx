@@ -125,6 +125,21 @@ export function PendingEditor({
           value={draft.category_id ?? ''}
           onChange={(e) => update('category_id', e.target.value)}
         />
+        {entry.suggestion &&
+          !entry.category_id &&
+          categories.data?.some((c) => c.id === entry.suggestion?.category_id) && (
+            <div className="field-hint">
+              建议分类：{categories.data.find((c) => c.id === entry.suggestion?.category_id)?.name}{' '}
+              · {entry.suggestion.reason}
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => update('category_id', entry.suggestion!.category_id)}
+              >
+                采用建议
+              </button>
+            </div>
+          )}
         {categories.error && (
           <>
             <FormError message={categories.error} />

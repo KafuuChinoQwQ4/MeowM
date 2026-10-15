@@ -18,3 +18,7 @@
 - `ledger-domain/src/recurring.rs` 定义模板、日历周期、实例和提醒。`ledger-app/src/recurring/` 使用本地 `NaiveDate` 和原始锚点计算日历，不依赖 SQLite 或 WebView。
 - `ledger-storage/src/sqlite/recurring/` 按行映射、模板写入与跳过、候选生成拆分。生成使用 SQLite immediate 事务，同时写入 Pending、`recurring` 来源证据、唯一实例收据及新游标；跳过也原子写收据与游标。模板版本避免过期编辑，实例确认状态直接关联交易状态，避免两套状态不一致。迁移 7 保留已有 ID，扩充来源类型并允许不关联交易的跳过收据。
 - `src-tauri/src/recurring/` 按输入验证、DTO 映射和命令注册拆分；React `features/recurring/` 按资源刷新、表单、卡片、实例历史和首页提醒拆分。刷新生成后的通知只更新账本/收件箱查询，不触发无限补生成。提醒金额使用已生成候选快照，未来尚未生成的提醒使用当前模板。
+
+- `ledger-storage/src/sqlite/search.rs` 复用账本分页查询并对日期、金额、账户、状态、来源、分类及关键词使用绑定参数；排序以微秒时间和交易 ID 打破并列。`search_rules.rs` 管理商户别名、规则命中预览及当前 Pending 建议。迁移 8 添加规范化商户列、别名表和搜索索引，原商户字段不改。
+- `ledger-app/src/classification.rs` 统一商户规范化、规则排序和可解释建议。`src-tauri/src/search_rules/` 提供分类、规则预览与别名 IPC；React `features/search/` 拆分筛选、结果、分类管理、规则表单及 CSV 导出。规则建议读取时派生，只有用户在待确认编辑器中选择采用才成为分类写入。
+- Android 搜索 CSV 导出由 `src-tauri/src/search_export/` 注册 Tauri 插件，生成的 Kotlin `SearchExportPlugin` 通过系统 `ACTION_CREATE_DOCUMENT` 让用户选位置，再写入选中的 URI；桌面保留浏览器下载。
