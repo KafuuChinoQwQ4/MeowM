@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { Account } from '../api/accounts';
 import type { PageEntry } from '../api/entries';
 import { Dialog } from '../components/Dialog';
@@ -17,6 +17,9 @@ import { ImportPanel } from '../features/import/ImportPanel';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { BudgetsPage } from '../features/budgets/BudgetsPage';
 import { NotificationsPage } from '../features/notifications/NotificationsPage';
+import { RecurringPage } from '../features/recurring/RecurringPage';
+import { RecurringReminders } from '../features/recurring/RecurringReminders';
+import { useRecurring } from '../features/recurring/useRecurring';
 import { today } from '../shared/format';
 import { Navigation, type View } from './Navigation';
 import { Toolbar } from './Toolbar';
@@ -34,13 +37,18 @@ export function App() {
   const [view, setView] = useState<View>('ledger');
   const [navOpen, setNavOpen] = useState(false);
   const [revision, setRevision] = useState(0);
+  const [generatedRevision, setGeneratedRevision] = useState(0);
+  const generated = useCallback(() => setGeneratedRevision((value) => value + 1), []);
+  const recurringState = useRecurring(revision, generated);
+  const [pendingSource, setPendingSource] = useState<'recurring' | undefined>();
   const [modal, setModal] = useState<Modal | null>(null);
-  const dayState = useDay(accountId, date, revision);
+  const dayState = useDay(accountId, date, revision + generatedRevision);
   const day = dayState.data;
   function refresh() {
     setRevision((value) => value + 1);
   }
   function selectView(next: View) {
+    if (next === 'pending') setPendingSource(undefined);
     setView(next);
     setNavOpen(false);
     if (next === 'ledger' || next === 'records') refresh();
@@ -109,13 +117,30 @@ export function App() {
                 {view === 'budgets' && (
                   <BudgetsPage accounts={accounts} revision={revision} onChanged={refresh} />
                 )}
+                {view === 'recurring' && (
+                  <RecurringPage accounts={accounts} state={recurringState} onChanged={refresh} />
+                )}
                 {view === 'pending' && (
                   <PendingPage
+                    key={pendingSource ?? 'all'}
+                    initialSource={pendingSource}
                     accounts={accounts}
-                    revision={revision}
+                    revision={revision + generatedRevision}
                     onEdit={(entry) => setModal({ kind: 'pending', entry })}
                     onImport={() => setModal({ kind: 'import' })}
                     onChanged={refresh}
+                  />
+                )}
+                {view === 'ledger' && (
+                  <RecurringReminders
+                    state={recurringState}
+                    accounts={accounts}
+                    onManage={() => selectView('recurring')}
+                    onPending={() => {
+                      selectView('pending');
+                      setPendingSource('recurring');
+                      refresh();
+                    }}
                   />
                 )}
                 {(view === 'ledger' || view === 'records') && (

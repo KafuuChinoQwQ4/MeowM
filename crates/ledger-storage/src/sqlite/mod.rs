@@ -9,6 +9,7 @@ mod imports;
 mod mapping;
 mod migrations;
 mod notifications;
+mod recurring;
 mod reversals;
 mod transaction_write;
 mod validation;
@@ -56,6 +57,7 @@ impl SqliteLedgerRepository {
         repo.apply_feature_migration()?;
         repo.apply_pending_import_migration()?;
         repo.apply_notification_migration()?;
+        repo.apply_recurring_migration()?;
         repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
             account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
             category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))

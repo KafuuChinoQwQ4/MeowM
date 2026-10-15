@@ -16,6 +16,8 @@ async function openInbox(page, categoryFailsOnce = false) {
       window.__TAURI_INTERNALS__ = {
         invoke: async (command, args) => {
           window.ledgerCalls.push(command);
+          if (command === 'recurring_state')
+            return { templates: [], reminders: [], generated_count: 0, has_more: false };
           if (command === 'list_accounts')
             return [{ id: account, name: '测试钱包', category: 'wallet' }];
           if (command === 'get_day')

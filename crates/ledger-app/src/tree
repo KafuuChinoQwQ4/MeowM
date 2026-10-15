@@ -9,6 +9,7 @@
 - `lib.rs` — Application service module declarations.
 - `notifications.rs` — Notification source settings and normalized capture persistence contracts.
 - `ports.rs` — Repository ports used by application services.
+- `recurring.rs` — 周期模板管理、生成、跳过和提醒的应用服务。
 - `reminders.rs` — 从有效预算派生稳定提醒事件，不写入交易。
 - `report_details.rs` — 按平台、分类和商户聚合收支、趋势、分页排行和余额快照。
 - `reports.rs` — Income, expense, and balance report queries.

@@ -4,5 +4,6 @@
 
 - `architecture.md` — React、Tauri 命令及 SQLite 模块的职责与依赖边界。
 - `stage4-notification-validation.md` — Fourth-stage notification implementation scope and reproducible Android validation.
+- `stage5-recurring-validation.md` — 第五阶段周期账单的自动化、Android 验收证据及提醒边界。
 - `命令` — Local command notes.
 - `tree` — 本目录直接文件的说明索引。

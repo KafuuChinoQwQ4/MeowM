@@ -1,7 +1,7 @@
 import { invoke } from './client';
 export interface PageQuery {
   status?: 'pending' | 'confirmed' | 'ignored';
-  source?: 'wechat' | 'alipay' | 'bank' | 'notification' | 'manual';
+  source?: 'wechat' | 'alipay' | 'bank' | 'notification' | 'manual' | 'recurring';
   account_id?: string;
   category_id?: string;
   from_date?: string;

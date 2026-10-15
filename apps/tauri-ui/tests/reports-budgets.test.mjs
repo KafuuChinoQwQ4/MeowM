@@ -9,6 +9,8 @@ async function install(page) {
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
         window.analyticsCalls.push({ command, args });
+        if (command === 'recurring_state')
+          return { templates: [], reminders: [], generated_count: 0, has_more: false };
         if (command === 'list_accounts')
           return [{ id: 'wallet', name: '钱包', category: 'wallet' }];
         if (command === 'list_categories') return [{ id: 'food', name: '餐饮' }];

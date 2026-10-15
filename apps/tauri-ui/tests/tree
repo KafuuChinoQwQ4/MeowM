@@ -6,6 +6,7 @@
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
 - `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.
 - `react-workflows.test.mjs` — 平台、参考余额、导入修订、弹窗生命周期、撤销及过期请求的浏览器回归。
+- `recurring.test.mjs` — 周期管理完整交互、持久化重载和首页待确认跳转的浏览器测试。
 - `reports-budgets.test.mjs` — 模拟 IPC 的报表筛选分页及预算编辑停用浏览器测试。
 - `transactions.test.mjs` — Browser workflow test for transaction detail and versioned editing.
 - `tree` — 本目录直接文件的说明索引。

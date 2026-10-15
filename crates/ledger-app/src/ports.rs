@@ -166,3 +166,35 @@ pub trait NotificationRepository: FeatureRepository {
         record: crate::notifications::NotificationRecord,
     ) -> Result<crate::notifications::CaptureResult, RepositoryError>;
 }
+
+/// Recurring writes serialize the cursor, receipts and Pending transactions together.
+pub trait RecurringRepository: LedgerRepository {
+    fn list_recurring_templates(
+        &self,
+    ) -> Result<Vec<ledger_domain::RecurringTemplate>, RepositoryError>;
+    fn save_recurring_template(
+        &self,
+        template: ledger_domain::RecurringTemplate,
+        expected_version: Option<u32>,
+    ) -> Result<(), RepositoryError>;
+    fn recurring_instances(
+        &self,
+        id: ledger_domain::RecurringTemplateId,
+    ) -> Result<Vec<ledger_domain::RecurringInstance>, RepositoryError>;
+    fn generate_recurring_due<T: chrono::TimeZone>(
+        &self,
+        today: chrono::NaiveDate,
+        zone: &T,
+    ) -> Result<Vec<TransactionId>, RepositoryError>;
+    fn skip_recurring_instance(
+        &self,
+        id: ledger_domain::RecurringTemplateId,
+        due: chrono::NaiveDate,
+        version: u32,
+    ) -> Result<(), RepositoryError>;
+    fn recurring_reminders(
+        &self,
+        today: chrono::NaiveDate,
+        until: chrono::NaiveDate,
+    ) -> Result<Vec<ledger_domain::RecurringReminder>, RepositoryError>;
+}

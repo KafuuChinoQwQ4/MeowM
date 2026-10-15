@@ -1703,9 +1703,11 @@ name = "ledger-storage"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "chrono-tz",
  "ledger-app",
  "ledger-domain",
  "rusqlite",
+ "sha2",
  "tempfile",
  "uuid",
 ]

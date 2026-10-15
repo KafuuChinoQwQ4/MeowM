@@ -12,18 +12,25 @@ import { PendingFilters } from './PendingFilters';
 import { DuplicateDetails } from './DuplicateDetails';
 export function PendingPage({
   accounts,
+  initialSource,
   revision,
   onEdit,
   onImport,
   onChanged,
 }: {
   accounts: Account[];
+  initialSource?: PageQuery['source'];
   revision: number;
   onEdit: (entry: PageEntry) => void;
   onImport: () => void;
   onChanged: () => void;
 }) {
-  const [query, setQuery] = useState<PageQuery>({ status: 'pending', offset: 0, limit: 20 });
+  const [query, setQuery] = useState<PageQuery>({
+    status: 'pending',
+    source: initialSource,
+    offset: 0,
+    limit: 20,
+  });
   const state = useResource(useCallback(() => entriesApi.query(query), [query, revision]));
   const [selected, setSelected] = useState(new Set<string>());
   const [busy, setBusy] = useState(false);
@@ -63,7 +70,7 @@ export function PendingPage({
           导入账单
         </button>
       </div>
-      <p className="field-hint">导入和通知候选仅在确认后计入余额与报表。</p>
+      <p className="field-hint">导入、通知和周期候选仅在确认后计入余额与报表。</p>
       <button
         className="button button-secondary"
         disabled={busy || state.loading}

@@ -20,6 +20,7 @@ pub(super) fn parse_source(value: &str) -> Result<ledger_domain::SourceKind> {
         "bank" => Ok(ledger_domain::SourceKind::Bank),
         "notification" => Ok(ledger_domain::SourceKind::Notification),
         "manual" => Ok(ledger_domain::SourceKind::Manual),
+        "recurring" => Ok(ledger_domain::SourceKind::Recurring),
         _ => Err("无效的来源".into()),
     }
 }
@@ -74,6 +75,7 @@ pub(super) fn source_label(source: ledger_domain::SourceKind) -> &'static str {
         ledger_domain::SourceKind::Bank => "bank",
         ledger_domain::SourceKind::Notification => "notification",
         ledger_domain::SourceKind::Manual => "manual",
+        ledger_domain::SourceKind::Recurring => "recurring",
     }
 }
 pub(crate) fn kind_label(kind: TransactionKind) -> &'static str {

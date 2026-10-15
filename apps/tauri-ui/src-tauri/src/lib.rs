@@ -1,6 +1,7 @@
 mod analytics;
 mod ledger;
 mod notifications;
+mod recurring;
 mod transactions;
 use ledger::{Account, DayView, Ledger};
 use std::sync::Mutex;
@@ -151,6 +152,11 @@ pub fn run() {
             notifications::save_notification_source,
             notifications::notification_access,
             notifications::open_notification_settings,
+            recurring::commands::recurring_state,
+            recurring::commands::write_recurring,
+            recurring::commands::set_recurring_enabled,
+            recurring::commands::skip_recurring,
+            recurring::commands::recurring_instances,
             list_accounts,
             create_account,
             update_platform,

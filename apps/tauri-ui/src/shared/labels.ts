@@ -12,6 +12,7 @@ export const sourceNames: Record<string, string> = {
   bank: '银行卡',
   notification: '通知',
   manual: '手动',
+  recurring: '周期账单',
 };
 export const kindNames: Record<string, string> = {
   expense: '支出',

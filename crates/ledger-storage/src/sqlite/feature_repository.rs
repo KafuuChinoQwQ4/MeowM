@@ -246,6 +246,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
                     "bank" => SourceKind::Bank,
                     "notification" => SourceKind::Notification,
                     "manual" => SourceKind::Manual,
+                    "recurring" => SourceKind::Recurring,
                     _ => return Err(rusqlite::Error::InvalidQuery),
                 },
                 external_transaction_id: r.get(1)?,

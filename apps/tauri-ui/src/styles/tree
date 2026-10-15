@@ -13,6 +13,7 @@
 - `notifications.css` — Notification permission and source settings layout.
 - `pending.css` — 待确认筛选、批量操作与重复详情样式。
 - `records.css` — 流水列表、记录行和分页样式。
+- `recurring.css` — 周期账单管理和首页提醒的响应式样式。
 - `shell.css` — 应用容器、背景和移动端总体布局。
 - `states.css` — 加载、空列表及辅助信息样式。
 - `summary.css` — 每日收支汇总卡片样式。

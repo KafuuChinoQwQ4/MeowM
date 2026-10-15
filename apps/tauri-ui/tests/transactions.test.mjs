@@ -11,6 +11,8 @@ test('transaction detail exposes audit and saves an optimistic edit through Taur
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
         window.ledgerCalls.push({ command, args });
+        if (command === 'recurring_state')
+          return { templates: [], reminders: [], generated_count: 0, has_more: false };
         if (command === 'list_accounts') return [{ id: account, name: '钱包', category: 'wallet' }];
         if (command === 'list_categories') return [{ id: 'food', name: '餐饮' }];
         if (command === 'get_day')

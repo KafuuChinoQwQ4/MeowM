@@ -8,4 +8,5 @@
 - `0004_nine_features.sql` — 保留旧数据的九项功能表、元数据及查询索引迁移。
 - `0005_pending_import.sql` — Bank provenance compatibility and atomic import receipt rows.
 - `0006_notifications.sql` — Notification receipts and normalized recent-result schema.
+- `0007_recurring.sql` — 周期模板版本、唯一实例收据和周期来源证据的兼容迁移。
 - `tree` — 本目录直接文件的说明索引。

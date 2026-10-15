@@ -1,0 +1,11 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `RecurringCard.tsx` — 周期模板摘要及编辑、暂停、恢复和跳过操作。
+- `RecurringForm.tsx` — 周期模板创建编辑表单及输入校验。
+- `RecurringHistory.tsx` — 周期实例的待确认、已确认、已忽略和已跳过记录。
+- `RecurringPage.tsx` — 周期账单管理页面与编辑、历史操作编排。
+- `RecurringReminders.tsx` — 首页未来七天、到期与逾期待确认的周期账单提醒。
+- `useRecurring.ts` — 前台定时刷新、恢复焦点刷新和周期候选生成状态。
+- `tree` — 本目录直接文件的说明索引。

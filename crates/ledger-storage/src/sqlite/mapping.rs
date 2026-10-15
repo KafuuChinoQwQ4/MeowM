@@ -258,5 +258,6 @@ pub(super) fn source_kind_str(kind: SourceKind) -> &'static str {
         SourceKind::Bank => "bank",
         SourceKind::Notification => "notification",
         SourceKind::Manual => "manual",
+        SourceKind::Recurring => "recurring",
     }
 }

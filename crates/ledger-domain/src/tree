@@ -7,6 +7,7 @@
 - `features.rs` — 九项账本功能共用领域类型、分页及版本元数据契约。
 - `lib.rs` — Public domain APIs and errors, including transfer conservation failures.
 - `money.rs` — Currency codes and integer minor-unit money.
+- `recurring.rs` — 周期模板、频率、实例状态和提醒的领域模型。
 - `source.rs` — Import provenance and source evidence types.
 - `transaction.rs` — Transactions, postings, types, and lifecycle status.
 - `validation.rs` — Posting direction and transfer conservation invariants plus safe report effects.

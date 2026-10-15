@@ -204,13 +204,15 @@
 - `RecurringTemplate::{id, account_id, kind, amount, category_id, merchant, description, cadence, next_due_date, end_date, enabled}`。
 - `RecurringService::{create,update,pause,resume,generate_due,skip_instance,list}`；`generate_due` 返回候选而非直接确认。
 
-- [ ] **Step 1: 写失败测试**：月末日期、每周/每月/每年、结束日期、暂停/恢复、单次跳过、重启后不重复生成和金额修改只影响未来实例。
-- [ ] **Step 2: 实现周期计算**：使用 `NaiveDate` 和明确的本地日历策略，月末模板在短月份落到该月最后一天；生成实例使用唯一键 `(template_id, due_date)`。
-- [ ] **Step 3: 实现候选生成**：到期实例进入 Pending，携带模板来源证据；用户确认后创建正式交易并标记实例已确认。
-- [ ] **Step 4: 增加周期账单管理页**：列表显示下一次到期、金额、平台、分类、启用状态；支持暂停、恢复、跳过和编辑未来实例。
-- [ ] **Step 5: 增加首页到期提醒**：只显示未来 7 天和逾期未处理项目，点击进入待确认收件箱。
-- [ ] **Step 6: 运行 `cargo test -p ledger-app`、TypeScript 构建和重启幂等测试**。
-- [ ] **Step 7: Commit**：`feat: add recurring ledger entries`。
+- [x] **Step 1: 写失败测试**：月末日期、每周/每月/每年、结束日期、暂停/恢复、单次跳过、重启后不重复生成和金额修改只影响未来实例。
+- [x] **Step 2: 实现周期计算**：使用 `NaiveDate` 和明确的本地日历策略，月末模板在短月份落到该月最后一天；生成实例使用唯一键 `(template_id, due_date)`。
+- [x] **Step 3: 实现候选生成**：到期实例进入 Pending，携带模板来源证据；用户确认后创建正式交易并标记实例已确认。
+- [x] **Step 4: 增加周期账单管理页**：列表显示下一次到期、金额、平台、分类、启用状态；支持暂停、恢复、跳过和编辑未来实例。
+- [x] **Step 5: 增加首页到期提醒**：只显示未来 7 天和逾期未处理项目，点击进入待确认收件箱。
+- [x] **Step 6: 运行 `cargo test -p ledger-app`、TypeScript 构建和重启幂等测试**。
+- [x] **Step 7: Commit**：`feat: add recurring ledger entries`。
+
+**任务 5 完成记录：** React 周期管理、首页 7 天/逾期待确认提醒及周期来源筛选已接通真实 SQLite。每周/月/年日历保留原始锚点，生成与跳过使用唯一收据及原子游标；已有候选不随模板修改，确认/忽略/恢复由关联交易状态派生。迁移 7 保留旧模板、交易与来源 ID。129 项 Rust 测试、14 项浏览器模拟 IPC 测试、3 项格式辅助测试、前端构建、格式检查与定向严格 Clippy 通过。Android 验收与提醒边界见 `docs/stage5-recurring-validation.md`。阶段完成后上传 GitHub 并停止，不进入任务 6。
 
 ### Task 6: 搜索、商户归一化和分类规则
 

@@ -97,6 +97,7 @@ pub(crate) fn source_name(source: SourceKind) -> &'static str {
         SourceKind::Bank => "bank",
         SourceKind::Notification => "notification",
         SourceKind::Manual => "manual",
+        SourceKind::Recurring => "recurring",
     }
 }
 

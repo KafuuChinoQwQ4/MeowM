@@ -83,14 +83,6 @@ impl Budget {
     }
 }
 #[derive(Debug, Clone)]
-pub struct RecurringTemplate {
-    pub id: RecurringTemplateId,
-    pub transaction: Transaction,
-    pub next_date: NaiveDate,
-    pub interval_months: u32,
-    pub enabled: bool,
-}
-#[derive(Debug, Clone)]
 pub struct ReconciliationSession {
     pub id: ReconciliationId,
     pub account_id: AccountId,

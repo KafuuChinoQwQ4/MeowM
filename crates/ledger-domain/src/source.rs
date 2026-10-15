@@ -9,6 +9,7 @@ pub enum SourceKind {
     /// Bank statement import.
     Bank,
     Notification,
+    Recurring,
     Manual,
 }
 

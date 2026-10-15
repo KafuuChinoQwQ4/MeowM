@@ -1,0 +1,26 @@
+.recurring-card,
+.recurring-reminders {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin: 14px 0;
+  overflow-wrap: anywhere;
+}
+.recurring-reminders h2 {
+  font-size: 18px;
+}
+.recurring-card p,
+.recurring-reminders p {
+  font-size: 13px;
+}
+.recurring-reminders article {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.recurring-history article {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
