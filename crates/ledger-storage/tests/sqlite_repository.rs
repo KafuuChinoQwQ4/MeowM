@@ -49,6 +49,108 @@ fn expense(account_id: AccountId, id: TransactionId, status: TransactionStatus) 
 }
 
 #[test]
+fn confirmed_edit_and_reversal_keep_audit_and_balance_after_reopen() {
+    use ledger_app::FeatureRepository;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ledger.sqlite3");
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    let account = account("CNY", 10_000);
+    repo.insert_account(account.clone()).unwrap();
+    let original = expense(
+        account.id,
+        TransactionId::new(),
+        TransactionStatus::Confirmed,
+    );
+    repo.insert_transaction(original.clone()).unwrap();
+    let mut changed = original.clone();
+    changed.postings[0].delta = Money::new(-2000, account.currency.clone());
+    changed.report_amount_cny = Some(Money::new(2000, account.currency));
+    repo.edit_atomic(ledger_domain::TransactionEdit {
+        transaction: changed,
+        expected_version: 0,
+    })
+    .unwrap();
+    assert!(
+        repo.audit_history(original.id)
+            .unwrap()
+            .iter()
+            .any(|(action, _)| action == "updated")
+    );
+    let reversed = repo
+        .reverse_with_reason(original.id, utc("2026-01-03T00:00:00Z"), "duplicate")
+        .unwrap();
+    assert_eq!(
+        reversed,
+        repo.reverse_with_reason(original.id, utc("2026-01-04T00:00:00Z"), "duplicate")
+            .unwrap()
+    );
+    drop(repo);
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    assert_eq!(
+        repo.get_transaction(reversed)
+            .unwrap()
+            .unwrap()
+            .description
+            .as_deref(),
+        Some("duplicate")
+    );
+    assert_eq!(
+        repo.balance_as_of(account.id, utc("2026-01-04T01:00:00Z"))
+            .unwrap()
+            .unwrap()
+            .minor_units(),
+        10_000
+    );
+    assert!(
+        repo.audit_history(reversed)
+            .unwrap()
+            .iter()
+            .any(|(action, _)| action == "reversed")
+    );
+}
+
+#[test]
+fn reversing_refund_restores_expense_total_and_pending_cannot_be_reversed() {
+    use ledger_app::{FeatureRepository, ReportQuery, ReportService};
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let account = account("CNY", 10_000);
+    repo.insert_account(account.clone()).unwrap();
+    let original = expense(
+        account.id,
+        TransactionId::new(),
+        TransactionStatus::Confirmed,
+    );
+    repo.insert_transaction(original.clone()).unwrap();
+    let mut refund = original.clone();
+    refund.id = TransactionId::new();
+    refund.kind = TransactionKind::Refund;
+    refund.original_transaction_id = Some(original.id);
+    refund.postings[0].delta = Money::new(500, account.currency.clone());
+    refund.report_amount_cny = Some(Money::new(500, account.currency.clone()));
+    repo.insert_transaction(refund.clone()).unwrap();
+    let pending = expense(account.id, TransactionId::new(), TransactionStatus::Pending);
+    repo.insert_transaction(pending.clone()).unwrap();
+    assert!(
+        repo.reverse_atomic(
+            pending.id,
+            TransactionId::new(),
+            utc("2026-01-03T00:00:00Z")
+        )
+        .is_err()
+    );
+    repo.reverse_with_reason(refund.id, utc("2026-01-03T00:00:00Z"), "refund error")
+        .unwrap();
+    let report = ReportService::new(repo)
+        .summarize(ReportQuery {
+            from_utc_inclusive: utc("2026-01-01T00:00:00Z"),
+            until_utc_exclusive: utc("2026-02-01T00:00:00Z"),
+            month_boundaries_utc: vec![],
+        })
+        .unwrap();
+    assert_eq!(report.expense_cny_minor, 1250);
+}
+
+#[test]
 fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
     let repo = SqliteLedgerRepository::in_memory().unwrap();
     assert_eq!(repo.schema_version().unwrap(), 5);
@@ -985,4 +1087,35 @@ fn pending_import_receipt_survives_restart_and_keeps_bank_identity() {
     assert_eq!(repo.posting_count().unwrap(), 1);
     assert_eq!(repo.source_evidence_count().unwrap(), 1);
     assert_eq!(repo.import_batch_count().unwrap(), 1);
+}
+
+#[test]
+fn editing_a_refund_parent_and_reversing_it_cannot_invalidate_children() {
+    use ledger_app::FeatureRepository;
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let a = account("CNY", 10000);
+    repo.insert_account(a.clone()).unwrap();
+    let parent = expense(a.id, TransactionId::new(), TransactionStatus::Confirmed);
+    repo.insert_transaction(parent.clone()).unwrap();
+    let mut refund = parent.clone();
+    refund.id = TransactionId::new();
+    refund.kind = TransactionKind::Refund;
+    refund.original_transaction_id = Some(parent.id);
+    refund.postings[0].delta = Money::new(1250, a.currency.clone());
+    repo.insert_transaction(refund).unwrap();
+    let mut edited = parent.clone();
+    edited.kind = TransactionKind::Income;
+    edited.postings[0].delta = Money::new(1250, a.currency);
+    assert!(
+        repo.edit_atomic(ledger_domain::TransactionEdit {
+            transaction: edited,
+            expected_version: 0
+        })
+        .is_err()
+    );
+    assert!(
+        repo.reverse_atomic(parent.id, TransactionId::new(), utc("2026-01-03T00:00:00Z"))
+            .is_err()
+    );
+    assert_eq!(repo.get_transaction(parent.id).unwrap(), Some(parent));
 }

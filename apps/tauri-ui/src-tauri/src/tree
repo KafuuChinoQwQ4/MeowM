@@ -5,4 +5,5 @@
 - `ledger.rs` — Rust ledger command implementation with real SQLite and integration tests.
 - `lib.rs` — Tauri setup, application data storage and command handlers.
 - `main.rs` — Tauri frontend or Rust application configuration: main.rs.
+- `transactions.rs` — Tauri transaction detail, manual transfer and refund, optimistic edit, and reversal commands.
 - `tree` — 本目录直接文件的说明索引。

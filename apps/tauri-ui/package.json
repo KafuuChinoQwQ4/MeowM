@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "tauri": "tauri",
-    "test:ui": "node --test tests/pending-inbox.test.mjs"
+    "test:ui": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "2.11.1"

@@ -11,6 +11,9 @@ export interface PendingEdit { id: string; expected_version: number; account_id:
 export interface BillRow { id: string; row: number; date: string; amount: string; kind: string; merchant: string; description: string; decision: 'new' | 'exact_duplicate' | 'suspected_duplicate'; duplicate_id: string | null; warnings: string[] }
 export interface BillPreview { preview_id: string; rows: BillRow[]; errors: {row: number; message: string}[]; new_count: number; exact_duplicates: number; suspected_duplicates: number; pending_count: number }
 export interface CategoryOption { id: string; name: string }
+export interface TransactionDto { id: string; kind: string; status: 'pending'|'confirmed'|'ignored'; amount: string; date: string; account_id: string; to_account_id?: string|null; category_id?: string|null; merchant?: string|null; description?: string|null; original_transaction_id?: string|null; edit_version: number }
+export interface TransactionDetail { transaction: TransactionDto; edit_version: number; reversal_of: string|null; reversal_id: string|null; related_ids: string[]; sources: {source:string; external_id?:string|null; digest?:string|null}[]; history: {id:string; action:string; time:string; detail:string}[] }
+interface RawTransactionDetail extends Omit<TransactionDto, 'to_account_id'> { destination_id: string|null; reversal_of: string|null; reversal_id: string|null; linked_ids: string[]; sources: {source:string;external_id?:string|null;digest?:string|null}[]; history: [string,number][] }
 export const api = {
   previewBill: (provider: string, bytes: number[]) => invoke<BillPreview>('preview_bill', { provider, bytes }),
   stageBill: (previewId: string, accountId: string, ids: string[], edits: PendingEdit[]) => invoke<string[]>('stage_bill', { previewId, accountId, ids, edits }),
@@ -28,4 +31,16 @@ export const api = {
   saveEntry: (accountId: string, date: string, amount: string, note: string, income: boolean) => invoke<void>('save_entry', { accountId, date, amount, note, income }),
   setReference: (accountId: string, date: string, amount: string) => invoke<void>('set_reference', { accountId, date, amount }),
   clearReference: (accountId: string) => invoke<void>('clear_reference', { accountId }),
+  listCategories: () => invoke<CategoryOption[]>('list_categories'),
+  transactionDetail: async (id: string): Promise<TransactionDetail> => {
+    const raw = await invoke<RawTransactionDetail>('transaction_detail', { id });
+    return {
+      transaction: { ...raw, to_account_id: raw.destination_id }, edit_version: raw.edit_version,
+      reversal_of: raw.reversal_of, reversal_id: raw.reversal_id, related_ids: raw.linked_ids,
+      sources: raw.sources,
+      history: raw.history.map(([action, micros], index) => ({ id: String(index), action, time: new Date(micros / 1000).toISOString(), detail: action })),
+    };
+  },
+  saveTransaction: async (payload: Record<string, unknown>): Promise<{id:string}> => ({ id: await invoke<string>('write_transaction', {request: {edit: {id: payload.id ?? '', expected_version: payload.expected_version ?? 0, account_id: payload.account_id, date: payload.date, amount: payload.amount, kind: payload.kind, merchant: payload.merchant ?? '', description: payload.description ?? '', category_id: payload.category_id ?? null, original_transaction_id: payload.original_transaction_id ?? null}, destination_id: payload.to_account_id ?? null}}) }),
+  reverseTransaction: async (id: string, reason: string): Promise<{id:string}> => ({ id: await invoke<string>('reverse_transaction', {id, reason}) }),
 };

@@ -1,4 +1,5 @@
 import './styles.css';
+import { openTransaction } from './transactions';
 import { api, type Account, type DayView, type PageEntry, type EntryPage, type PageQuery, type PendingEdit, type BillPreview, type BillRow } from './api';
 import { money, today, moveDate, validDate, validAmount } from './format';
 
@@ -126,10 +127,11 @@ function renderDay(): void {
     const size = pageSize();
     recordPage = Math.min(recordPage, Math.max(0, Math.ceil(day.entries.length / size) - 1));
     for (const entry of day.entries.slice(recordPage * size, (recordPage + 1) * size)) {
-      const income = entry.kind === 'income'; const item = node('li', 'entry');
+      const income = !entry.amount.startsWith('-'); const item = node('li', 'entry');
+      const label = ({ income: '收入', expense: '支出', refund: '退款', transfer: '转账', adjustment: '余额调整 / 撤销' } as Record<string, string>)[entry.kind] ?? entry.kind;
       const icon = node('span', `entry-icon ${income ? 'income' : 'expense'}`, income ? '↙' : '↗'); icon.setAttribute('aria-hidden', 'true');
-      const body = node('div', 'entry-body'); body.append(node('h3', '', entry.note || (income ? '收入' : '支出')), node('p', '', `${income ? '收入' : '支出'} · ${entry.time}`));
-      const amount = node('span', `entry-amount ${income ? 'income-text' : ''}`, `${income ? '+' : '−'} ¥${money(entry.amount)}`); item.append(icon, body, amount); list.append(item);
+      const body = node('div', 'entry-body'); body.append(node('h3', '', entry.note || label), node('p', '', `${label} · ${entry.time}`));
+      const amount = node('span', `entry-amount ${income ? 'income-text' : ''}`, `${income ? '+' : '−'} ¥${money(entry.amount.replace(/^-/, ''))}`); item.append(icon, body, amount); item.tabIndex = 0; item.setAttribute('role', 'button'); item.onclick = () => void openTransaction(selectedAccount, selectedDate, loadDay, entry.id).catch(error => notify(errorText(error))); item.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); item.click(); } }; list.append(item);
     }
     records.append(list);
     const pages = Math.ceil(day.entries.length / size);
@@ -179,7 +181,7 @@ get('next').addEventListener('click', () => selectDate(moveDate(selectedDate, 1)
 get('today').addEventListener('click', () => selectDate(today()));
 get('nav-pending').addEventListener('click', () => setView('pending'));
 get('nav-platforms').addEventListener('click', () => setView('platforms'));
-get('add-entry').addEventListener('click', openEntry);
+get('add-entry').addEventListener('click', () => void openTransaction(selectedAccount, selectedDate, loadDay).catch(error => notify(errorText(error))));
 get('nav-ledger').addEventListener('click', () => setView('ledger'));
 get('nav-records').addEventListener('click', () => setView('records'));
 get('menu').addEventListener('click', () => { toggleNavigation(!get('side-nav').classList.contains('open')); });

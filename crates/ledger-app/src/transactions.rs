@@ -175,3 +175,14 @@ impl<R: ImportRepository> PendingService<R> {
             .map_err(Into::into)
     }
 }
+
+impl<R: FeatureRepository> TransactionService<R> {
+    pub fn edit(&self, edit: ledger_domain::TransactionEdit) -> Result<(), AppError> {
+        self.repository.edit_atomic(edit).map_err(Into::into)
+    }
+    pub fn reverse(&self, id: TransactionId, at: Timestamp) -> Result<TransactionId, AppError> {
+        self.repository
+            .reverse_atomic(id, TransactionId::new(), at)
+            .map_err(Into::into)
+    }
+}

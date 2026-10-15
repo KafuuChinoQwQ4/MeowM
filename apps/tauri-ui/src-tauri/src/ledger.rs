@@ -46,15 +46,15 @@ pub struct Ledger {
 fn cny() -> CurrencyCode {
     CurrencyCode::new("CNY", 2).expect("constant currency")
 }
-fn money(value: i64) -> Money {
+pub(crate) fn money(value: i64) -> Money {
     Money::new(value, cny())
 }
-fn account_id(value: &str) -> Result<AccountId> {
+pub(crate) fn account_id(value: &str) -> Result<AccountId> {
     uuid::Uuid::parse_str(value)
         .map(AccountId::from_uuid)
         .map_err(|_| "无效的平台标识".into())
 }
-fn date(value: &str) -> Result<NaiveDate> {
+pub(crate) fn date(value: &str) -> Result<NaiveDate> {
     NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|_| "请选择有效日期".into())
 }
 fn parse_source(value: &str) -> Result<ledger_domain::SourceKind> {
@@ -67,7 +67,7 @@ fn parse_source(value: &str) -> Result<ledger_domain::SourceKind> {
         _ => Err("无效的来源".into()),
     }
 }
-fn time(day: NaiveDate, closing: bool) -> Result<chrono::DateTime<Local>> {
+pub(crate) fn time(day: NaiveDate, closing: bool) -> Result<chrono::DateTime<Local>> {
     let naive = if closing {
         day.and_hms_micro_opt(23, 59, 59, 999_999)
     } else {
@@ -79,7 +79,7 @@ fn time(day: NaiveDate, closing: bool) -> Result<chrono::DateTime<Local>> {
         .single()
         .ok_or("该日期本地时间不可用".into())
 }
-fn parse_amount(value: &str, signed: bool) -> Result<i64> {
+pub(crate) fn parse_amount(value: &str, signed: bool) -> Result<i64> {
     let value = value.trim();
     let negative = value.starts_with('-');
     let digits = if negative { &value[1..] } else { value };
@@ -125,7 +125,7 @@ impl Ledger {
         }
         Ok(ledger)
     }
-    fn repo(&self) -> Result<SqliteLedgerRepository> {
+    pub(crate) fn repo(&self) -> Result<SqliteLedgerRepository> {
         SqliteLedgerRepository::open(&self.path).map_err(|e| e.to_string())
     }
     fn account(&self, id: &str) -> Result<DomainAccount> {
@@ -284,7 +284,11 @@ impl Ledger {
             let Some(posting) = tx.postings.iter().find(|p| p.account_id == account.id) else {
                 continue;
             };
-            if let Some(effect) = ledger_domain::report_effect(&tx) {
+            if let Some(effect) = repo
+                .report_override(tx.id)
+                .map_err(|e| e.to_string())?
+                .or_else(|| ledger_domain::report_effect(&tx))
+            {
                 income = income
                     .checked_add(effect.income_cny_minor)
                     .ok_or("收入合计过大")?;
@@ -681,7 +685,7 @@ struct PreviewSession {
         ledger_import::PreviewDecision,
     )>,
 }
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct PendingEdit {
     pub id: String,
     pub expected_version: u32,
@@ -700,7 +704,7 @@ pub struct CategoryOption {
     pub name: String,
 }
 
-fn transaction_id(value: &str) -> Result<TransactionId> {
+pub(crate) fn transaction_id(value: &str) -> Result<TransactionId> {
     uuid::Uuid::parse_str(value)
         .map(TransactionId::from_uuid)
         .map_err(|_| "无效的流水标识".into())
@@ -966,7 +970,11 @@ impl Ledger {
             .map(|ids| ids.iter().map(|id| id.as_uuid().to_string()).collect())
             .map_err(|error| error.to_string())
     }
-    fn apply_pending_edit(&self, mut tx: Transaction, edit: &PendingEdit) -> Result<Transaction> {
+    pub(crate) fn apply_pending_edit(
+        &self,
+        mut tx: Transaction,
+        edit: &PendingEdit,
+    ) -> Result<Transaction> {
         let account = self.account(&edit.account_id)?;
         if edit.merchant.chars().count() > 100 || edit.description.chars().count() > 200 {
             return Err("商户最多 100 字，备注最多 200 字".into());
@@ -1070,7 +1078,7 @@ impl Ledger {
             .map_err(|error| error.to_string())
     }
 }
-fn kind_label(kind: TransactionKind) -> &'static str {
+pub(crate) fn kind_label(kind: TransactionKind) -> &'static str {
     match kind {
         TransactionKind::Income => "income",
         TransactionKind::Expense => "expense",

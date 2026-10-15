@@ -78,5 +78,8 @@
   "crates/ledger-import/tests/provider_parsers.rs": "UTF-8/BOM payment and bank parser row validation tests.",
   "crates/ledger-import/tests/import_preview.rs": "Stable-ID and suspected duplicate preview tests.",
   "crates/ledger-storage/migrations/0005_pending_import.sql": "Bank provenance compatibility and atomic import receipt rows.",
-  "apps/tauri-ui/tests/pending-inbox.test.mjs": "Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry."
+  "apps/tauri-ui/tests/pending-inbox.test.mjs": "Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.",
+  "apps/tauri-ui/src-tauri/src/transactions.rs": "Tauri transaction detail, manual transfer and refund, optimistic edit, and reversal commands.",
+  "apps/tauri-ui/src/transactions.ts": "Transaction detail dialog with edit impact preview and reversal confirmation.",
+  "apps/tauri-ui/tests/transactions.test.mjs": "Browser workflow test for transaction detail and versioned editing."
 }

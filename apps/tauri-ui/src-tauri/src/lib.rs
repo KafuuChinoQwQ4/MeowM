@@ -1,4 +1,5 @@
 mod ledger;
+mod transactions;
 use ledger::{Account, DayView, Ledger};
 use std::sync::Mutex;
 use tauri::{Manager, State};
@@ -114,6 +115,25 @@ fn edit_pending(state: State<'_, LedgerState>, edit: ledger::PendingEdit) -> Res
 fn list_categories(state: State<'_, LedgerState>) -> Result<Vec<ledger::CategoryOption>> {
     access(state, |l| l.categories())
 }
+#[tauri::command]
+fn transaction_detail(state: State<'_, LedgerState>, id: String) -> Result<transactions::Detail> {
+    access(state, |l| l.transaction_detail(&id))
+}
+#[tauri::command]
+fn write_transaction(
+    state: State<'_, LedgerState>,
+    request: transactions::WriteTransaction,
+) -> Result<String> {
+    access(state, |l| l.write_transaction(request))
+}
+#[tauri::command]
+fn reverse_transaction(
+    state: State<'_, LedgerState>,
+    id: String,
+    reason: String,
+) -> Result<String> {
+    access(state, |l| l.reverse_transaction(&id, &reason))
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -138,7 +158,10 @@ pub fn run() {
             stage_bill,
             confirm_pending,
             edit_pending,
-            list_categories
+            list_categories,
+            transaction_detail,
+            write_transaction,
+            reverse_transaction
         ])
         .run(tauri::generate_context!())
         .expect("启动 MeowM 失败");

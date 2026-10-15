@@ -4,4 +4,5 @@
 
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
 - `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.
+- `transactions.test.mjs` — Browser workflow test for transaction detail and versioned editing.
 - `tree` — 本目录直接文件的说明索引。
