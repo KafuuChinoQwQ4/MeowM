@@ -22,6 +22,22 @@ pub trait LedgerRepository {
     fn get_transaction(&self, id: TransactionId) -> Result<Option<Transaction>, RepositoryError>;
     fn list_transactions(&self) -> Result<Vec<Transaction>, RepositoryError>;
     fn update_transaction(&self, transaction: Transaction) -> Result<(), RepositoryError>;
+    /// Confirmed rows in a half-open UTC range; storage can avoid loading unrelated history.
+    fn report_transactions(
+        &self,
+        from: Timestamp,
+        until: Timestamp,
+    ) -> Result<Vec<Transaction>, RepositoryError> {
+        Ok(self
+            .list_transactions()?
+            .into_iter()
+            .filter(|t| {
+                t.status == ledger_domain::TransactionStatus::Confirmed
+                    && t.occurred_at >= from
+                    && t.occurred_at < until
+            })
+            .collect())
+    }
 
     /// Allows compatible repositories to supply explicit inverse report contributions.
     fn report_override(
@@ -124,4 +140,11 @@ pub trait ImportRepository: FeatureRepository {
         source: SourceKind,
         external_transaction_id: &str,
     ) -> Result<Option<TransactionId>, RepositoryError>;
+}
+
+/// Atomic budget persistence with scope uniqueness and enabled-category validation.
+pub trait BudgetRepository: LedgerRepository + ClassificationRuleRepository {
+    fn list_budgets(&self) -> Result<Vec<crate::BudgetPlan>, RepositoryError>;
+    fn save_budget(&self, budget: crate::BudgetPlan, create: bool) -> Result<(), RepositoryError>;
+    fn archive_budget(&self, id: ledger_domain::BudgetId) -> Result<(), RepositoryError>;
 }

@@ -132,3 +132,12 @@ fn overflow_error(area: &str) -> AppError {
         "{area} amount overflowed"
     )))
 }
+
+impl<R: LedgerRepository + crate::ClassificationRuleRepository> ReportService<R> {
+    pub fn summarize_scoped(
+        &self,
+        query: crate::ScopedReportQuery,
+    ) -> Result<crate::DetailedReport, AppError> {
+        crate::report_details::aggregate(&self.repository, query)
+    }
+}

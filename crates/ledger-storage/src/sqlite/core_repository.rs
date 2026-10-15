@@ -1,6 +1,30 @@
 use super::*;
 
 impl LedgerRepository for SqliteLedgerRepository {
+    fn report_transactions(
+        &self,
+        from: Timestamp,
+        until: Timestamp,
+    ) -> Result<Vec<Transaction>, RepositoryError> {
+        let mut stmt=self.connection.prepare("SELECT id FROM transactions WHERE status='confirmed' AND occurred_at_utc_micros>=?1 AND occurred_at_utc_micros<?2 ORDER BY occurred_at_utc_micros,id").map_err(storage_error)?;
+        let ids = stmt
+            .query_map(
+                params![from.timestamp_micros(), until.timestamp_micros()],
+                |r| r.get::<_, String>(0),
+            )
+            .map_err(storage_error)?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(storage_error)?;
+        ids.into_iter()
+            .map(|id| {
+                self.get_transaction(TransactionId::from_uuid(
+                    parse_uuid(&id).map_err(RepositoryError::InvalidData)?,
+                ))?
+                .ok_or(RepositoryError::NotFound)
+            })
+            .collect()
+    }
+
     fn report_override(
         &self,
         id: TransactionId,

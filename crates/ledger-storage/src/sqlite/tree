@@ -3,6 +3,7 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `accounts.rs` — 平台分类及元数据持久化。
+- `budgets.rs` — 预算持久化、唯一范围和停用分类的事务校验。
 - `classification.rs` — 分类与分类规则仓储实现。
 - `core_repository.rs` — 账户、交易、日末余额和来源仓储实现。
 - `diagnostics.rs` — 数据库诊断及审计数量查询。

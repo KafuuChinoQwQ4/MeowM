@@ -2,6 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `budget_workflows.rs` — 真实 SQLite 报表、退款、DST、预算持久化和提醒边界测试。
 - `classification_and_reports.rs` — Integration tests for category rules and confirmed transaction reports.
 - `ledger_workflows.rs` — Integration tests for account, transaction, refund, and balance workflows.
 - `tree` — 本目录直接文件的说明索引。

@@ -10,4 +10,5 @@ ledger-domain = { path = "../ledger-domain" }
 uuid = "1"
 
 [dev-dependencies]
+chrono-tz = "0.10"
 ledger-storage = { path = "../ledger-storage" }

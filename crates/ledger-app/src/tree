@@ -3,9 +3,13 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `accounts.rs` — Account and opening-balance use cases.
+- `budgets.rs` — 自然月和自定义预算生命周期及整数分进度计算。
+- `calendar.rs` — 本地日期及 DST 月份转换为半开 UTC 报表区间。
 - `classification.rs` — Category management and explainable classification rules.
 - `lib.rs` — Application service module declarations.
 - `ports.rs` — Repository ports used by application services.
+- `reminders.rs` — 从有效预算派生稳定提醒事件，不写入交易。
+- `report_details.rs` — 按平台、分类和商户聚合收支、趋势、分页排行和余额快照。
 - `reports.rs` — Income, expense, and balance report queries.
 - `transactions.rs` — Transaction and atomic pending inbox application services.
 - `tree` — 本目录直接文件的说明索引。

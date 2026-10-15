@@ -1,8 +1,12 @@
 //! Application use cases over the ledger domain and repository ports.
 
 pub mod accounts;
+pub mod budgets;
+pub mod calendar;
 pub mod classification;
 pub mod ports;
+pub mod reminders;
+mod report_details;
 pub mod reports;
 pub mod transactions;
 
@@ -90,3 +94,9 @@ impl From<DomainError> for AppError {
         Self::Domain(error)
     }
 }
+
+pub use budgets::{BudgetPlan, BudgetProgress, BudgetService};
+pub use calendar::CalendarRange;
+pub use ports::BudgetRepository;
+pub use reminders::{ReminderEvent, ReminderService};
+pub use report_details::{DetailedReport, ScopedReportQuery};

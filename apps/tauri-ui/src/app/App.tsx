@@ -14,6 +14,8 @@ import { TransactionPanel } from '../features/transactions/TransactionPanel';
 import { PendingPage } from '../features/pending/PendingPage';
 import { PendingEditor } from '../features/pending/PendingEditor';
 import { ImportPanel } from '../features/import/ImportPanel';
+import { ReportsPage } from '../features/reports/ReportsPage';
+import { BudgetsPage } from '../features/budgets/BudgetsPage';
 import { today } from '../shared/format';
 import { Navigation, type View } from './Navigation';
 import { Toolbar } from './Toolbar';
@@ -69,7 +71,7 @@ export function App() {
             accounts={accounts}
             accountId={accountId}
             date={date}
-            hidden={view === 'platforms' || view === 'pending'}
+            hidden={view !== 'ledger' && view !== 'records'}
             ready={!!day && !loading}
             onAccount={setAccount}
             onDate={setDate}
@@ -92,6 +94,10 @@ export function App() {
                       selectView('ledger');
                     }}
                   />
+                )}
+                {view === 'reports' && <ReportsPage accounts={accounts} revision={revision} />}
+                {view === 'budgets' && (
+                  <BudgetsPage accounts={accounts} revision={revision} onChanged={refresh} />
                 )}
                 {view === 'pending' && (
                   <PendingPage

@@ -1,3 +1,4 @@
+mod analytics;
 mod ledger;
 mod transactions;
 use ledger::{Account, DayView, Ledger};
@@ -161,7 +162,12 @@ pub fn run() {
             list_categories,
             transaction_detail,
             write_transaction,
-            reverse_transaction
+            reverse_transaction,
+            analytics::commands::report_summary,
+            analytics::commands::list_budgets,
+            analytics::commands::write_budget,
+            analytics::commands::archive_budget,
+            analytics::commands::budget_reminders
         ])
         .run(tauri::generate_context!())
         .expect("启动 MeowM 失败");

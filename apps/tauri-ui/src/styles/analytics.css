@@ -1,0 +1,141 @@
+.analytics-page {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 4px 12px;
+  overflow-wrap: anywhere;
+}
+.analytics-page h2 {
+  font-size: 1.15rem;
+  margin: 16px 0 8px;
+}
+.analytics-page h3 {
+  font-size: 1rem;
+  margin: 0 0 12px;
+}
+.report-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+.report-filters .form-field {
+  min-width: 0;
+}
+.report-filters input,
+.report-filters select {
+  min-width: 0;
+  max-width: 100%;
+}
+.report-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 22px 0;
+}
+.report-summary > div {
+  background: #edf4ff;
+  padding: 12px 8px;
+  border-radius: 12px;
+}
+.report-summary span,
+.report-summary strong {
+  display: block;
+}
+.report-summary span {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.report-summary strong {
+  font-size: clamp(0.8rem, 2.7vw, 1.15rem);
+}
+.analytics-section {
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+}
+.analytics-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+.analytics-row > * {
+  min-width: 0;
+}
+.analytics-row span {
+  font-size: 0.8rem;
+}
+.analytics-row > span:last-child {
+  text-align: right;
+}
+.analytics-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+.trend-row {
+  display: grid;
+  grid-template-columns: 75px minmax(0, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+  font-size: 0.8rem;
+}
+.trend-row span {
+  display: block;
+}
+.chart-track {
+  background: #e5ebf5;
+  border-radius: 8px;
+  overflow: hidden;
+  height: 8px;
+  margin: 5px 0 10px;
+}
+.chart-track i {
+  display: block;
+  height: 100%;
+  background: #6895cc;
+}
+.chart-track.expense i,
+.budget-card.exceeded .chart-track i {
+  background: #c27b98;
+}
+.category-share {
+  margin: 14px 0;
+}
+.category-share > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+.budget-card {
+  border: 1px solid var(--line);
+  background: #f5f8ff;
+  border-radius: 14px;
+  padding: 12px;
+  margin: 12px 0;
+}
+.budget-card p {
+  font-size: 0.8rem;
+  margin: 8px 0;
+}
+.budget-card.exceeded {
+  border-color: #dbadbf;
+}
+.budget-reminder {
+  padding: 12px;
+  background: #fce9f0;
+  color: #8b4562;
+  font-size: 0.85rem;
+  border-radius: 10px;
+}
+.budget-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.analytics-empty {
+  padding: 20px 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}

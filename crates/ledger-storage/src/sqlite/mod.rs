@@ -1,5 +1,6 @@
 //! SQLite connection and repository module boundary. Schema and public API stay unchanged.
 mod accounts;
+mod budgets;
 mod classification;
 mod core_repository;
 mod diagnostics;

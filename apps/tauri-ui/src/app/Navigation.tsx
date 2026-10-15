@@ -1,10 +1,12 @@
 import { useEffect, useRef } from 'react';
-export type View = 'ledger' | 'records' | 'pending' | 'platforms';
+export type View = 'ledger' | 'records' | 'pending' | 'platforms' | 'reports' | 'budgets';
 const views: [View, string][] = [
   ['ledger', '账本'],
   ['records', '明细'],
   ['pending', '待确认'],
   ['platforms', '平台管理'],
+  ['reports', '报表总览'],
+  ['budgets', '预算管理'],
 ];
 export function Navigation({
   view,
