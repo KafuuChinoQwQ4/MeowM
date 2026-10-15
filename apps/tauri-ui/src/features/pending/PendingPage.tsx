@@ -63,7 +63,14 @@ export function PendingPage({
           导入账单
         </button>
       </div>
-      <p className="field-hint">导入记录仅在确认后计入余额与报表。</p>
+      <p className="field-hint">导入和通知候选仅在确认后计入余额与报表。</p>
+      <button
+        className="button button-secondary"
+        disabled={busy || state.loading}
+        onClick={state.reload}
+      >
+        刷新待确认记录
+      </button>
       <PendingFilters accounts={accounts} query={query} onChange={setQuery} disabled={busy} />
       <LoadState {...state} />
       <FormError message={error} />

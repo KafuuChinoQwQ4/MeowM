@@ -178,5 +178,22 @@
   "apps/tauri-ui/src/features/budgets/BudgetForm.tsx": "自然月和自定义周期预算表单及错误保留。",
   "apps/tauri-ui/src/features/budgets/BudgetsPage.tsx": "预算新增、编辑、停用及历史进度列表。",
   "apps/tauri-ui/src/styles/analytics.css": "报表筛选、图表、预算和提醒的响应式样式。",
-  "apps/tauri-ui/tests/reports-budgets.test.mjs": "模拟 IPC 的报表筛选分页及预算编辑停用浏览器测试。"
+  "apps/tauri-ui/tests/reports-budgets.test.mjs": "模拟 IPC 的报表筛选分页及预算编辑停用浏览器测试。",
+  "crates/ledger-app/src/notifications.rs": "Notification source settings and normalized capture persistence contracts.",
+  "crates/ledger-notifications/src/amount.rs": "Conservative integer-fen parser for Arabic and Chinese notification amounts.",
+  "crates/ledger-notifications/src/capture.rs": "Pending candidate construction and digest-based capture orchestration.",
+  "crates/ledger-notifications/tests/notification_parsers.rs": "Payment direction, unsupported format and uncertain amount parser fixtures.",
+  "crates/ledger-notifications/tests/capture_workflows.rs": "Real SQLite capture, privacy, source disable and restart-safe deduplication tests.",
+  "crates/ledger-storage/migrations/0006_notifications.sql": "Notification receipts and normalized recent-result schema.",
+  "crates/ledger-storage/src/sqlite/notifications.rs": "Atomic notification capture receipts, source settings and recent results.",
+  "apps/tauri-ui/src-tauri/src/notifications/mod.rs": "Android notification plugin registration and bounded private JSON capture boundary.",
+  "apps/tauri-ui/src-tauri/src/notifications/commands.rs": "Notification settings, consent checks and platform permission commands.",
+  "apps/tauri-ui/src-tauri/src/notifications/jni.rs": "Background-safe Android JNI capture and enabled-source entry points.",
+  "apps/tauri-ui/src-tauri/src/notifications/tests.rs": "JNI payload privacy and completion of pending notification transfers.",
+  "apps/tauri-ui/src/api/notifications.ts": "Typed notification settings and Android permission IPC client.",
+  "apps/tauri-ui/src/features/notifications/NotificationsPage.tsx": "Notification consent, permission guidance and recent capture results.",
+  "apps/tauri-ui/src/features/notifications/NotificationSourceCard.tsx": "Per-source editing, default platform and recoverable save errors.",
+  "apps/tauri-ui/src/styles/notifications.css": "Notification permission and source settings layout.",
+  "apps/tauri-ui/tests/notifications.test.mjs": "React notification consent, draft retention and source persistence browser tests.",
+  "docs/stage4-notification-validation.md": "Fourth-stage notification implementation scope and reproducible Android validation."
 }

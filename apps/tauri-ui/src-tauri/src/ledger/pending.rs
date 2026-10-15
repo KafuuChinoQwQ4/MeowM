@@ -28,6 +28,7 @@ pub struct PendingEdit {
     pub id: String,
     pub expected_version: u32,
     pub account_id: String,
+    pub destination_id: Option<String>,
     pub date: String,
     pub amount: String,
     pub kind: String,
@@ -56,6 +57,7 @@ impl Ledger {
             "income" => TransactionKind::Income,
             "expense" => TransactionKind::Expense,
             "refund" => TransactionKind::Refund,
+            "transfer" => TransactionKind::Transfer,
             _ => return Err("无效的候选类型".into()),
         };
         let amount = parse_amount(&edit.amount, false)?;
@@ -73,6 +75,29 @@ impl Ledger {
             account_id: account.id,
             delta: money(amount * sign),
         }];
+        if tx.kind == TransactionKind::Transfer {
+            let destination =
+                self.account(edit.destination_id.as_deref().ok_or("请选择转入平台")?)?;
+            if destination.id == account.id {
+                return Err("转出和转入平台必须不同".into());
+            }
+            if destination.currency.code() != "CNY" {
+                return Err("请选择人民币平台".into());
+            }
+            tx.postings[0].delta = money(if account.kind == AccountKind::Asset {
+                -amount
+            } else {
+                amount
+            });
+            tx.postings.push(Posting {
+                account_id: destination.id,
+                delta: money(if destination.kind == AccountKind::Asset {
+                    amount
+                } else {
+                    -amount
+                }),
+            });
+        }
         tx.report_amount_cny = Some(money(amount));
         tx.merchant = (!edit.merchant.trim().is_empty()).then(|| edit.merchant.trim().into());
         tx.description =

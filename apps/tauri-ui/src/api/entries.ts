@@ -22,6 +22,7 @@ export interface PageEntry {
   edit_version: number;
   reversal_of: string | null;
   account_id: string | null;
+  destination_id?: string | null;
   category_id: string | null;
   original_transaction_id: string | null;
   sources: string[];
@@ -39,6 +40,7 @@ export interface CommandError {
 export interface PendingEdit {
   id: string;
   expected_version: number;
+  destination_id?: string | null;
   account_id: string;
   date: string;
   amount: string;

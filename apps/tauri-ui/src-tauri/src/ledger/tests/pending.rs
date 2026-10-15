@@ -101,6 +101,7 @@ fn imported_refund_requires_explicit_parent_at_confirmation() {
         .unwrap();
     ledger
         .edit_pending(PendingEdit {
+            destination_id: None,
             id: ids[0].clone(),
             expected_version: 0,
             account_id: account.clone(),

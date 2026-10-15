@@ -25,6 +25,7 @@ export function PendingEditor({
     date: `${occurred.getFullYear()}-${String(occurred.getMonth() + 1).padStart(2, '0')}-${String(occurred.getDate()).padStart(2, '0')}`,
     amount: entry.amount ?? '',
     kind: entry.kind,
+    destination_id: entry.destination_id ?? null,
     merchant: entry.merchant ?? '',
     description: entry.description ?? '',
     category_id: entry.category_id,
@@ -87,11 +88,24 @@ export function PendingEditor({
         <SelectField
           label="类型"
           options={Object.entries(kindNames).filter(([id]) =>
-            ['expense', 'income', 'refund'].includes(id),
+            ['expense', 'income', 'refund', 'transfer'].includes(id),
           )}
           value={draft.kind}
           onChange={(e) => update('kind', e.target.value)}
         />
+        {draft.kind === 'transfer' && (
+          <SelectField
+            label="转入平台"
+            value={draft.destination_id ?? ''}
+            options={[
+              ['', '请选择转入平台'],
+              ...accounts
+                .filter((a) => a.id !== draft.account_id)
+                .map((a) => [a.id, a.name] as [string, string]),
+            ]}
+            onChange={(e) => update('destination_id', e.target.value)}
+          />
+        )}
         <Field
           label="商户"
           maxLength={100}

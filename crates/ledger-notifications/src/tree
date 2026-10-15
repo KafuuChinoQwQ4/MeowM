@@ -2,6 +2,8 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `amount.rs` — Conservative integer-fen parser for Arabic and Chinese notification amounts.
+- `capture.rs` — Pending candidate construction and digest-based capture orchestration.
 - `event.rs` — Minimal event shape passed from Android to Rust.
 - `lib.rs` — Notification event and parser module declarations.
 - `parse.rs` — Shared notification parsing and confidence handling.

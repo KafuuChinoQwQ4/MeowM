@@ -28,7 +28,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 5
+                && v <= 6
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -40,10 +40,12 @@ impl SqliteLedgerRepository {
                     self.apply_classification_migration(1)?;
                     return Ok(());
                 }
-                (2, Some(2)) | (3, Some(3)) | (4, Some(4)) | (5, Some(5)) => return Ok(()),
-                (_, Some(version)) if version > 5 => {
+                (2, Some(2)) | (3, Some(3)) | (4, Some(4)) | (5, Some(5)) | (6, Some(6)) => {
+                    return Ok(());
+                }
+                (_, Some(version)) if version > 6 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 5"
+                        "database schema version {version} is newer than supported version 6"
                     )));
                 }
                 _ => {
@@ -199,5 +201,25 @@ impl SqliteLedgerRepository {
                 row.get(0)
             })
             .map_err(storage_error)
+    }
+}
+
+impl SqliteLedgerRepository {
+    pub(super) fn apply_notification_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 6 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!("../../migrations/0006_notifications.sql"))
+            .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO schema_version VALUES(6,?1)",
+            [Utc::now().timestamp_micros()],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
     }
 }

@@ -19,3 +19,6 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# JNI symbol and plugin names are consumed by Rust, including release builds.
+-keep class com.example.localledger.RustBridge { *; }
+-keep class com.example.localledger.NotificationPlugin { *; }

@@ -7,6 +7,7 @@
 - `calendar.rs` — 本地日期及 DST 月份转换为半开 UTC 报表区间。
 - `classification.rs` — Category management and explainable classification rules.
 - `lib.rs` — Application service module declarations.
+- `notifications.rs` — Notification source settings and normalized capture persistence contracts.
 - `ports.rs` — Repository ports used by application services.
 - `reminders.rs` — 从有效预算派生稳定提醒事件，不写入交易。
 - `report_details.rs` — 按平台、分类和商户聚合收支、趋势、分页排行和余额快照。

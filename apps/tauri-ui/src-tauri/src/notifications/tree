@@ -1,0 +1,9 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `commands.rs` — Notification settings, consent checks and platform permission commands.
+- `jni.rs` — Background-safe Android JNI capture and enabled-source entry points.
+- `mod.rs` — Android notification plugin registration and bounded private JSON capture boundary.
+- `tests.rs` — JNI payload privacy and completion of pending notification transfers.
+- `tree` — 本目录直接文件的说明索引。

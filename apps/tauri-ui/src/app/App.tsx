@@ -16,6 +16,7 @@ import { PendingEditor } from '../features/pending/PendingEditor';
 import { ImportPanel } from '../features/import/ImportPanel';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { BudgetsPage } from '../features/budgets/BudgetsPage';
+import { NotificationsPage } from '../features/notifications/NotificationsPage';
 import { today } from '../shared/format';
 import { Navigation, type View } from './Navigation';
 import { Toolbar } from './Toolbar';
@@ -92,6 +93,15 @@ export function App() {
                     onEnter={(id) => {
                       setAccount(id);
                       selectView('ledger');
+                    }}
+                  />
+                )}
+                {view === 'notifications' && (
+                  <NotificationsPage
+                    accounts={accounts}
+                    onPending={() => {
+                      selectView('pending');
+                      refresh();
                     }}
                   />
                 )}

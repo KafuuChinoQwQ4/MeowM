@@ -12,6 +12,7 @@
 - `mapping.rs` — SQLite 行到领域对象及查询结果的映射。
 - `migrations.rs` — 保留旧数据的版本迁移及结构验证。
 - `mod.rs` — 私有 SQLite 连接、初始化和公开仓储入口。
+- `notifications.rs` — Atomic notification capture receipts, source settings and recent results.
 - `reversals.rs` — 交易撤销、审计链及版本化写入。
 - `transaction_write.rs` — 事务内交易、分录及审计记录写入。
 - `validation.rs` — 写入前的金额、账户、分类及引用校验。

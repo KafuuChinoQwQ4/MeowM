@@ -177,14 +177,16 @@
 - Android 只传 `package_name`、标题、正文、通知 key 和发布时间；Rust 返回 `ignored/pending/error` 结果。
 - `NotificationSettings` 按包名控制来源，默认关闭；通知来源证据使用通知 key/摘要去重。
 
-- [ ] **Step 1: 写通知解析失败测试**：微信/支付宝消费、收款、退款、转账、重复回调、负号、中文金额、缺少商户和不支持包名。
-- [ ] **Step 2: 实现来源解析器**：公共逻辑只做金额、日期、方向和置信度；不确定字段生成 Pending，不得直接 Confirmed；日志只输出来源和结果摘要。
-- [ ] **Step 3: 实现 Rust 入口**：将解析候选写入待确认表和来源证据；重复通知返回已有候选；服务重启后继续幂等。
-- [ ] **Step 4: 实现 Android 通知服务**：声明通知监听服务，读取系统授予状态，过滤启用来源，捕获异常后不阻塞系统回调；原始正文只在内存中传递。
-- [ ] **Step 5: 增加设置页和权限引导**：首次启用说明用途，跳转系统通知访问设置，逐来源开关，并显示最近一次解析结果而非正文。
-- [ ] **Step 6: 验证 Tauri Android 生成/安装流程**：在模拟器或真机上测试授予权限、进程重启、重复通知、关闭来源和 WebView 刷新。
-- [ ] **Step 7: 运行 Rust 通知测试、`npm run build` 和 Android instrumentation/最小真机流程**。
-- [ ] **Step 8: Commit**：`feat: connect Android payment notifications`。
+- [x] **Step 1: 写通知解析失败测试**：微信/支付宝消费、收款、退款、转账、重复回调、负号、中文金额、缺少商户和不支持包名。
+- [x] **Step 2: 实现来源解析器**：公共逻辑只做金额、日期、方向和置信度；不确定字段生成 Pending，不得直接 Confirmed；日志只输出来源和结果摘要。
+- [x] **Step 3: 实现 Rust 入口**：将解析候选写入待确认表和来源证据；重复通知返回已有候选；服务重启后继续幂等。
+- [x] **Step 4: 实现 Android 通知服务**：声明通知监听服务，读取系统授予状态，过滤启用来源，捕获异常后不阻塞系统回调；原始正文只在内存中传递。
+- [x] **Step 5: 增加设置页和权限引导**：首次启用说明用途，跳转系统通知访问设置，逐来源开关，并显示最近一次解析结果而非正文。
+- [x] **Step 6: 验证 Tauri Android 生成/安装流程**：在模拟器或真机上测试授予权限、进程重启、重复通知、关闭来源和 WebView 刷新。
+- [x] **Step 7: 运行 Rust 通知测试、`npm run build` 和 Android instrumentation/最小真机流程**。
+- [x] **Step 8: Commit**：`feat: connect Android payment notifications`。
+
+验收：见 `docs/stage4-notification-validation.md`。Android API 35 合成通知链路、重启去重、关闭来源和 WebView 刷新已验证；真实支付及厂商后台策略仍需设备实测。
 
 ### Task 5: 周期性账单和到期提醒
 

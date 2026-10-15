@@ -25,6 +25,7 @@ pub struct PageEntry {
     pub edit_version: u32,
     pub reversal_of: Option<String>,
     pub account_id: Option<String>,
+    pub destination_id: Option<String>,
     pub category_id: Option<String>,
     pub original_transaction_id: Option<String>,
     pub sources: Vec<String>,
@@ -153,6 +154,13 @@ impl Ledger {
                             .postings
                             .first()
                             .map(|p| p.account_id.as_uuid().to_string()),
+                        destination_id: if t.kind == TransactionKind::Transfer {
+                            t.postings
+                                .get(1)
+                                .map(|p| p.account_id.as_uuid().to_string())
+                        } else {
+                            None
+                        },
                         category_id: t.category_id.map(|id| id.as_uuid().to_string()),
                         original_transaction_id: t
                             .original_transaction_id

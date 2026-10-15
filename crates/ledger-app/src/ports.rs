@@ -148,3 +148,21 @@ pub trait BudgetRepository: LedgerRepository + ClassificationRuleRepository {
     fn save_budget(&self, budget: crate::BudgetPlan, create: bool) -> Result<(), RepositoryError>;
     fn archive_budget(&self, id: ledger_domain::BudgetId) -> Result<(), RepositoryError>;
 }
+
+/// Notification receipts, settings, and candidates must be committed together.
+pub trait NotificationRepository: FeatureRepository {
+    fn notification_settings(
+        &self,
+    ) -> Result<Vec<crate::notifications::NotificationSettings>, RepositoryError>;
+    fn save_notification_settings(
+        &self,
+        settings: crate::notifications::NotificationSettings,
+    ) -> Result<(), RepositoryError>;
+    fn notification_status(
+        &self,
+    ) -> Result<Vec<crate::notifications::CaptureStatus>, RepositoryError>;
+    fn record_notification(
+        &self,
+        record: crate::notifications::NotificationRecord,
+    ) -> Result<crate::notifications::CaptureResult, RepositoryError>;
+}

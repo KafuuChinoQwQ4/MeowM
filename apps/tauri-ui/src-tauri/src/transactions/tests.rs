@@ -3,6 +3,7 @@ use super::*;
 fn request(account: &str, kind: &str, amount: &str) -> WriteTransaction {
     WriteTransaction {
         edit: PendingEdit {
+            destination_id: None,
             id: String::new(),
             expected_version: 0,
             account_id: account.into(),

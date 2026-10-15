@@ -8,6 +8,7 @@ mod feature_repository;
 mod imports;
 mod mapping;
 mod migrations;
+mod notifications;
 mod reversals;
 mod transaction_write;
 mod validation;
@@ -46,11 +47,15 @@ impl SqliteLedgerRepository {
         connection
             .execute_batch("PRAGMA foreign_keys = ON;")
             .map_err(storage_error)?;
+        connection
+            .busy_timeout(std::time::Duration::from_secs(5))
+            .map_err(storage_error)?;
         let repo = Self { connection };
         repo.apply_migrations()?;
         repo.apply_optional_balance_migration()?;
         repo.apply_feature_migration()?;
         repo.apply_pending_import_migration()?;
+        repo.apply_notification_migration()?;
         repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
             account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
             category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))

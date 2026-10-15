@@ -4,6 +4,7 @@ pub mod accounts;
 pub mod budgets;
 pub mod calendar;
 pub mod classification;
+pub mod notifications;
 pub mod ports;
 pub mod reminders;
 mod report_details;

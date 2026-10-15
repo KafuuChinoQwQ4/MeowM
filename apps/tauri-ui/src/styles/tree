@@ -10,6 +10,7 @@
 - `fields.css` — 表单字段、错误和提交按钮样式。
 - `index.css` — 按职责组合全部界面样式。
 - `navigation.css` — 导航菜单、遮罩和返回按钮样式。
+- `notifications.css` — Notification permission and source settings layout.
 - `pending.css` — 待确认筛选、批量操作与重复详情样式。
 - `records.css` — 流水列表、记录行和分页样式。
 - `shell.css` — 应用容器、背景和移动端总体布局。

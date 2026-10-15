@@ -1684,6 +1684,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ledger-notifications"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ledger-app",
+ "ledger-domain",
+ "ledger-storage",
+ "regex",
+ "serde",
+ "sha2",
+ "tempfile",
+ "uuid",
+]
+
+[[package]]
 name = "ledger-storage"
 version = "0.1.0"
 dependencies = [
@@ -1700,11 +1715,14 @@ name = "ledger-tauri-ui"
 version = "0.2.0"
 dependencies = [
  "chrono",
+ "jni",
  "ledger-app",
  "ledger-domain",
  "ledger-import",
+ "ledger-notifications",
  "ledger-storage",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tempfile",

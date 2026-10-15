@@ -3,6 +3,7 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
+- `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
 - `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.
 - `react-workflows.test.mjs` — 平台、参考余额、导入修订、弹窗生命周期、撤销及过期请求的浏览器回归。
 - `reports-budgets.test.mjs` — 模拟 IPC 的报表筛选分页及预算编辑停用浏览器测试。

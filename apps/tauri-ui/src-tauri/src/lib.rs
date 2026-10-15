@@ -1,5 +1,6 @@
 mod analytics;
 mod ledger;
+mod notifications;
 mod transactions;
 use ledger::{Account, DayView, Ledger};
 use std::sync::Mutex;
@@ -138,6 +139,7 @@ fn reverse_transaction(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(notifications::init())
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("ledger.sqlite3");
             let ledger = Ledger::open(&path).map_err(std::io::Error::other)?;
@@ -145,6 +147,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            notifications::notification_state,
+            notifications::save_notification_source,
+            notifications::notification_access,
+            notifications::open_notification_settings,
             list_accounts,
             create_account,
             update_platform,
