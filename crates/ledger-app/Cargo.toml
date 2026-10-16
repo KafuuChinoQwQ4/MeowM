@@ -8,6 +8,8 @@ license.workspace = true
 chrono = { version = "0.4", default-features = false, features = ["std"] }
 ledger-domain = { path = "../ledger-domain" }
 uuid = "1"
+argon2 = "0.5"
+getrandom = "0.2"
 
 [dev-dependencies]
 chrono-tz = "0.10"

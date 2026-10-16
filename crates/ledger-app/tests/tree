@@ -5,6 +5,7 @@
 - `budget_workflows.rs` — 真实 SQLite 报表、退款、DST、预算持久化和提醒边界测试。
 - `classification_and_reports.rs` — Integration tests for category rules and confirmed transaction reports.
 - `ledger_workflows.rs` — Integration tests for account, transaction, refund, and balance workflows.
+- `privacy_workflows.rs` — 应用锁重启、错误密码、自动锁定和删除状态测试。
 - `reconciliation_workflows.rs` — 真实 SQLite 对账、截止边界、状态流转及重启不变测试。
 - `recurring_workflows.rs` — 周期日历、金额快照、状态流转及批量生成的集成测试。
 - `tree` — 本目录直接文件的说明索引。

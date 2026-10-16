@@ -11,6 +11,8 @@ export async function installWorkflowIpc(page) {
     window.workflowCalls = [];
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
+        if (command === 'privacy_status')
+          return { locked: false, lock_enabled: false, hide_amounts: false, auto_lock_minutes: 5 };
         window.workflowCalls.push({ command, args });
         if (command === 'list_accounts') return accounts.map((a) => ({ ...a }));
         if (command === 'create_account') {

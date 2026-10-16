@@ -7,6 +7,8 @@ async function open(page) {
     window.calls = [];
     window.__TAURI_INTERNALS__ = {
       invoke: async (cmd, args = {}) => {
+        if (cmd === 'privacy_status')
+          return { locked: false, lock_enabled: false, hide_amounts: false, auto_lock_minutes: 5 };
         window.calls.push({ cmd, args });
         if (cmd === 'list_accounts') return [{ id: 'wallet', name: '钱包', category: 'wallet' }];
         if (cmd === 'get_day')

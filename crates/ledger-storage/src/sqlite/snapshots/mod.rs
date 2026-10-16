@@ -63,7 +63,7 @@ impl SqliteLedgerRepository {
         tx.commit().map_err(storage_error)?;
         Ok(data)
     }
-    fn snapshot_inner(&self) -> Result<LedgerSnapshot, RepositoryError> {
+    pub(super) fn snapshot_inner(&self) -> Result<LedgerSnapshot, RepositoryError> {
         let mut tables = Vec::new();
         let mut row_count = 0;
         for name in schema::TABLES {
@@ -164,6 +164,40 @@ impl SqliteLedgerRepository {
             tx.execute(&sql, []).map_err(storage_error)?;
         }
         schema::insert(&tx, &validated)?;
+        self.validate_snapshot()?;
+        tx.commit().map_err(storage_error)
+    }
+
+    /// Wipe user and local security data in one transaction, then seed the three initial platforms.
+    pub(super) fn delete_all_with_defaults(
+        &self,
+        expected: [u8; 32],
+    ) -> Result<(), RepositoryError> {
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(storage_error)?;
+        if self.snapshot_inner()?.fingerprint()? != expected {
+            return Err(RepositoryError::Conflict);
+        }
+        tx.execute_batch("PRAGMA defer_foreign_keys=ON")
+            .map_err(storage_error)?;
+        for name in schema::TABLES.iter().rev() {
+            tx.execute(&format!("DELETE FROM {name}"), [])
+                .map_err(storage_error)?;
+        }
+        for (name, category) in [("微信", "wallet"), ("支付宝", "wallet"), ("现金", "cash")]
+        {
+            let id = Uuid::new_v4().to_string();
+            tx.execute("INSERT INTO accounts(id,display_name,kind,currency_code,currency_exponent,opening_balance_minor,opening_balance_effective_at_utc_micros) VALUES(?1,?2,'asset','CNY',2,NULL,NULL)",params![id,name]).map_err(storage_error)?;
+            tx.execute(
+                "INSERT INTO platform_metadata(account_id,category) VALUES(?1,?2)",
+                params![id, category],
+            )
+            .map_err(storage_error)?;
+        }
+        tx.execute("INSERT INTO audit_events(id,occurred_at_utc_micros,action) VALUES(?1,?2,'all_data_deleted')",params![Uuid::new_v4().to_string(),Utc::now().timestamp_micros()]).map_err(storage_error)?;
         self.validate_snapshot()?;
         tx.commit().map_err(storage_error)
     }

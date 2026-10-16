@@ -9,6 +9,7 @@ mod imports;
 mod mapping;
 mod migrations;
 mod notifications;
+mod privacy;
 mod reconciliation;
 mod recurring;
 mod reversals;
@@ -51,7 +52,7 @@ impl SqliteLedgerRepository {
 
     fn from_connection(connection: Connection) -> Result<Self, RepositoryError> {
         connection
-            .execute_batch("PRAGMA foreign_keys = ON;")
+            .execute_batch("PRAGMA foreign_keys = ON; PRAGMA secure_delete = ON;")
             .map_err(storage_error)?;
         connection
             .busy_timeout(std::time::Duration::from_secs(5))

@@ -127,6 +127,15 @@ pub trait FeatureRepository: LedgerRepository {
     ) -> Result<(), RepositoryError>;
 }
 
+/// Atomic data lifecycle operations; the preview fingerprint prevents stale deletions.
+pub trait PrivacyRepository: FeatureRepository {
+    fn preview_notification_delete(
+        &self,
+    ) -> Result<crate::privacy::SourceDeletePreview, RepositoryError>;
+    fn delete_notification_data(&self, expected: [u8; 32]) -> Result<(), RepositoryError>;
+    fn delete_all_data(&self, expected: [u8; 32]) -> Result<(), RepositoryError>;
+}
+
 /// Storage boundary for creating pending import candidates and their evidence.
 /// Implementations must insert the complete batch atomically.
 pub trait ImportRepository: FeatureRepository {

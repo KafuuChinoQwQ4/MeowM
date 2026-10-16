@@ -6,6 +6,7 @@ import { errorText } from '../../shared/errors';
 import { useResource } from '../../shared/useResource';
 import { SnapshotEntries } from './SnapshotEntries';
 import { localTime, statusLabel } from './display';
+import { displayAmount } from '../../shared/format';
 const eventLabels: Record<string, string> = {
   started: '创建快照',
   entry_reviewed: '核对交易',
@@ -72,23 +73,23 @@ export function SessionDetail({
       <dl className="reconciliation-totals">
         <div>
           <dt>账本余额</dt>
-          <dd>¥{r.expected}</dd>
+          <dd>¥{displayAmount(r.expected)}</dd>
         </div>
         <div>
           <dt>实际余额</dt>
-          <dd>¥{r.actual}</dd>
+          <dd>¥{displayAmount(r.actual)}</dd>
         </div>
         <div>
           <dt>快照差额</dt>
-          <dd>¥{r.difference}</dd>
+          <dd>¥{displayAmount(r.difference)}</dd>
         </div>
         <div>
           <dt>未处理差额</dt>
-          <dd>¥{resolved ? '0.00' : r.difference}</dd>
+          <dd>¥{displayAmount(resolved ? '0.00' : r.difference)}</dd>
         </div>
       </dl>
       <p className="field-hint">
-        快照参考余额 ¥{r.reference}（{localTime(r.reference_at)}）。
+        快照参考余额 ¥{displayAmount(r.reference)}（{localTime(r.reference_at)}）。
         {r.period_from
           ? `流水期间从 ${localTime(r.period_from)} 之后起算。`
           : '展示截止时刻之前的全部关联流水。'}
@@ -134,7 +135,7 @@ export function SessionDetail({
             onChange={(e) => setReason(e.target.value)}
           />
           <p className="field-hint">
-            核实遗漏和待确认记录后，才生成 ¥{r.difference}{' '}
+            核实遗漏和待确认记录后，才生成 ¥{displayAmount(r.difference)}{' '}
             的余额调整。若期间余额或参考余额已变化，请新建对账。
           </p>
           <button
@@ -143,7 +144,7 @@ export function SessionDetail({
             onClick={() => {
               if (
                 window.confirm(
-                  `将生成 ¥${r.difference} 的余额调整，使截止余额变为 ¥${r.actual}。原因：${reason.trim()}。确认？`,
+                  `将生成 ¥${displayAmount(r.difference)} 的余额调整，使截止余额变为 ¥${displayAmount(r.actual)}。原因：${reason.trim()}。确认？`,
                 )
               )
                 void act(() => reconciliationApi.adjust(r, reason.trim()));

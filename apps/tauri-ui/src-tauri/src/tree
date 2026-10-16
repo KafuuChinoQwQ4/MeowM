@@ -6,5 +6,6 @@
 - `data_management.rs` — 加密备份、十分钟恢复预览和筛选导出的 Tauri 命令。
 - `lib.rs` — Tauri setup, application data storage and command handlers.
 - `main.rs` — Tauri frontend or Rust application configuration: main.rs.
+- `privacy_commands.rs` — 隐私状态、锁定、设置及删除预览确认 IPC 命令。
 - `transactions.rs` — Tauri transaction detail, manual transfer and refund, optimistic edit, and reversal commands.
 - `tree` — 本目录直接文件的说明索引。

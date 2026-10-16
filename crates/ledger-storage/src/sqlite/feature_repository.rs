@@ -215,16 +215,26 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
             hide_amounts: get("hide_amounts")?.as_deref() == Some("1"),
             lock_enabled: get("lock_enabled")?.as_deref() == Some("1"),
             password_verifier: get("password_verifier")?,
+            auto_lock_minutes: get("auto_lock_minutes")?
+                .as_deref()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(5),
         })
     }
     fn save_privacy_settings(
         &self,
         s: ledger_domain::PrivacySettings,
     ) -> Result<(), RepositoryError> {
-        // Password verifier format and lock guard are deliberately deferred. Never enable an unguarded lock.
-        if s.lock_enabled || s.password_verifier.is_some() {
+        if !(1..=120).contains(&s.auto_lock_minutes)
+            || (s.lock_enabled
+                && !s
+                    .password_verifier
+                    .as_deref()
+                    .is_some_and(|v| v.starts_with("$argon2id$")))
+            || (!s.lock_enabled && s.password_verifier.is_some())
+        {
             return Err(RepositoryError::InvalidData(
-                "app lock is not implemented yet".into(),
+                "invalid privacy settings".into(),
             ));
         }
         let tx = self
@@ -233,9 +243,24 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
             .map_err(storage_error)?;
         for (key, value) in [
             ("hide_amounts", if s.hide_amounts { "1" } else { "0" }),
-            ("lock_enabled", "0"),
+            ("lock_enabled", if s.lock_enabled { "1" } else { "0" }),
+            ("auto_lock_minutes", ""),
         ] {
+            let value = if key == "auto_lock_minutes" {
+                s.auto_lock_minutes.to_string()
+            } else {
+                value.into()
+            };
             tx.execute("INSERT INTO app_settings VALUES(?1,?2) ON CONFLICT(key) DO UPDATE SET value=excluded.value",params![key,value]).map_err(storage_error)?;
+        }
+        tx.execute("DELETE FROM app_settings WHERE key='password_verifier'", [])
+            .map_err(storage_error)?;
+        if let Some(verifier) = s.password_verifier {
+            tx.execute(
+                "INSERT INTO app_settings VALUES('password_verifier',?1)",
+                [verifier],
+            )
+            .map_err(storage_error)?;
         }
         tx.commit().map_err(storage_error)
     }

@@ -37,7 +37,7 @@ export interface EntryPage {
   limit: number;
 }
 export interface CommandError {
-  code: 'invalid_input' | 'not_found' | 'conflict' | 'storage_error' | 'busy';
+  code: 'invalid_input' | 'not_found' | 'conflict' | 'storage_error' | 'busy' | 'locked';
   message: string;
 }
 export interface PendingEdit {

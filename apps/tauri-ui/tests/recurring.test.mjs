@@ -9,6 +9,8 @@ async function install(page) {
     const save = (templates) => localStorage.setItem('recurringFixture', JSON.stringify(templates));
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
+        if (command === 'privacy_status')
+          return { locked: false, lock_enabled: false, hide_amounts: false, auto_lock_minutes: 5 };
         window.recurringCalls.push({ command, args });
         if (command === 'list_accounts')
           return [{ id: 'wallet', name: '钱包', category: 'wallet' }];

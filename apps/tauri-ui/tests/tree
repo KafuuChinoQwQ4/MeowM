@@ -6,6 +6,7 @@
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
 - `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.
+- `privacy.test.mjs` — 模拟 IPC 的锁定、金额遮盖和删除确认浏览器测试。
 - `react-workflows.test.mjs` — 平台、参考余额、导入修订、弹窗生命周期、撤销及过期请求的浏览器回归。
 - `reconciliation.test.mjs` — 对账完整交互、版本更新、负余额和失败保留浏览器测试。
 - `recurring.test.mjs` — 周期管理完整交互、持久化重载和首页待确认跳转的浏览器测试。

@@ -8,6 +8,7 @@ import {
 } from '../../api/search';
 import { Field, SelectField, FormError } from '../../components/Fields';
 import { errorText } from '../../shared/errors';
+import { displayAmount } from '../../shared/format';
 export function RuleForm({
   categories,
   rule,
@@ -122,7 +123,7 @@ export function RuleForm({
                 {preview.pending_samples.map((sample) => (
                   <li key={sample.id}>
                     {sample.merchant || sample.description || '未命名记录'}
-                    {sample.amount && ` · ¥${sample.amount}`}
+                    {sample.amount && ` · ¥${displayAmount(sample.amount)}`}
                   </li>
                 ))}
               </ul>

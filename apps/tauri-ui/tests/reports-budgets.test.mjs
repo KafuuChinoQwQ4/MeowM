@@ -8,6 +8,8 @@ async function install(page) {
     window.analyticsCalls = [];
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
+        if (command === 'privacy_status')
+          return { locked: false, lock_enabled: false, hide_amounts: false, auto_lock_minutes: 5 };
         window.analyticsCalls.push({ command, args });
         if (command === 'recurring_state')
           return { templates: [], reminders: [], generated_count: 0, has_more: false };

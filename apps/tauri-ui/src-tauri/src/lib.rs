@@ -3,6 +3,7 @@ mod data_files;
 mod data_management;
 mod ledger;
 mod notifications;
+mod privacy_commands;
 mod reconciliation;
 mod recurring;
 mod search_export;
@@ -15,6 +16,12 @@ type Result<T> = std::result::Result<T, String>;
 struct LedgerState(Mutex<Ledger>);
 fn access<T>(state: State<'_, LedgerState>, f: impl FnOnce(&Ledger) -> Result<T>) -> Result<T> {
     let ledger = state.0.lock().map_err(|_| "账本忙，请重启应用")?;
+    ledger.require_unlocked()?;
+    ledger
+        .privacy
+        .borrow_mut()
+        .touch()
+        .map_err(|e| e.to_string())?;
     f(&ledger)
 }
 #[tauri::command]
@@ -77,6 +84,20 @@ fn query_entries(
         code: "busy".into(),
         message: "账本忙，请重试".into(),
     })?;
+    ledger
+        .require_unlocked()
+        .map_err(|message| ledger::CommandError {
+            code: "locked".into(),
+            message,
+        })?;
+    ledger
+        .privacy
+        .borrow_mut()
+        .touch()
+        .map_err(|e| ledger::CommandError {
+            code: "locked".into(),
+            message: e.to_string(),
+        })?;
     ledger.page(query)
 }
 #[tauri::command]
@@ -155,6 +176,16 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            privacy_commands::privacy_status,
+            privacy_commands::privacy_unlock,
+            privacy_commands::privacy_lock_now,
+            privacy_commands::privacy_touch,
+            privacy_commands::privacy_enable_lock,
+            privacy_commands::privacy_disable_lock,
+            privacy_commands::privacy_set_hide_amounts,
+            privacy_commands::privacy_set_auto_lock_minutes,
+            privacy_commands::privacy_delete_preview,
+            privacy_commands::privacy_delete_confirm,
             notifications::notification_state,
             notifications::save_notification_source,
             notifications::notification_access,

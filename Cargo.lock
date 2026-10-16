@@ -1761,8 +1761,10 @@ dependencies = [
 name = "ledger-app"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "chrono",
  "chrono-tz",
+ "getrandom 0.2.17",
  "ledger-domain",
  "ledger-storage",
  "uuid",

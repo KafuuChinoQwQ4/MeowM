@@ -26,12 +26,46 @@ import { SearchPage } from '../features/search/SearchPage';
 import { Navigation, type View } from './Navigation';
 import { DataManagementPage } from '../features/data/DataManagementPage';
 import { Toolbar } from './Toolbar';
+import { usePrivacyGate } from '../features/privacy/usePrivacyGate';
+import { UnlockScreen } from '../features/privacy/UnlockScreen';
+import { PrivacyPage } from '../features/privacy/PrivacyPage';
+import type { PrivacyStatus } from '../api/privacy';
+import { setAmountsHidden } from '../shared/format';
 type Modal =
   | { kind: 'account'; account?: Account }
   | { kind: 'reference' | 'clear' | 'import' }
   | { kind: 'transaction'; id?: string }
   | { kind: 'pending'; entry: PageEntry };
 export function App() {
+  const privacy = usePrivacyGate();
+  if (!privacy.status)
+    return (
+      <main className="privacy-lock-screen">
+        <p role="status">正在检查隐私设置…</p>
+        {privacy.error && (
+          <button onClick={() => void privacy.reload()}>重试：{privacy.error}</button>
+        )}
+      </main>
+    );
+  if (privacy.status.locked) return <UnlockScreen onUnlocked={privacy.setStatus} />;
+  setAmountsHidden(privacy.status.hide_amounts);
+  return (
+    <UnlockedApp
+      privacyStatus={privacy.status}
+      onPrivacyStatus={privacy.setStatus}
+      onPrivacyReload={privacy.reload}
+    />
+  );
+}
+function UnlockedApp({
+  privacyStatus,
+  onPrivacyStatus,
+  onPrivacyReload,
+}: {
+  privacyStatus: PrivacyStatus;
+  onPrivacyStatus: (status: PrivacyStatus) => void;
+  onPrivacyReload: () => Promise<void>;
+}) {
   const accountsState = useAccounts();
   const accounts = accountsState.data ?? [];
   const [selected, setAccount] = useState('');
@@ -109,6 +143,23 @@ export function App() {
                       setAccount('');
                       accountsState.reload();
                       refresh();
+                      void onPrivacyReload();
+                    }}
+                  />
+                )}
+                {view === 'privacy' && (
+                  <PrivacyPage
+                    status={privacyStatus}
+                    onStatus={onPrivacyStatus}
+                    onNavigate={(next) => selectView(next)}
+                    onDeleted={(scope) => {
+                      accountsState.reload();
+                      refresh();
+                      setModal(null);
+                      if (scope === 'all') {
+                        setAccount('');
+                        selectView('ledger');
+                      }
                     }}
                   />
                 )}

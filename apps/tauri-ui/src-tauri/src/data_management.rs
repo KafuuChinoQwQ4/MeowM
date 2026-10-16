@@ -94,7 +94,12 @@ pub fn restore_backup(
         }
         BackupService::restore(&l.repo()?, &session.backup, session.expected)
             .map_err(|e| e.to_string())?;
+        l.privacy
+            .borrow_mut()
+            .reload_settings(&l.repo()?)
+            .map_err(|e| e.to_string())?;
         l.clear_import_preview();
+        l.delete_preview.replace(None);
         Ok(())
     })
 }

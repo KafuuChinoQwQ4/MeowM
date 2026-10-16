@@ -98,11 +98,22 @@ impl ReconciliationSession {
         self.actual_minor.checked_sub(self.expected_minor)
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrivacySettings {
     pub hide_amounts: bool,
     pub lock_enabled: bool,
     pub password_verifier: Option<String>,
+    pub auto_lock_minutes: u16,
+}
+impl Default for PrivacySettings {
+    fn default() -> Self {
+        Self {
+            hide_amounts: false,
+            lock_enabled: false,
+            password_verifier: None,
+            auto_lock_minutes: 5,
+        }
+    }
 }
 #[derive(Debug, Clone)]
 pub struct AuditEvent {

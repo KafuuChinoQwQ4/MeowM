@@ -1,0 +1,10 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `DeleteData.tsx` — 通知及全部数据预览、备份提示和短语确认。
+- `LockSettings.tsx` — 密码、自动锁定和金额显示设置。
+- `PrivacyPage.tsx` — 隐私设置和通知来源入口页面。
+- `UnlockScreen.tsx` — 应用锁解锁界面。
+- `usePrivacyGate.ts` — 启动锁检查、前台活动与自动锁定状态同步。
+- `tree` — 本目录直接文件的说明索引。

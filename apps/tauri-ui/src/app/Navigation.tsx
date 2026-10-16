@@ -10,7 +10,8 @@ export type View =
   | 'recurring'
   | 'search'
   | 'reconciliation'
-  | 'data';
+  | 'data'
+  | 'privacy';
 const views: [View, string][] = [
   ['ledger', '账本'],
   ['records', '明细'],
@@ -23,6 +24,7 @@ const views: [View, string][] = [
   ['reconciliation', '账户对账'],
   ['notifications', '通知采集'],
   ['data', '备份与导出'],
+  ['privacy', '隐私与数据'],
 ];
 export function Navigation({
   view,

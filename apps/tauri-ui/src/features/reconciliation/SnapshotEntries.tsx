@@ -1,5 +1,6 @@
 import type { ReconciliationEntry } from '../../api/reconciliation';
 import { localTime } from './display';
+import { displayAmount } from '../../shared/format';
 const labels: Record<string, string> = {
   income: '收入',
   expense: '支出',
@@ -31,7 +32,7 @@ export function SnapshotEntries({
         <article className="reconciliation-entry" key={e.id}>
           <div className="analytics-row">
             <strong>{e.merchant || labels[e.kind] || e.kind}</strong>
-            <span>¥{e.delta}</span>
+            <span>¥{displayAmount(e.delta)}</span>
           </div>
           <p>{e.description}</p>
           <small>

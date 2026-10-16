@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { displayAmount } from '../../shared/format';
 import type { Account } from '../../api/accounts';
 import { reconciliationApi } from '../../api/reconciliation';
 import { SelectField } from '../../components/Fields';
@@ -104,7 +105,7 @@ function Workspace({
               {r.date} · {statusLabel[r.status]}
             </span>
             <span>
-              实际 ¥{r.actual} · 差额 ¥{r.difference}
+              实际 ¥{displayAmount(r.actual)} · 差额 ¥{displayAmount(r.difference)}
             </span>
             <small>创建于 {localTime(r.created_at)}</small>
           </button>

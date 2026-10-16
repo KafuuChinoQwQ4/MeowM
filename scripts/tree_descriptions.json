@@ -281,5 +281,20 @@
   "crates/ledger-storage/src/sqlite/snapshots/validation.rs": "恢复前外键、金额和业务关系校验。",
   "crates/ledger-storage/tests/snapshot_integrity.rs": "大账本、回滚、对账和畸形快照验证。",
   "crates/ledger-storage/tests/snapshot_restore.rs": "敏感设置排除、重复恢复和 SQLite 快照测试。",
-  "docs/stage8-backup-export-validation.md": "第八阶段加密备份、导出与 Android 验收记录。"
+  "docs/stage8-backup-export-validation.md": "第八阶段加密备份、导出与 Android 验收记录。",
+  "crates/ledger-app/src/privacy.rs": "本机应用锁、自动锁定、金额遮盖与删除用例。",
+  "crates/ledger-app/tests/privacy_workflows.rs": "应用锁重启、错误密码、自动锁定和删除状态测试。",
+  "crates/ledger-storage/src/sqlite/privacy.rs": "通知来源和全部数据的事务清理与引用保护。",
+  "crates/ledger-storage/tests/privacy_lifecycle.rs": "通知候选保留、删除回滚、引用阻断和本机设置清理测试。",
+  "apps/tauri-ui/src-tauri/src/privacy_commands.rs": "隐私状态、锁定、设置及删除预览确认 IPC 命令。",
+  "apps/tauri-ui/src-tauri/src/ledger/tests/privacy.rs": "真实 SQLite 账本锁定命令边界测试。",
+  "apps/tauri-ui/src/api/privacy.ts": "隐私设置和数据清理的类型化 IPC 接口。",
+  "apps/tauri-ui/src/features/privacy/usePrivacyGate.ts": "启动锁检查、前台活动与自动锁定状态同步。",
+  "apps/tauri-ui/src/features/privacy/UnlockScreen.tsx": "应用锁解锁界面。",
+  "apps/tauri-ui/src/features/privacy/LockSettings.tsx": "密码、自动锁定和金额显示设置。",
+  "apps/tauri-ui/src/features/privacy/DeleteData.tsx": "通知及全部数据预览、备份提示和短语确认。",
+  "apps/tauri-ui/src/features/privacy/PrivacyPage.tsx": "隐私设置和通知来源入口页面。",
+  "apps/tauri-ui/src/styles/privacy.css": "锁屏与隐私设置的响应式样式。",
+  "apps/tauri-ui/tests/privacy.test.mjs": "模拟 IPC 的锁定、金额遮盖和删除确认浏览器测试。",
+  "docs/stage9-privacy-validation.md": "第九阶段隐私控制和数据生命周期验证记录。"
 }

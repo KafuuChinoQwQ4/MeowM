@@ -1,4 +1,12 @@
+let amountsHidden = false;
+export function setAmountsHidden(hidden: boolean): void {
+  amountsHidden = hidden;
+}
+export function displayAmount(value: string): string {
+  return amountsHidden ? '••••' : value;
+}
 export function money(value: string): string {
+  if (amountsHidden) return '••••';
   const [integer, decimal = ''] = value.split('.');
   return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${decimal.padEnd(2, '0')}`;
 }

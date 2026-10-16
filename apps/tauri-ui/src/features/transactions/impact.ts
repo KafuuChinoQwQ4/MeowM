@@ -1,3 +1,4 @@
+import { displayAmount } from '../../shared/format';
 function cents(amount: string): bigint {
   const found = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(amount);
   if (!found) return 0n;
@@ -13,7 +14,7 @@ export function impact(
 ): string {
   const delta = cents(amount) - cents(original);
   const abs = delta < 0n ? -delta : delta;
-  const value = `¥ ${abs / 100n}.${String(abs % 100n).padStart(2, '0')}`;
+  const value = `¥ ${displayAmount(`${abs / 100n}.${String(abs % 100n).padStart(2, '0')}`)}`;
   const balance =
     kind === 'expense' ? (delta > 0n ? '减少' : '增加') : delta > 0n ? '增加' : '减少';
   const report =

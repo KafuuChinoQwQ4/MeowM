@@ -8,5 +8,6 @@
 - `stage6-search-validation.md` — 第六阶段搜索和分类规则的验证结果与边界。
 - `stage7-reconciliation-validation.md` — 第七阶段账户对账验证、Android 证据与功能边界。
 - `stage8-backup-export-validation.md` — 第八阶段加密备份、导出与 Android 验收记录。
+- `stage9-privacy-validation.md` — 第九阶段隐私控制和数据生命周期验证记录。
 - `命令` — Local command notes.
 - `tree` — 本目录直接文件的说明索引。
