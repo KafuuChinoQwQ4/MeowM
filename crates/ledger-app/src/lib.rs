@@ -6,6 +6,7 @@ pub mod calendar;
 pub mod classification;
 pub mod notifications;
 pub mod ports;
+pub mod reconciliation;
 pub mod recurring;
 pub mod reminders;
 mod report_details;

@@ -198,3 +198,6 @@ pub trait RecurringRepository: LedgerRepository {
         until: chrono::NaiveDate,
     ) -> Result<Vec<ledger_domain::RecurringReminder>, RepositoryError>;
 }
+
+/// Reconciliation has its own snapshot and atomic action boundary.
+pub use crate::reconciliation::ReconciliationRepository;

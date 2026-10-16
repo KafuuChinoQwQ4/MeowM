@@ -1,0 +1,93 @@
+.reconciliation-start,
+.reconciliation-detail {
+  padding: 18px;
+  margin-block: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.reconciliation-start h3,
+.reconciliation-detail h3 {
+  margin-top: 0;
+}
+.reconciliation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block: 14px;
+}
+.reconciliation-history {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 10px;
+  max-height: 330px;
+  overflow: auto;
+}
+.reconciliation-history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream);
+  color: inherit;
+  cursor: pointer;
+}
+.reconciliation-history-item.selected {
+  outline: 2px solid var(--teal);
+  outline-offset: -2px;
+}
+.reconciliation-totals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.reconciliation-totals dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.reconciliation-totals dd {
+  margin: 6px 0;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.reconciliation-entry {
+  border-top: 1px solid var(--line);
+  padding-block: 14px;
+  overflow-wrap: anywhere;
+}
+.reconciliation-entry p {
+  margin: 8px 0;
+}
+.reconciliation-entry small {
+  color: var(--muted);
+}
+.reconciliation-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.reconciliation-check input {
+  width: 20px;
+  height: 20px;
+}
+.reconciliation-adjustment,
+.reconciliation-receipt {
+  padding-block: 14px;
+  border-top: 1px solid var(--line);
+}
+.reconciliation-audit {
+  padding-left: 20px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.reconciliation-audit li {
+  margin-block: 12px;
+}
+.reconciliation-page details {
+  margin-top: 20px;
+}

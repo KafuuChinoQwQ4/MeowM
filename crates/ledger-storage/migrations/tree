@@ -10,4 +10,5 @@
 - `0006_notifications.sql` — Notification receipts and normalized recent-result schema.
 - `0007_recurring.sql` — 周期模板版本、唯一实例收据和周期来源证据的兼容迁移。
 - `0008_search_rules.sql` — 规范化商户、别名和交易搜索索引的兼容迁移。
+- `0009_reconciliation.sql` — 对账快照、核对状态、审计及调整不可改写的兼容迁移。
 - `tree` — 本目录直接文件的说明索引。

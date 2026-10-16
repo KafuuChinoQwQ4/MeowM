@@ -29,7 +29,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 8
+                && v <= 9
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -47,12 +47,13 @@ impl SqliteLedgerRepository {
                 | (5, Some(5))
                 | (6, Some(6))
                 | (7, Some(7))
-                | (8, Some(8)) => {
+                | (8, Some(8))
+                | (9, Some(9)) => {
                     return Ok(());
                 }
-                (_, Some(version)) if version > 8 => {
+                (_, Some(version)) if version > 9 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 8"
+                        "database schema version {version} is newer than supported version 9"
                     )));
                 }
                 _ => {
@@ -283,6 +284,26 @@ impl SqliteLedgerRepository {
         }
         tx.execute(
             "INSERT INTO schema_version VALUES(8,?1)",
+            [Utc::now().timestamp_micros()],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+}
+
+impl SqliteLedgerRepository {
+    pub(super) fn apply_reconciliation_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 9 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!("../../migrations/0009_reconciliation.sql"))
+            .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO schema_version VALUES(9,?1)",
             [Utc::now().timestamp_micros()],
         )
         .map_err(storage_error)?;

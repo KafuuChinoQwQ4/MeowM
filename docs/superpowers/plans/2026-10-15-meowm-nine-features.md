@@ -245,10 +245,13 @@
 **Files:**
 
 - Create: `crates/ledger-app/src/reconciliation.rs`
-- Modify: `crates/ledger-app/src/ports.rs`, `crates/ledger-storage/src/sqlite.rs`
-- Modify: `apps/tauri-ui/src/api.ts`, `main.ts`, `styles.css`
-- Modify: `apps/tauri-ui/src-tauri/src/{ledger,lib}.rs`
-- Test: `crates/ledger-app/tests/reconciliation_workflows.rs`, `crates/ledger-storage/tests/sqlite_repository.rs`
+- Modify: `crates/ledger-app/src/ports.rs`, `crates/ledger-storage/src/sqlite/{mod,migrations}.rs`
+- Create: `crates/ledger-storage/src/sqlite/reconciliation/`, `crates/ledger-storage/migrations/0009_reconciliation.sql`
+- Create: `apps/tauri-ui/src/api/reconciliation.ts`, `apps/tauri-ui/src/features/reconciliation/`, `apps/tauri-ui/src/styles/reconciliation.css`
+- Modify: `apps/tauri-ui/src/app/{App,Navigation}.tsx`
+- Create: `apps/tauri-ui/src-tauri/src/reconciliation/`
+- Modify: `apps/tauri-ui/src-tauri/src/lib.rs`
+- Test: `crates/ledger-app/tests/reconciliation_workflows.rs`, `crates/ledger-storage/tests/reconciliation_persistence.rs`, `apps/tauri-ui/tests/reconciliation.test.mjs`
 
 **Interfaces:**
 
@@ -256,12 +259,14 @@
 - `ReconciliationService::summary(session_id)` 返回账本余额、实际余额、差异、未确认候选和期间交易。
 - `ReconciliationService::{mark_reviewed,add_adjustment,close,reopen}` 管理对账状态；调整必须产生可审计的余额调整交易。
 
-- [ ] **Step 1: 写失败测试**：无参考余额、负余额、截止时刻边界、Pending/忽略交易、已关闭对账不可静默修改、重复关闭幂等。
-- [ ] **Step 2: 实现快照和差异计算**：按账户和本地截止时刻计算 Confirmed 余额，保存当时的账本金额和输入实际金额；不把差异直接写成隐藏字段。
-- [ ] **Step 3: 实现对账调整**：用户明确确认后生成 `BalanceAdjustment`，附原因和审计事件；调整不能伪装成收入或支出。
-- [ ] **Step 4: 增加对账页面**：选择平台和日期、输入真实余额、展示差异和待处理项、确认调整、关闭/重新打开会话。
-- [ ] **Step 5: 运行 Rust 对账测试和真实 SQLite 重启测试**，确认历史对账不随新增交易被篡改。
-- [ ] **Step 6: Commit**：`feat: add account reconciliation`。
+- [x] **Step 1: 写失败测试**：无参考余额、负余额、截止时刻边界、Pending/忽略交易、已关闭对账不可静默修改、重复关闭幂等。
+- [x] **Step 2: 实现快照和差异计算**：按账户和本地截止时刻计算 Confirmed 余额，保存当时的账本金额和输入实际金额；不把差异直接写成隐藏字段。
+- [x] **Step 3: 实现对账调整**：用户明确确认后生成 `BalanceAdjustment`，附原因和审计事件；调整不能伪装成收入或支出。
+- [x] **Step 4: 增加对账页面**：选择平台和日期、输入真实余额、展示差异和待处理项、确认调整、关闭/重新打开会话。
+- [x] **Step 5: 运行 Rust 对账测试和真实 SQLite 重启测试**，确认历史对账不随新增交易被篡改。
+- [x] **Step 6: Commit**：`feat: add account reconciliation`。
+
+**任务 7 完成记录：** 不可变金额和期间流水快照、逐项核对、带原因的显式余额调整、关闭/重开及持久化审计已接通 React 和真实 SQLite。参考点或截止余额变化时拒绝沿用旧快照调整；余额调整不计收入或支出，普通编辑和撤销受保护。完整验证见 `docs/stage7-reconciliation-validation.md`。上传 GitHub 后停止，不进入任务 8。
 
 ### Task 8: 加密备份、恢复和数据导出
 

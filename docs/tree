@@ -6,5 +6,6 @@
 - `stage4-notification-validation.md` — Fourth-stage notification implementation scope and reproducible Android validation.
 - `stage5-recurring-validation.md` — 第五阶段周期账单的自动化、Android 验收证据及提醒边界。
 - `stage6-search-validation.md` — 第六阶段搜索和分类规则的验证结果与边界。
+- `stage7-reconciliation-validation.md` — 第七阶段账户对账验证、Android 证据与功能边界。
 - `命令` — Local command notes.
 - `tree` — 本目录直接文件的说明索引。

@@ -22,3 +22,6 @@
 - `ledger-storage/src/sqlite/search.rs` 复用账本分页查询并对日期、金额、账户、状态、来源、分类及关键词使用绑定参数；排序以微秒时间和交易 ID 打破并列。`search_rules.rs` 管理商户别名、规则命中预览及当前 Pending 建议。迁移 8 添加规范化商户列、别名表和搜索索引，原商户字段不改。
 - `ledger-app/src/classification.rs` 统一商户规范化、规则排序和可解释建议。`src-tauri/src/search_rules/` 提供分类、规则预览与别名 IPC；React `features/search/` 拆分筛选、结果、分类管理、规则表单及 CSV 导出。规则建议读取时派生，只有用户在待确认编辑器中选择采用才成为分类写入。
 - Android 搜索 CSV 导出由 `src-tauri/src/search_export/` 注册 Tauri 插件，生成的 Kotlin `SearchExportPlugin` 通过系统 `ACTION_CREATE_DOCUMENT` 让用户选位置，再写入选中的 URI；桌面保留浏览器下载。
+
+- 账户对账由 `ledger-app/src/reconciliation.rs` 定义独立仓储边界和状态服务，`ledger-storage/src/sqlite/reconciliation/` 按快照生成、操作、字段映射和事务入口拆分。迁移 9 保存不可变会话金额/参考点、流水快照、逐项核对状态和原因审计；旧占位会话保留但不允许补写为可信快照。写操作使用立即事务和版本校验，余额调整与关联收据、审计在同一事务提交。数据库触发器保护快照及对账调整，普通交易编辑/撤销不能绕过。
+- `src-tauri/src/reconciliation/` 分离命令、返回类型和真实 SQLite 测试，将设备本地截止日转换为 UTC 日末；所有 IPC 金额仍为字符串。React 的 `features/reconciliation/` 分离页面、创建表单、会话操作、快照列表和展示工具，通过独立 API 调用；用户先逐项核对，再填写原因、确认调整及关闭。关闭/重开不修改原始快照。

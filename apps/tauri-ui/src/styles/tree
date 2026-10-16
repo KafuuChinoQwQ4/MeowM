@@ -12,6 +12,7 @@
 - `navigation.css` — 导航菜单、遮罩和返回按钮样式。
 - `notifications.css` — Notification permission and source settings layout.
 - `pending.css` — 待确认筛选、批量操作与重复详情样式。
+- `reconciliation.css` — 对账表单、差异卡片和流水的响应式布局。
 - `records.css` — 流水列表、记录行和分页样式。
 - `recurring.css` — 周期账单管理和首页提醒的响应式样式。
 - `search.css` — 搜索与分类管理的响应式样式。

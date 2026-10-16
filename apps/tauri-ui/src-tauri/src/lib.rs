@@ -1,6 +1,7 @@
 mod analytics;
 mod ledger;
 mod notifications;
+mod reconciliation;
 mod recurring;
 mod search_export;
 mod search_rules;
@@ -167,6 +168,13 @@ pub fn run() {
             search_rules::save_merchant_alias,
             search_rules::delete_merchant_alias,
             search_export::save_search_csv,
+            reconciliation::commands::reconciliation_list,
+            reconciliation::commands::reconciliation_summary,
+            reconciliation::commands::reconciliation_start,
+            reconciliation::commands::reconciliation_review,
+            reconciliation::commands::reconciliation_adjust,
+            reconciliation::commands::reconciliation_close,
+            reconciliation::commands::reconciliation_reopen,
             list_accounts,
             create_account,
             update_platform,

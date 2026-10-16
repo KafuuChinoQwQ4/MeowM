@@ -260,7 +260,7 @@ fn version_seven_data_migrates_without_changing_merchant_or_transaction_id() {
     .unwrap();
     drop(db);
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 8);
+    assert_eq!(repo.schema_version().unwrap(), 9);
     let page = repo
         .query_transactions(PendingQuery {
             keyword: Some("star bucks".into()),
@@ -276,5 +276,5 @@ fn version_seven_data_migrates_without_changing_merchant_or_transaction_id() {
     );
     drop(repo);
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 8);
+    assert_eq!(repo.schema_version().unwrap(), 9);
 }

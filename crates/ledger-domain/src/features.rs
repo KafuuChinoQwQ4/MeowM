@@ -84,7 +84,7 @@ impl Budget {
         self.amount_cny_minor >= 0
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ReconciliationSession {
     pub id: ReconciliationId,
     pub account_id: AccountId,

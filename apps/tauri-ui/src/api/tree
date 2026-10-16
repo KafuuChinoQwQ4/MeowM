@@ -9,6 +9,7 @@
 - `imports.ts` — 账单预览、修订及入箱的类型与 IPC 接口。
 - `ledger.ts` — 每日汇总和流水的类型与 IPC 接口。
 - `notifications.ts` — Typed notification settings and Android permission IPC client.
+- `reconciliation.ts` — 对账会话和操作的类型化 IPC 接口。
 - `recurring.ts` — 周期账单管理和到期提醒的类型化 IPC 接口。
 - `reports.ts` — 报表查询和字符串金额结果的 IPC 契约。
 - `search.ts` — 搜索分类管理的类型化 IPC 接口。

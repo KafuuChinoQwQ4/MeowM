@@ -21,6 +21,7 @@ import { RecurringPage } from '../features/recurring/RecurringPage';
 import { RecurringReminders } from '../features/recurring/RecurringReminders';
 import { useRecurring } from '../features/recurring/useRecurring';
 import { today } from '../shared/format';
+import { ReconciliationPage } from '../features/reconciliation/ReconciliationPage';
 import { SearchPage } from '../features/search/SearchPage';
 import { Navigation, type View } from './Navigation';
 import { Toolbar } from './Toolbar';
@@ -129,6 +130,19 @@ export function App() {
                           : { kind: 'transaction', id: entry.id },
                       )
                     }
+                  />
+                )}
+                {view === 'reconciliation' && (
+                  <ReconciliationPage
+                    accounts={accounts}
+                    revision={revision}
+                    onChanged={refresh}
+                    onReference={(id) => {
+                      setAccount(id);
+                      selectView('ledger');
+                    }}
+                    onPending={() => selectView('pending')}
+                    onEntry={(id) => setModal({ kind: 'transaction', id })}
                   />
                 )}
                 {view === 'recurring' && (

@@ -8,7 +8,8 @@ export type View =
   | 'budgets'
   | 'notifications'
   | 'recurring'
-  | 'search';
+  | 'search'
+  | 'reconciliation';
 const views: [View, string][] = [
   ['ledger', '账本'],
   ['records', '明细'],
@@ -18,6 +19,7 @@ const views: [View, string][] = [
   ['budgets', '预算管理'],
   ['recurring', '周期账单'],
   ['search', '搜索与分类'],
+  ['reconciliation', '账户对账'],
   ['notifications', '通知采集'],
 ];
 export function Navigation({
