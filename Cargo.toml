@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ledger-domain", "crates/ledger-app", "crates/ledger-storage", "crates/ledger-import", "crates/ledger-notifications", "apps/tauri-ui/src-tauri"]
+members = ["crates/ledger-domain", "crates/ledger-app", "crates/ledger-storage", "crates/ledger-import", "crates/ledger-notifications", "crates/ledger-backup", "crates/ledger-export", "apps/tauri-ui/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

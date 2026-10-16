@@ -59,9 +59,10 @@ impl CommandError {
         }
     }
 }
-impl Ledger {
-    pub fn page(&self, q: PageQuery) -> std::result::Result<EntryPage, CommandError> {
-        use ledger_app::FeatureRepository;
+impl PageQuery {
+    pub(crate) fn into_domain(
+        self,
+    ) -> std::result::Result<ledger_domain::PendingQuery, CommandError> {
         let midnight = |v: &str| -> Result<chrono::DateTime<Utc>> {
             let d = date(v)?;
             Local
@@ -70,28 +71,28 @@ impl Ledger {
                 .map(|t| t.with_timezone(&Utc))
                 .ok_or("日期本地边界不可用".into())
         };
-        let status = match q.status.as_deref() {
+        let status = match self.status.as_deref() {
             None => None,
             Some("pending") => Some(TransactionStatus::Pending),
             Some("confirmed") => Some(TransactionStatus::Confirmed),
             Some("ignored") => Some(TransactionStatus::Ignored),
             _ => return Err(CommandError::invalid("无效的流水状态")),
         };
-        let query = ledger_domain::PendingQuery {
+        Ok(ledger_domain::PendingQuery {
             status,
-            source_kind: q
+            source_kind: self
                 .source
                 .as_deref()
                 .map(parse_source)
                 .transpose()
                 .map_err(CommandError::invalid)?,
-            account_id: q
+            account_id: self
                 .account_id
                 .as_deref()
                 .map(account_id)
                 .transpose()
                 .map_err(CommandError::invalid)?,
-            category_id: q
+            category_id: self
                 .category_id
                 .as_deref()
                 .map(|v| {
@@ -100,35 +101,41 @@ impl Ledger {
                         .map_err(|_| CommandError::invalid("无效的分类标识"))
                 })
                 .transpose()?,
-            from_utc_inclusive: q
+            from_utc_inclusive: self
                 .from_date
                 .as_deref()
                 .map(midnight)
                 .transpose()
                 .map_err(CommandError::invalid)?,
-            until_utc_exclusive: q
+            until_utc_exclusive: self
                 .until_date
                 .as_deref()
                 .map(midnight)
                 .transpose()
                 .map_err(CommandError::invalid)?,
-            merchant: q.merchant,
-            keyword: q.keyword,
-            min_amount_cny_minor: q
+            merchant: self.merchant,
+            keyword: self.keyword,
+            min_amount_cny_minor: self
                 .min_amount
                 .as_deref()
                 .map(search_amount)
                 .transpose()
                 .map_err(CommandError::invalid)?,
-            max_amount_cny_minor: q
+            max_amount_cny_minor: self
                 .max_amount
                 .as_deref()
                 .map(search_amount)
                 .transpose()
                 .map_err(CommandError::invalid)?,
-            offset: q.offset,
-            limit: q.limit,
-        };
+            offset: self.offset,
+            limit: self.limit,
+        })
+    }
+}
+impl Ledger {
+    pub fn page(&self, q: PageQuery) -> std::result::Result<EntryPage, CommandError> {
+        use ledger_app::FeatureRepository;
+        let query = q.into_domain()?;
         let repo = self.repo().map_err(|_| CommandError {
             code: "storage_error".into(),
             message: "无法打开本地账本".into(),

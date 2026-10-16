@@ -20,6 +20,10 @@ ledger-import = { path = "../../../crates/ledger-import" }
 
 ledger-notifications = { path = "../../../crates/ledger-notifications" }
 serde_json = "1"
+base64 = "0.22"
+zeroize = "1"
+ledger-backup = { path = "../../../crates/ledger-backup" }
+ledger-export = { path = "../../../crates/ledger-export" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"

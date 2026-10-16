@@ -25,3 +25,6 @@
 
 - 账户对账由 `ledger-app/src/reconciliation.rs` 定义独立仓储边界和状态服务，`ledger-storage/src/sqlite/reconciliation/` 按快照生成、操作、字段映射和事务入口拆分。迁移 9 保存不可变会话金额/参考点、流水快照、逐项核对状态和原因审计；旧占位会话保留但不允许补写为可信快照。写操作使用立即事务和版本校验，余额调整与关联收据、审计在同一事务提交。数据库触发器保护快照及对账调整，普通交易编辑/撤销不能绕过。
 - `src-tauri/src/reconciliation/` 分离命令、返回类型和真实 SQLite 测试，将设备本地截止日转换为 UTC 日末；所有 IPC 金额仍为字符串。React 的 `features/reconciliation/` 分离页面、创建表单、会话操作、快照列表和展示工具，通过独立 API 调用；用户先逐项核对，再填写原因、确认调整及关闭。关闭/重开不修改原始快照。
+
+- `ledger-storage/src/sqlite/snapshots/` 从同一 SQLite 事务读取白名单表，排除本机凭据和权限，按受信任迁移重建临时库并校验外键、金额及业务关系。恢复使用立即事务、预览指纹和完整替换，失败回滚。
+- `ledger-backup` 将版本化快照和校验摘要用 Argon2id 派生密钥、XChaCha20-Poly1305 认证加密。`ledger-export` 在一致性快照上分页查询，用字符串金额生成 CSV/JSON，导出不写库。Tauri 的 `data_management.rs` 管理十分钟恢复预览，React `features/data/` 分开备份、恢复和筛选导出；Android 的 `DataFilesPlugin` 经系统 Storage Access Framework 打开和保存用户选择的文件。

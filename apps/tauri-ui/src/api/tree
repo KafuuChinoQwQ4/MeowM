@@ -5,6 +5,7 @@
 - `accounts.ts` — 平台及参考余额的类型与 IPC 接口。
 - `budgets.ts` — 预算创建、编辑、停用及提醒的 IPC 契约。
 - `client.ts` — 唯一 Tauri invoke 入口。
+- `data.ts` — 备份、恢复预览和导出的类型化 IPC 客户端。
 - `entries.ts` — 分页查询、分类及待确认操作的类型与 IPC 接口。
 - `imports.ts` — 账单预览、修订及入箱的类型与 IPC 接口。
 - `ledger.ts` — 每日汇总和流水的类型与 IPC 接口。

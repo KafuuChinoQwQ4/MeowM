@@ -29,6 +29,7 @@ use std::path::{Path, PathBuf};
 type Result<T> = std::result::Result<T, String>;
 pub struct Ledger {
     path: PathBuf,
+    pub(crate) restore_preview: std::cell::RefCell<Option<crate::data_management::RestoreSession>>,
     preview: std::cell::RefCell<Option<PreviewSession>>,
 }
 impl Ledger {
@@ -38,6 +39,7 @@ impl Ledger {
         }
         let ledger = Self {
             path: path.into(),
+            restore_preview: std::cell::RefCell::new(None),
             preview: std::cell::RefCell::new(None),
         };
         let repo = ledger.repo()?;
@@ -49,6 +51,9 @@ impl Ledger {
             }
         }
         Ok(ledger)
+    }
+    pub(crate) fn clear_import_preview(&self) {
+        self.preview.replace(None);
     }
     pub(crate) fn repo(&self) -> Result<SqliteLedgerRepository> {
         SqliteLedgerRepository::open(&self.path).map_err(|e| e.to_string())

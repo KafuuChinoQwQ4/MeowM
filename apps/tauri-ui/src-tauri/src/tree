@@ -2,6 +2,8 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `data_files.rs` — Android 系统文件选择与保存插件的 Tauri 命令边界。
+- `data_management.rs` — 加密备份、十分钟恢复预览和筛选导出的 Tauri 命令。
 - `lib.rs` — Tauri setup, application data storage and command handlers.
 - `main.rs` — Tauri frontend or Rust application configuration: main.rs.
 - `transactions.rs` — Tauri transaction detail, manual transfer and refund, optimistic edit, and reversal commands.

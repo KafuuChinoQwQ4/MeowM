@@ -24,6 +24,7 @@ import { today } from '../shared/format';
 import { ReconciliationPage } from '../features/reconciliation/ReconciliationPage';
 import { SearchPage } from '../features/search/SearchPage';
 import { Navigation, type View } from './Navigation';
+import { DataManagementPage } from '../features/data/DataManagementPage';
 import { Toolbar } from './Toolbar';
 type Modal =
   | { kind: 'account'; account?: Account }
@@ -37,6 +38,7 @@ export function App() {
   const accountId = accounts.some((a) => a.id === selected) ? selected : (accounts[0]?.id ?? '');
   const [date, setDate] = useState(today);
   const [view, setView] = useState<View>('ledger');
+  const [notice, setNotice] = useState('');
   const [navOpen, setNavOpen] = useState(false);
   const [revision, setRevision] = useState(0);
   const [generatedRevision, setGeneratedRevision] = useState(0);
@@ -51,6 +53,7 @@ export function App() {
   }
   function selectView(next: View) {
     if (next === 'pending') setPendingSource(undefined);
+    setNotice('');
     setView(next);
     setNavOpen(false);
     if (next === 'ledger' || next === 'records') refresh();
@@ -88,6 +91,7 @@ export function App() {
             onDate={setDate}
             onAdd={() => setModal({ kind: 'transaction' })}
           />
+          {notice && <p role="status">{notice}</p>}
           <div id="day-content" aria-busy={loading}>
             <LoadState
               loading={accountsState.loading}
@@ -96,6 +100,18 @@ export function App() {
             />
             {!accountsState.loading && !accountsState.error && (
               <>
+                {view === 'data' && (
+                  <DataManagementPage
+                    accounts={accounts}
+                    onRestored={() => {
+                      setNotice('备份恢复成功，账本已替换。');
+                      setModal(null);
+                      setAccount('');
+                      accountsState.reload();
+                      refresh();
+                    }}
+                  />
+                )}
                 {view === 'platforms' && (
                   <AccountsPage
                     accounts={accounts}

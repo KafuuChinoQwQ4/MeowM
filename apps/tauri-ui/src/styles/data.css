@@ -1,0 +1,59 @@
+.data-page {
+  padding: 20px;
+  max-width: 1000px;
+  margin: auto;
+}
+.data-card {
+  border: 1px solid var(--line, #ddd);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 20px 0;
+  background: var(--surface, #fff);
+}
+.data-card h3 {
+  margin-top: 0;
+}
+.data-card p {
+  line-height: 1.6;
+}
+.data-card fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
+.data-card form {
+  display: grid;
+  gap: 14px;
+}
+.data-card .button {
+  justify-self: start;
+}
+.restore-preview {
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+}
+.data-counts {
+  overflow: auto;
+}
+.data-counts table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.data-counts td,
+.data-counts th {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+.data-counts tbody th {
+  font-weight: normal;
+}
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}

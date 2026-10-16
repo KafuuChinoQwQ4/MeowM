@@ -2,6 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `data.test.mjs` — 备份恢复确认和筛选导出的 React 浏览器测试。
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
 - `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.

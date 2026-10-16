@@ -1,4 +1,6 @@
 mod analytics;
+mod data_files;
+mod data_management;
 mod ledger;
 mod notifications;
 mod reconciliation;
@@ -145,6 +147,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(notifications::init())
         .plugin(search_export::init())
+        .plugin(data_files::init())
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("ledger.sqlite3");
             let ledger = Ledger::open(&path).map_err(std::io::Error::other)?;
@@ -175,6 +178,12 @@ pub fn run() {
             reconciliation::commands::reconciliation_adjust,
             reconciliation::commands::reconciliation_close,
             reconciliation::commands::reconciliation_reopen,
+            data_management::create_backup,
+            data_management::inspect_backup,
+            data_management::restore_backup,
+            data_management::export_data,
+            data_files::save_data_file,
+            data_files::open_backup_file,
             list_accounts,
             create_account,
             update_platform,

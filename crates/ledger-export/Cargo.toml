@@ -1,0 +1,14 @@
+[package]
+name = "ledger-export"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+ledger-domain = { path = "../ledger-domain" }
+ledger-app = { path = "../ledger-app" }
+ledger-storage = { path = "../ledger-storage" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+[dev-dependencies]
+csv = "1"

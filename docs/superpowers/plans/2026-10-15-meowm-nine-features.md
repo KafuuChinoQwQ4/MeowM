@@ -286,13 +286,15 @@
 - `BackupService::{create,inspect,restore}` 使用带认证的加密容器；错误密码、篡改、未知版本和约束失败都返回明确错误。
 - `ExportService::{csv,json}` 导出脱敏后的已确认交易或用户选择的筛选结果；导出不改变账本。
 
-- [ ] **Step 1: 写失败测试**：空账本、大账本、错误密码、损坏密文、旧版本、重复恢复、恢复失败保留原库、导出金额和退款关联。
-- [ ] **Step 2: 实现版本化归档**：先从 repository 读取一致性快照，写入 schema、checksum 和 authenticated encryption；来源内容只写摘要。
-- [ ] **Step 3: 实现临时库恢复**：解密后导入临时 SQLite，执行迁移、外键、金额、来源去重和业务不变量校验，成功后原子替换或事务合并。
-- [ ] **Step 4: 实现 CSV/JSON 导出**：稳定列名、UTF-8 BOM 可选、整数分转十进制字符串；默认导出 Confirmed，用户可显式包含 Pending 状态列。
-- [ ] **Step 5: 增加设置入口**：文件选择器、密码输入、备份检查、恢复预览、导出范围和成功/失败结果；恢复操作必须显示将覆盖或合并的范围。
-- [ ] **Step 6: 运行备份恢复、迁移回放、导出 round-trip、`cargo test --workspace` 和前端构建**。
-- [ ] **Step 7: Commit**：`feat: add encrypted backup and data export`。
+- [x] **Step 1: 写失败测试**：空账本、大账本、错误密码、损坏密文、旧版本、重复恢复、恢复失败保留原库、导出金额和退款关联。
+- [x] **Step 2: 实现版本化归档**：先从 repository 读取一致性快照，写入 schema、checksum 和 authenticated encryption；来源内容只写摘要。
+- [x] **Step 3: 实现临时库恢复**：解密后导入临时 SQLite，执行迁移、外键、金额、来源去重和业务不变量校验，成功后原子替换或事务合并。
+- [x] **Step 4: 实现 CSV/JSON 导出**：稳定列名、UTF-8 BOM 可选、整数分转十进制字符串；默认导出 Confirmed，用户可显式包含 Pending 状态列。
+- [x] **Step 5: 增加设置入口**：文件选择器、密码输入、备份检查、恢复预览、导出范围和成功/失败结果；恢复操作必须显示将覆盖或合并的范围。
+- [x] **Step 6: 运行备份恢复、迁移回放、导出 round-trip、`cargo test --workspace` 和前端构建**。
+- [x] **Step 7: Commit**：`feat: add encrypted backup and data export`。
+
+**任务 8 完成记录：** 加密归档、旧 schema 临时库迁移、预览后事务替换、CSV/JSON 精确金额导出和 Android 系统文件选择器已接通；备份明确排除本机凭据和权限，恢复前展示替换范围。真实 SQLite、React 浏览器及 Android x86_64 WebView 验证见 `docs/stage8-backup-export-validation.md`。上传 GitHub 后停止，不进入任务 9。
 
 ### Task 9: 隐私控制和数据生命周期
 

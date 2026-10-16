@@ -14,6 +14,8 @@ mod recurring;
 mod reversals;
 mod search;
 mod search_rules;
+mod snapshots;
+pub use snapshots::LedgerSnapshot;
 mod transaction_write;
 mod validation;
 use mapping::*;

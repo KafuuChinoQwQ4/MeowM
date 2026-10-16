@@ -5,5 +5,7 @@
 - `reconciliation_persistence.rs` — 旧库对账迁移、失败回滚和多连接幂等测试。
 - `recurring_persistence.rs` — 带数据迁移、并发幂等、时区及失败回滚测试。
 - `search_and_rules.rs` — 旧库迁移、别名、金额范围、规则优先级和 SQL 特殊字符测试。
+- `snapshot_integrity.rs` — 大账本、回滚、对账和畸形快照验证。
+- `snapshot_restore.rs` — 敏感设置排除、重复恢复和 SQLite 快照测试。
 - `sqlite_repository.rs` — Integration tests for SQLite persistence, balances, import provenance, category validation, and rule lifecycle.
 - `tree` — 本目录直接文件的说明索引。

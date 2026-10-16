@@ -1,0 +1,11 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `BackupForm.tsx` — 备份密码确认、加密文件生成与保存流程。
+- `DataManagementPage.tsx` — 备份、恢复和导出页面编排。
+- `ExportForm.tsx` — 状态及范围筛选的 CSV/JSON 导出表单。
+- `RestoreCounts.tsx` — 恢复预览中新旧账本数量对照。
+- `RestoreForm.tsx` — 备份文件选择、密码检查及显式替换确认。
+- `files.ts` — Android 文件插件与桌面浏览器文件读写适配。
+- `tree` — 本目录直接文件的说明索引。
