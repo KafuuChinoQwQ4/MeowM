@@ -3,6 +3,8 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `architecture.md` — React、Tauri 命令及 SQLite 模块的职责与依赖边界。
+- `build-storage.md` — 构建缓存保留、历史产物清理与 WSL 虚拟磁盘回收步骤。
+- `stage10-release-validation.md` — 最终阶段自动化、Android 组合回放、隐私扫描及未通过项验收记录。
 - `stage4-notification-validation.md` — Fourth-stage notification implementation scope and reproducible Android validation.
 - `stage5-recurring-validation.md` — 第五阶段周期账单的自动化、Android 验收证据及提醒边界。
 - `stage6-search-validation.md` — 第六阶段搜索和分类规则的验证结果与边界。

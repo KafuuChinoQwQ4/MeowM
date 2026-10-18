@@ -19,6 +19,7 @@ pub(super) fn parse_source(value: &str) -> Result<ledger_domain::SourceKind> {
         "alipay" => Ok(ledger_domain::SourceKind::Alipay),
         "bank" => Ok(ledger_domain::SourceKind::Bank),
         "notification" => Ok(ledger_domain::SourceKind::Notification),
+        "screen_capture" => Ok(ledger_domain::SourceKind::ScreenCapture),
         "manual" => Ok(ledger_domain::SourceKind::Manual),
         "recurring" => Ok(ledger_domain::SourceKind::Recurring),
         _ => Err("无效的来源".into()),
@@ -74,6 +75,7 @@ pub(super) fn source_label(source: ledger_domain::SourceKind) -> &'static str {
         ledger_domain::SourceKind::Alipay => "alipay",
         ledger_domain::SourceKind::Bank => "bank",
         ledger_domain::SourceKind::Notification => "notification",
+        ledger_domain::SourceKind::ScreenCapture => "screen_capture",
         ledger_domain::SourceKind::Manual => "manual",
         ledger_domain::SourceKind::Recurring => "recurring",
     }

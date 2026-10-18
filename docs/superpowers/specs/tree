@@ -4,4 +4,5 @@
 
 - `2026-10-07-local-expense-manager-design.md` — Approved product and architecture design specification.
 - `2026-10-16-react-modularization-design.md` — 已确认的 React 迁移、解耦边界和兼容性设计。
+- `2026-10-18-payment-screen-capture-design.md` — Design for Android payment screen OCR capture.
 - `tree` — 本目录直接文件的说明索引。

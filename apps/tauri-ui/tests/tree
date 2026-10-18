@@ -4,6 +4,7 @@
 
 - `data.test.mjs` — 备份恢复确认和筛选导出的 React 浏览器测试。
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
+- `mobile-layout.test.mjs` — Small-screen and landscape scrolling, navigation reachability, keyboard-sized unlock and dialog layout regressions.
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
 - `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.
 - `privacy.test.mjs` — 模拟 IPC 的锁定、金额遮盖和删除确认浏览器测试。
@@ -11,6 +12,7 @@
 - `reconciliation.test.mjs` — 对账完整交互、版本更新、负余额和失败保留浏览器测试。
 - `recurring.test.mjs` — 周期管理完整交互、持久化重载和首页待确认跳转的浏览器测试。
 - `reports-budgets.test.mjs` — 模拟 IPC 的报表筛选分页及预算编辑停用浏览器测试。
+- `screen-capture.test.mjs` — Browser workflow test for screen capture controls.
 - `search.test.mjs` — 搜索筛选、导出与规则预览确认的 React 浏览器测试。
 - `transactions.test.mjs` — Browser workflow test for transaction detail and versioned editing.
 - `tree` — 本目录直接文件的说明索引。

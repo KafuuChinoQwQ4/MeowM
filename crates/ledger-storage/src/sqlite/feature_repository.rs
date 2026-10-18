@@ -186,6 +186,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
                     "wechat" => SourceKind::WeChat,
                     "bank" => SourceKind::Bank,
                     "notification" => SourceKind::Notification,
+                    "screen_capture" => SourceKind::ScreenCapture,
                     "manual" => SourceKind::Manual,
                     "recurring" => SourceKind::Recurring,
                     _ => return Err(rusqlite::Error::InvalidQuery),

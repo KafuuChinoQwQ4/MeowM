@@ -92,6 +92,7 @@ pub fn restore_backup(
         if session.id != preview_id || session.created.elapsed() > Duration::from_secs(600) {
             return Err("备份预览已过期，请重新检查".into());
         }
+        l.capture_session.replace(None);
         BackupService::restore(&l.repo()?, &session.backup, session.expected)
             .map_err(|e| e.to_string())?;
         l.privacy

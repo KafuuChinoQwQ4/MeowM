@@ -235,7 +235,9 @@
 }
 .ledger {
   position: relative;
-  height: auto;
+}
+.ledger:has(.ledger-toolbar.platform-mode) #day-content {
+  margin-top: 40px;
 }
 @media (max-height: 600px) {
   .app-shell {

@@ -22,3 +22,5 @@
 # JNI symbol and plugin names are consumed by Rust, including release builds.
 -keep class com.example.localledger.RustBridge { *; }
 -keep class com.example.localledger.NotificationPlugin { *; }
+-keep class com.example.localledger.ScreenCapturePlugin { *; }
+-keep class com.example.localledger.PaymentCaptureService { *; }

@@ -23,6 +23,10 @@ pub(super) const TABLES: &[&str] = &[
     "reconciliation_entries",
     "reconciliation_events",
     "platform_metadata",
+    "screen_settings",
+    "screen_receipts",
+    "screen_status",
+    "capture_matches",
 ];
 const MIGRATIONS: &[&str] = &[
     include_str!("../../../migrations/0001_initial.sql"),
@@ -34,6 +38,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../../migrations/0007_recurring.sql"),
     include_str!("../../../migrations/0008_search_rules.sql"),
     include_str!("../../../migrations/0009_reconciliation.sql"),
+    include_str!("../../../migrations/0010_screen_capture.sql"),
 ];
 pub(super) fn exists(c: &Connection, name: &str) -> Result<bool, RepositoryError> {
     c.query_row(
@@ -52,7 +57,7 @@ pub(super) fn columns(c: &Connection, name: &str) -> Result<Vec<String>, Reposit
         .map_err(storage_error)
 }
 pub(super) fn empty_at(version: i64) -> Result<Connection, RepositoryError> {
-    if !(1..=9).contains(&version) {
+    if !(1..=10).contains(&version) {
         return Err(invalid());
     }
     let c = Connection::open_in_memory().map_err(storage_error)?;

@@ -96,6 +96,7 @@ pub(crate) fn source_name(source: SourceKind) -> &'static str {
         SourceKind::WeChat => "wechat",
         SourceKind::Bank => "bank",
         SourceKind::Notification => "notification",
+        SourceKind::ScreenCapture => "screen_capture",
         SourceKind::Manual => "manual",
         SourceKind::Recurring => "recurring",
     }

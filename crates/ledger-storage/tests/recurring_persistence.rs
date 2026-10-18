@@ -69,7 +69,7 @@ fn schema_six_recurring_rows_migrate_without_losing_ids_and_skips_survive_restar
     .unwrap();
     drop(db);
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 9);
+    assert_eq!(repo.schema_version().unwrap(), 10);
     let migrated = RecurringService::new(&repo).list().unwrap().remove(0);
     assert_eq!(migrated.id, legacy_template);
     assert_eq!(migrated.anchor_date, date("2026-10-31"));

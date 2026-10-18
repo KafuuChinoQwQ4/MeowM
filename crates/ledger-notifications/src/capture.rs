@@ -114,6 +114,7 @@ pub fn capture_notification(
         candidate,
         code: code.into(),
         settings,
+        source_kind: ledger_domain::SourceKind::Notification,
     })
 }
 fn hash(fields: &[&str]) -> [u8; 32] {

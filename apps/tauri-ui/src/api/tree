@@ -14,6 +14,7 @@
 - `reconciliation.ts` — 对账会话和操作的类型化 IPC 接口。
 - `recurring.ts` — 周期账单管理和到期提醒的类型化 IPC 接口。
 - `reports.ts` — 报表查询和字符串金额结果的 IPC 契约。
+- `screenCapture.ts` — Screen capture authorization and service status API.
 - `search.ts` — 搜索分类管理的类型化 IPC 接口。
 - `transactions.ts` — 交易详情、版本化编辑及撤销的类型与 IPC 接口。
 - `tree` — 本目录直接文件的说明索引。

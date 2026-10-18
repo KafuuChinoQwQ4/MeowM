@@ -126,7 +126,7 @@ function UnlockedApp({
             onAdd={() => setModal({ kind: 'transaction' })}
           />
           {notice && <p role="status">{notice}</p>}
-          <div id="day-content" aria-busy={loading}>
+          <div key={view} id="day-content" aria-busy={loading}>
             <LoadState
               loading={accountsState.loading}
               error={accountsState.error}

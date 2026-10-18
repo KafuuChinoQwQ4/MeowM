@@ -1,6 +1,9 @@
 use ledger_app::{FeatureRepository, LedgerRepository, ports::NotificationRepository};
 use ledger_domain::{Account, AccountKind, CurrencyCode, SourceKind, TransactionStatus};
-use ledger_notifications::{NotificationEvent, NotificationSettings, capture_notification};
+use ledger_notifications::{
+    NotificationEvent, NotificationSettings, ScreenCaptureEvent, capture_notification,
+    capture_screen,
+};
 use ledger_storage::sqlite::SqliteLedgerRepository;
 
 fn event() -> NotificationEvent {
@@ -135,4 +138,32 @@ fn captures_unknown_amount_and_transfer_without_invalid_postings_and_rejects_inv
     invalid.notification_key.clear();
     assert!(capture_notification(&repo, &invalid).is_err());
     assert_eq!(repo.list_transactions().unwrap().len(), 3);
+}
+
+#[test]
+fn screen_capture_persists_a_pending_candidate_and_deduplicates_the_same_frame() {
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let event = ScreenCaptureEvent {
+        event_id: "page1".into(),
+        package_name: "com.tencent.mm".into(),
+        recognized_text: "支付成功\n商户：星星咖啡\n¥12.30".into(),
+        captured_at_ms: 1_760_000_000_000,
+    };
+    use ledger_app::ports::ScreenCaptureRepository;
+    repo.save_screen_settings(NotificationSettings {
+        package_name: event.package_name.clone(),
+        enabled: true,
+        account_id: None,
+    })
+    .unwrap();
+    let first = capture_screen(&repo, &event).unwrap();
+    assert_eq!(first.code, "needs_confirmation");
+    let id = first.transaction_id.unwrap();
+    assert_eq!(
+        repo.source_evidence(id).unwrap()[0].source_kind,
+        SourceKind::ScreenCapture
+    );
+    let second = capture_screen(&repo, &event).unwrap();
+    assert_eq!(second.code, "duplicate");
+    assert_eq!(second.transaction_id, Some(id));
 }

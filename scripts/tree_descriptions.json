@@ -296,5 +296,21 @@
   "apps/tauri-ui/src/features/privacy/PrivacyPage.tsx": "隐私设置和通知来源入口页面。",
   "apps/tauri-ui/src/styles/privacy.css": "锁屏与隐私设置的响应式样式。",
   "apps/tauri-ui/tests/privacy.test.mjs": "模拟 IPC 的锁定、金额遮盖和删除确认浏览器测试。",
-  "docs/stage9-privacy-validation.md": "第九阶段隐私控制和数据生命周期验证记录。"
+  "docs/stage9-privacy-validation.md": "第九阶段隐私控制和数据生命周期验证记录。",
+  "docs/build-storage.md": "构建缓存保留、历史产物清理与 WSL 虚拟磁盘回收步骤。",
+  "docs/stage10-release-validation.md": "最终阶段自动化、Android 组合回放、隐私扫描及未通过项验收记录。",
+  "apps/tauri-ui/tests/mobile-layout.test.mjs": "Small-screen and landscape scrolling, navigation reachability, keyboard-sized unlock and dialog layout regressions.",
+  "apps/tauri-ui/src-tauri/src/screen_capture/mod.rs": "Tauri mobile plugin for MediaProjection payment screen capture.",
+  "apps/tauri-ui/src/api/screenCapture.ts": "Screen capture authorization and service status API.",
+  "apps/tauri-ui/src/features/notifications/ScreenCaptureCard.tsx": "Payment screen capture controls and privacy status card.",
+  "apps/tauri-ui/tests/screen-capture.test.mjs": "Browser workflow test for screen capture controls.",
+  "crates/ledger-notifications/src/screen_capture.rs": "Local OCR payment success screen parser.",
+  "crates/ledger-notifications/src/screen_capture_capture.rs": "Atomic persistence for screen OCR candidates.",
+  "crates/ledger-notifications/tests/screen_capture.rs": "Screen OCR parser fixtures.",
+  "crates/ledger-storage/migrations/0010_screen_capture.sql": "Source evidence migration for screen capture receipts.",
+  "docs/superpowers/plans/2026-10-18-payment-screen-capture.md": "Implementation plan for payment screen capture.",
+  "docs/superpowers/specs/2026-10-18-payment-screen-capture-design.md": "Design for Android payment screen OCR capture.",
+  "apps/tauri-ui/src-tauri/src/screen_capture/jni.rs": "Android screen capture JNI using the shared ledger session and privacy lock.",
+  "apps/tauri-ui/src-tauri/src/screen_capture/tests.rs": "Native capture boundary tests for session expiry, locked access and duplicate callbacks.",
+  "crates/ledger-notifications/tests/screen_workflows.rs": "Screen consent, idempotency, cross-source ambiguity, snapshots and source cleanup tests."
 }

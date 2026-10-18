@@ -29,6 +29,7 @@ use std::path::{Path, PathBuf};
 
 type Result<T> = std::result::Result<T, String>;
 pub struct Ledger {
+    pub(crate) capture_session: std::cell::RefCell<Option<String>>,
     path: PathBuf,
     pub(crate) privacy: std::cell::RefCell<PrivacyService>,
     pub(crate) delete_preview: std::cell::RefCell<Option<crate::privacy_commands::DeleteSession>>,
@@ -43,6 +44,7 @@ impl Ledger {
         let repo = SqliteLedgerRepository::open(path).map_err(|e| e.to_string())?;
         let privacy = PrivacyService::load(&repo).map_err(|e| e.to_string())?;
         let ledger = Self {
+            capture_session: std::cell::RefCell::new(None),
             path: path.into(),
             privacy: std::cell::RefCell::new(privacy),
             delete_preview: std::cell::RefCell::new(None),

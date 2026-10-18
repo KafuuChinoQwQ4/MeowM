@@ -6,6 +6,7 @@ import { FormError } from '../../components/Fields';
 import { errorText } from '../../shared/errors';
 import { useResource } from '../../shared/useResource';
 import { NotificationSourceCard } from './NotificationSourceCard';
+import { ScreenCaptureCard } from './ScreenCaptureCard';
 export function NotificationsPage({
   accounts,
   onPending,
@@ -55,6 +56,7 @@ export function NotificationsPage({
   return (
     <section className="notification-settings" aria-label="通知采集设置">
       <h2>通知采集</h2>
+      <ScreenCaptureCard accounts={accounts} />
       <p>
         仅在 Android
         上读取你授权的微信、支付宝系统通知，用于生成待确认记录。原始正文仅在内存中处理，不保存或写入日志；核对确认后才计入余额。

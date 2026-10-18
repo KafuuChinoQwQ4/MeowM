@@ -32,6 +32,7 @@ fn status(l: &crate::ledger::Ledger) -> PrivacyStatus {
     let mut privacy = l.privacy.borrow_mut();
     let _ = privacy.require_unlocked();
     if privacy.is_locked() {
+        l.capture_session.replace(None);
         l.clear_import_preview();
         l.restore_preview.replace(None);
         l.delete_preview.replace(None);
@@ -192,6 +193,7 @@ pub fn privacy_delete_confirm(
         if phrase != required {
             return Err(format!("请输入“{required}”确认"));
         }
+        l.capture_session.replace(None);
         let repo = l.repo()?;
         if session.scope == "all" {
             l.privacy

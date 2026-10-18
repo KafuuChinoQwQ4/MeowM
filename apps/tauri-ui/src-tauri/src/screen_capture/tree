@@ -1,0 +1,8 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `jni.rs` — Android screen capture JNI using the shared ledger session and privacy lock.
+- `mod.rs` — Tauri mobile plugin for MediaProjection payment screen capture.
+- `tests.rs` — Native capture boundary tests for session expiry, locked access and duplicate callbacks.
+- `tree` — 本目录直接文件的说明索引。

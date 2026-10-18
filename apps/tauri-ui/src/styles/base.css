@@ -155,8 +155,15 @@ body,
 #day-content {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+#day-content > * {
+  flex-shrink: 0;
+  min-width: 0;
 }
 @media (max-width: 360px) {
   .icon-button {

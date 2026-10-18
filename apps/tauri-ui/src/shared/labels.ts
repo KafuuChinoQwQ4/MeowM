@@ -11,6 +11,7 @@ export const sourceNames: Record<string, string> = {
   alipay: '支付宝',
   bank: '银行卡',
   notification: '通知',
+  screen_capture: '支付页面识别',
   manual: '手动',
   recurring: '周期账单',
 };

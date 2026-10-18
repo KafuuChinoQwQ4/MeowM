@@ -7,4 +7,5 @@
 - `2026-10-14-tauri-migration.md` — Approved migration scope, implementation steps and validation checklist.
 - `2026-10-15-meowm-nine-features.md` — Detailed implementation plan for nine local ledger features and release validation.
 - `2026-10-16-react-modularization.md` — React 迁移和模块解耦实施步骤、验证与发布边界。
+- `2026-10-18-payment-screen-capture.md` — Implementation plan for payment screen capture.
 - `tree` — 本目录直接文件的说明索引。

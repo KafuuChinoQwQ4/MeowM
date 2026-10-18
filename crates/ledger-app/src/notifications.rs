@@ -1,5 +1,5 @@
 //! Notification capture contracts. No raw notification text belongs in storage.
-use ledger_domain::{AccountId, SourceEvidence, Transaction, TransactionId};
+use ledger_domain::{AccountId, SourceEvidence, SourceKind, Transaction, TransactionId};
 
 pub const NOTIFICATION_PACKAGES: [&str; 2] = ["com.tencent.mm", "com.eg.android.AlipayGphone"];
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,4 +38,5 @@ pub struct NotificationRecord {
     pub code: String,
     /// Rechecked by storage to prevent capture racing a source switch.
     pub settings: NotificationSettings,
+    pub source_kind: SourceKind,
 }

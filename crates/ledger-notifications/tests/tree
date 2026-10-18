@@ -4,4 +4,6 @@
 
 - `capture_workflows.rs` — Real SQLite capture, privacy, source disable and restart-safe deduplication tests.
 - `notification_parsers.rs` — Payment direction, unsupported format and uncertain amount parser fixtures.
+- `screen_capture.rs` — Screen OCR parser fixtures.
+- `screen_workflows.rs` — Screen consent, idempotency, cross-source ambiguity, snapshots and source cleanup tests.
 - `tree` — 本目录直接文件的说明索引。

@@ -6,6 +6,7 @@ mod notifications;
 mod privacy_commands;
 mod reconciliation;
 mod recurring;
+mod screen_capture;
 mod search_export;
 mod search_rules;
 mod transactions;
@@ -167,15 +168,24 @@ fn reverse_transaction(
 pub fn run() {
     tauri::Builder::default()
         .plugin(notifications::init())
+        .plugin(screen_capture::init())
         .plugin(search_export::init())
         .plugin(data_files::init())
         .setup(|app| {
             let path = app.path().app_data_dir()?.join("ledger.sqlite3");
             let ledger = Ledger::open(&path).map_err(std::io::Error::other)?;
             app.manage(LedgerState(Mutex::new(ledger)));
+            #[cfg(target_os = "android")]
+            screen_capture::attach(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            screen_capture::screen_capture_state,
+            screen_capture::save_screen_capture_source,
+            screen_capture::screen_capture_status,
+            screen_capture::screen_capture_usage_settings,
+            screen_capture::start_screen_capture,
+            screen_capture::stop_screen_capture,
             privacy_commands::privacy_status,
             privacy_commands::privacy_unlock,
             privacy_commands::privacy_lock_now,

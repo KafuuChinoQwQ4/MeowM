@@ -40,7 +40,7 @@ impl BackupService {
         let plaintext = crypto::decrypt(data, password)?;
         let archive: Archive =
             serde_json::from_slice(&plaintext).map_err(|_| BackupError::InvalidData)?;
-        if archive.format_version != 1 || !(1..=9).contains(&archive.snapshot.schema_version) {
+        if archive.format_version != 1 || !(1..=10).contains(&archive.snapshot.schema_version) {
             return Err(BackupError::Version);
         }
         if archive.snapshot.fingerprint()? != archive.checksum
@@ -99,7 +99,7 @@ mod tests {
         let bytes = crypto::encrypt(&serde_json::to_vec(&a).unwrap(), "test-only-pass").unwrap();
         let checked = BackupService::inspect(&bytes, "test-only-pass").unwrap();
         assert_eq!(checked.info.schema_version, 3);
-        assert_eq!(checked.snapshot.schema_version, 9);
+        assert_eq!(checked.snapshot.schema_version, 10);
         let mut bytes = bytes;
         bytes[8] = 2;
         assert!(matches!(

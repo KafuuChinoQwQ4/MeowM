@@ -14,14 +14,14 @@ impl PrivacyRepository for SqliteLedgerRepository {
                 OR EXISTS(SELECT 1 FROM transaction_metadata rev WHERE rev.reversal_of=t.id)
                 OR EXISTS(SELECT 1 FROM recurring_instances i WHERE i.transaction_id=t.id)
                 OR EXISTS(SELECT 1 FROM import_receipt_rows i WHERE i.transaction_id=t.id)
-                OR EXISTS(SELECT 1 FROM source_evidence other WHERE other.transaction_id=t.id AND other.source_kind!='notification')
+                OR EXISTS(SELECT 1 FROM source_evidence other WHERE other.transaction_id=t.id AND other.source_kind NOT IN ('notification','screen_capture'))
               ) THEN 1 ELSE 0 END),0)
-             FROM transactions t WHERE EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND e.source_kind='notification')",
+             FROM transactions t WHERE EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND e.source_kind IN ('notification','screen_capture'))",
             [], |r| Ok((r.get(0)?,r.get(1)?,r.get(2)?)),
         ).map_err(storage_error)?;
         let receipts: i64 = self
             .connection
-            .query_row("SELECT COUNT(*) FROM notification_receipts", [], |r| {
+            .query_row("SELECT (SELECT COUNT(*) FROM notification_receipts)+(SELECT COUNT(*) FROM screen_receipts)", [], |r| {
                 r.get(0)
             })
             .map_err(storage_error)?;
@@ -44,12 +44,14 @@ impl PrivacyRepository for SqliteLedgerRepository {
         let preview = self.preview_notification_delete()?;
         if preview.blocked > 0 {
             return Err(RepositoryError::InvalidData(
-                "通知候选被对账或其他来源引用；请先处理关联记录，或选择删除全部数据".into(),
+                "通知或屏幕识别候选被对账或其他来源引用；请先处理关联记录，或选择删除全部数据"
+                    .into(),
             ));
         }
-        let ids: Vec<(String,String)> = tx.prepare("SELECT t.id,t.status FROM transactions t WHERE EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND e.source_kind='notification')").map_err(storage_error)?
+        let ids: Vec<(String,String)> = tx.prepare("SELECT t.id,t.status FROM transactions t WHERE EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND e.source_kind IN ('notification','screen_capture'))").map_err(storage_error)?
             .query_map([],|r|Ok((r.get(0)?,r.get(1)?))).map_err(storage_error)?
             .collect::<rusqlite::Result<_>>().map_err(storage_error)?;
+        tx.execute_batch("UPDATE screen_settings SET enabled=0; DELETE FROM screen_status; DELETE FROM screen_receipts; DELETE FROM capture_matches;").map_err(storage_error)?;
         tx.execute("UPDATE notification_settings SET enabled=0", [])
             .map_err(storage_error)?;
         tx.execute("DELETE FROM notification_status", [])
@@ -57,7 +59,7 @@ impl PrivacyRepository for SqliteLedgerRepository {
         tx.execute("DELETE FROM notification_receipts", [])
             .map_err(storage_error)?;
         tx.execute(
-            "DELETE FROM source_evidence WHERE source_kind='notification'",
+            "DELETE FROM source_evidence WHERE source_kind IN ('notification','screen_capture')",
             [],
         )
         .map_err(storage_error)?;

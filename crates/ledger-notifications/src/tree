@@ -8,4 +8,6 @@
 - `lib.rs` — Notification event and parser module declarations.
 - `parse.rs` — Shared notification parsing and confidence handling.
 - `providers.rs` — Payment app specific notification format parsers.
+- `screen_capture.rs` — Local OCR payment success screen parser.
+- `screen_capture_capture.rs` — Atomic persistence for screen OCR candidates.
 - `tree` — 本目录直接文件的说明索引。

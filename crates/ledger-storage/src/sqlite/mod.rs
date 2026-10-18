@@ -66,6 +66,7 @@ impl SqliteLedgerRepository {
         repo.apply_recurring_migration()?;
         repo.apply_search_migration()?;
         repo.apply_reconciliation_migration()?;
+        repo.apply_screen_capture_migration()?;
         repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
             account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
             category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))

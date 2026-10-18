@@ -257,6 +257,7 @@ pub(super) fn source_kind_str(kind: SourceKind) -> &'static str {
         SourceKind::WeChat => "wechat",
         SourceKind::Bank => "bank",
         SourceKind::Notification => "notification",
+        SourceKind::ScreenCapture => "screen_capture",
         SourceKind::Manual => "manual",
         SourceKind::Recurring => "recurring",
     }

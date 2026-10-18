@@ -4,4 +4,5 @@
 
 - `NotificationSourceCard.tsx` — Per-source editing, default platform and recoverable save errors.
 - `NotificationsPage.tsx` — Notification consent, permission guidance and recent capture results.
+- `ScreenCaptureCard.tsx` — Payment screen capture controls and privacy status card.
 - `tree` — 本目录直接文件的说明索引。

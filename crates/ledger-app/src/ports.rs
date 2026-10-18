@@ -210,3 +210,19 @@ pub trait RecurringRepository: LedgerRepository {
 
 /// Reconciliation has its own snapshot and atomic action boundary.
 pub use crate::reconciliation::ReconciliationRepository;
+
+/// Independent screen consent, source mapping and atomic receipts.
+pub trait ScreenCaptureRepository: FeatureRepository {
+    fn screen_settings(
+        &self,
+    ) -> Result<Vec<crate::notifications::NotificationSettings>, RepositoryError>;
+    fn save_screen_settings(
+        &self,
+        settings: crate::notifications::NotificationSettings,
+    ) -> Result<(), RepositoryError>;
+    fn screen_status(&self) -> Result<Vec<crate::notifications::CaptureStatus>, RepositoryError>;
+    fn record_screen_capture(
+        &self,
+        record: crate::notifications::NotificationRecord,
+    ) -> Result<crate::notifications::CaptureResult, RepositoryError>;
+}
