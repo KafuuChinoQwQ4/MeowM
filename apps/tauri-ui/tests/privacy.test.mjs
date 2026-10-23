@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1438');
 
 async function open(page) {
@@ -73,15 +74,13 @@ test('locked startup never loads ledger; unlock and amount masking preserve sour
   await page.getByLabel('解锁密码').fill('test-only-pass');
   await page.getByRole('button', { name: '解锁账本' }).click();
   await page.getByText('123.45').first().waitFor();
-  await page.getByRole('button', { name: '打开导航' }).click();
-  await page.getByRole('button', { name: '隐私与数据', exact: true }).click();
+  await navigate(page, 'privacy');
   await page.getByLabel('隐藏金额').check();
   await page.getByRole('button', { name: '打开导航' }).click();
   await page.getByRole('button', { name: '账本', exact: true }).click();
   await page.getByText('••••').first().waitFor();
   assert.equal(await page.getByText('123.45').count(), 0);
-  await page.getByRole('button', { name: '打开导航' }).click();
-  await page.getByRole('button', { name: '隐私与数据', exact: true }).click();
+  await navigate(page, 'privacy');
   await page.getByLabel('隐藏金额').uncheck();
   await page.getByRole('button', { name: '打开导航' }).click();
   await page.getByRole('button', { name: '账本', exact: true }).click();
@@ -94,8 +93,7 @@ test('notification deletion requires preview and exact confirmation phrase', asy
   await open(page);
   await page.getByLabel('解锁密码').fill('test-only-pass');
   await page.getByRole('button', { name: '解锁账本' }).click();
-  await page.getByRole('button', { name: '打开导航' }).click();
-  await page.getByRole('button', { name: '隐私与数据', exact: true }).click();
+  await navigate(page, 'privacy');
   await page.getByRole('button', { name: '预览删除通知数据' }).click();
   assert.match(await page.getByText(/待确认或已忽略候选/).innerText(), /1/);
   const confirm = page.getByRole('button', { name: '确认删除通知数据' });

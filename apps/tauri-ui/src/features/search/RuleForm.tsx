@@ -131,7 +131,9 @@ export function RuleForm({
           )}
         </div>
       )}
-      <p className="field-hint">保存后只更新未手工分类候选的建议，不批量修改已确认流水。</p>
+      <p className="field-hint">
+        保存后会用于之后的新流水和待确认记录；已确认历史流水不会批量修改。
+      </p>
       <FormError message={error} />
     </div>
   );

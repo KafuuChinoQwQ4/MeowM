@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserSuite } from './helpers/browser.mjs';
 import { installWorkflowIpc } from './helpers/workflow-ipc.mjs';
+import { navigate } from './helpers/navigation.mjs';
 
 const { url, newPage } = browserSuite('1448');
 
@@ -28,16 +29,6 @@ async function open(page) {
   });
   await page.goto(url);
   await page.locator('#day-content[aria-busy=false]').waitFor();
-}
-
-async function navigate(page, view) {
-  await page.locator('#menu').click();
-  await navigationReady(page);
-  const item = page.locator('#nav-' + view);
-  // Scroll with a user gesture; locator.click alone can scroll clipped elements into view.
-  await page.mouse.move(80, 180);
-  await page.mouse.wheel(0, 1500);
-  await item.click();
 }
 
 async function navigationReady(page) {
@@ -108,7 +99,7 @@ for (const viewport of [
   });
 }
 
-test('short-screen navigation scrolls without squeezing or clipping the final destinations', async () => {
+test('short-screen navigation keeps settings and its nested destinations reachable', async () => {
   const page = await newPage({ viewport: { width: 320, height: 480 } });
   try {
     await open(page);
@@ -117,13 +108,47 @@ test('short-screen navigation scrolls without squeezing or clipping the final de
     await page.mouse.move(80, 200);
     await page.mouse.wheel(0, 1500);
     await page.waitForFunction(() => {
-      const r = document.querySelector('#nav-privacy').getBoundingClientRect();
+      const r = document.querySelector('#nav-settings').getBoundingClientRect();
       return r.top >= 0 && r.bottom <= innerHeight;
     });
-    const last = page.locator('#nav-privacy');
+    const last = page.locator('#nav-settings');
     assert.ok((await last.boundingBox()).height >= 40);
     await last.click();
+    await page.locator('#nav-security').click();
+    await page.locator('#nav-privacy').click();
     await page.getByRole('heading', { name: '隐私与数据', exact: true }).waitFor();
+  } finally {
+    await page.close();
+  }
+});
+
+test('hierarchy back button is rounded, centered, and has a press ripple', async () => {
+  const page = await newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await open(page);
+    await navigate(page, 'privacy');
+    const back = page.locator('.back-button');
+    const box = await back.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    const style = await back.evaluate((button) => {
+      const box = button.getBoundingClientRect();
+      const computed = getComputedStyle(button);
+      const icon = button.querySelector('.back-icon').getBoundingClientRect();
+      return {
+        round: computed.borderRadius,
+        rectangular: Math.round(box.width) > Math.round(box.height),
+        centered: computed.display === 'grid' && computed.placeItems === 'center',
+        iconCentered: Math.abs(icon.top + icon.height / 2 - (box.top + box.height / 2)) < 1,
+        ripple: getComputedStyle(button, '::after').animationName,
+      };
+    });
+    await page.mouse.up();
+    assert.equal(style.round, '12px');
+    assert.equal(style.rectangular, true);
+    assert.equal(style.centered, true);
+    assert.equal(style.iconCentered, true);
+    assert.notEqual(style.ripple, 'none');
   } finally {
     await page.close();
   }

@@ -15,6 +15,24 @@ fn wechat_utf8_bom_quoted_rows_and_direction_are_normalized() {
 }
 
 #[test]
+fn wechat_slash_direction_uses_wallet_transaction_type_and_status() {
+    let csv = "交易时间,交易类型,当前状态,收/支,金额(元)\n2026-10-01,零钱充值,充值完成,/,1.00\n2026-10-02,零钱提现,提现已到账,/,2.00\n2026-10-03,其他,已存入零钱,/,3.00\n2026-10-04,未知交易,完成,/,4.00\n";
+    let parsed = parse_wechat_csv(csv.as_bytes()).unwrap();
+
+    assert_eq!(
+        parsed.rows.iter().map(|row| row.kind).collect::<Vec<_>>(),
+        [
+            TransactionKind::Income,
+            TransactionKind::Expense,
+            TransactionKind::Income,
+        ]
+    );
+    assert_eq!(parsed.errors.len(), 1);
+    assert_eq!(parsed.errors[0].row, 5);
+    assert_eq!(parsed.errors[0].code, "invalid_direction");
+}
+
+#[test]
 fn alipay_refund_and_duplicate_external_id_are_explicit() {
     let csv = "交易时间,交易对方,商品说明,收/支,交易金额,交易订单号\n2026/10/01 12:00:00,商户,退货,退款,5.00,a-1\n2026/10/01 12:00:00,商户,退货,退款,5.00,a-1\n";
     let parsed = parse_alipay_csv(csv.as_bytes()).unwrap();

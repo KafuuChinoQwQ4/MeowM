@@ -35,20 +35,22 @@ export function DeleteData({
     <section className="data-card" aria-label="删除数据">
       <h3>删除数据</h3>
       <p>先检查范围，再输入确认短语。建议先创建加密备份；删除完成后不能撤销。</p>
-      <button className="button" onClick={onBackup}>
-        前往创建加密备份
-      </button>
-      <div className="data-actions">
-        <button className="button" disabled={busy} onClick={() => void inspect('notifications')}>
-          预览删除通知数据
+      <div className="delete-data-actions">
+        <button className="button" onClick={onBackup}>
+          前往创建加密备份
         </button>
-        <button
-          className="button button-danger"
-          disabled={busy}
-          onClick={() => void inspect('all')}
-        >
-          预览删除全部数据
-        </button>
+        <div className="data-actions">
+          <button className="button" disabled={busy} onClick={() => void inspect('notifications')}>
+            预览删除通知数据
+          </button>
+          <button
+            className="button button-danger"
+            disabled={busy}
+            onClick={() => void inspect('all')}
+          >
+            预览删除全部数据
+          </button>
+        </div>
       </div>
       {preview && (
         <div className="restore-preview">

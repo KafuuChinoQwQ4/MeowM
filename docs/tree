@@ -2,8 +2,10 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `2026-10-20-phone-functional-validation.md` — Android 16 ARM64 真机功能验收、自动锁定缺陷及原始数据恢复记录。
 - `architecture.md` — React、Tauri 命令及 SQLite 模块的职责与依赖边界。
 - `build-storage.md` — 构建缓存保留、历史产物清理与 WSL 虚拟磁盘回收步骤。
+- `platform-colors.md` — 常见支付钱包、证券软件、加密交易所和银行的配色与官方参考。
 - `stage10-release-validation.md` — 最终阶段自动化、Android 组合回放、隐私扫描及未通过项验收记录。
 - `stage4-notification-validation.md` — Fourth-stage notification implementation scope and reproducible Android validation.
 - `stage5-recurring-validation.md` — 第五阶段周期账单的自动化、Android 验收证据及提醒边界。

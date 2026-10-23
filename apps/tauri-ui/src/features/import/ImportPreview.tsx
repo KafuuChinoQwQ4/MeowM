@@ -41,7 +41,7 @@ export function ImportPreview({
   }
   return (
     <form
-      className="sheet-form"
+      className="sheet-form import-preview-form"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
@@ -81,10 +81,12 @@ export function ImportPreview({
           />
         ))}
       </fieldset>
-      <FormError message={action.error} />
-      <button className="button button-primary submit-button" disabled={action.busy || !account}>
-        加入待确认收件箱
-      </button>
+      <div className="import-preview-actions">
+        <FormError message={action.error} />
+        <button className="button button-primary submit-button" disabled={action.busy || !account}>
+          加入待确认收件箱
+        </button>
+      </div>
     </form>
   );
 }

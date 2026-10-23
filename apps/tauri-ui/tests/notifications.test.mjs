@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate } from './helpers/navigation.mjs';
 import { installWorkflowIpc } from './helpers/workflow-ipc.mjs';
 const suite = browserSuite(1433);
-test('notification settings require consent, preserve failed edits, and reload saved sources', async () => {
+test('notification settings auto-save rounded control changes after consent', async () => {
   const page = await suite.newPage();
   await installWorkflowIpc(page);
   await page.addInitScript(() => {
@@ -49,18 +50,31 @@ test('notification settings require consent, preserve failed edits, and reload s
     };
   });
   await page.goto(suite.url);
-  await page.locator('#menu').click();
-  await page.locator('#nav-notifications').click();
+  await navigate(page, 'notifications');
   await page.getByText('未授予通知访问权限', { exact: true }).waitFor();
   const card = page.getByRole('group', { name: '微信通知来源' });
-  await card.getByLabel('启用采集').check();
-  await card.getByLabel('默认记入平台').selectOption('wallet');
-  assert.equal(await card.getByRole('button', { name: '保存来源' }).isEnabled(), false);
+  const controlStyle = await card.evaluate((root) => {
+    const checkbox = root.querySelector('input[type="checkbox"]');
+    const select = root.querySelector('select');
+    return {
+      checkboxRadius: getComputedStyle(checkbox).borderRadius,
+      checkboxTransition: getComputedStyle(checkbox).transitionProperty,
+      selectRadius: getComputedStyle(select).borderRadius,
+    };
+  });
+  assert.equal(controlStyle.checkboxRadius, '8px');
+  assert.match(controlStyle.checkboxTransition, /background-color/);
+  assert.equal(controlStyle.selectRadius, '12px');
+  assert.equal(await card.getByRole('button', { name: '保存来源' }).count(), 0);
   await page.getByLabel('我已了解并同意通知采集用途').check();
+  await card.getByLabel('启用采集').check();
+  await card.getByText('来源已启用', { exact: true }).waitFor();
+  await card.getByLabel('默认记入平台').selectOption('wallet');
+  await page.waitForFunction(() => localStorage.getItem('sources')?.includes('wallet'));
   await page.evaluate(() => {
     window.failSourceSave = true;
   });
-  await card.getByRole('button', { name: '保存来源' }).click();
+  await card.getByLabel('启用采集').uncheck();
   await card.getByRole('alert').waitFor();
   await page.evaluate(() => {
     window.holdSettings = true;
@@ -72,24 +86,20 @@ test('notification settings require consent, preserve failed edits, and reload s
     window.holdSettings = false;
     window.releaseSettings();
   });
-  await card.getByText('来源已关闭', { exact: true }).waitFor();
-  assert.equal(await card.getByLabel('启用采集').isChecked(), true);
+  await card.getByText('来源已启用', { exact: true }).waitFor();
+  assert.equal(await card.getByLabel('启用采集').isChecked(), false);
   assert.equal(await card.getByLabel('默认记入平台').inputValue(), 'wallet');
   await page.evaluate(() => {
     window.failSourceSave = false;
   });
-  await card.getByRole('button', { name: '保存来源' }).click();
+  await card.getByLabel('启用采集').check();
   await card.getByText('来源已启用', { exact: true }).waitFor();
   await page.getByRole('button', { name: '打开系统通知访问设置' }).click();
   await page.getByText('已授权，监听服务尚未连接', { exact: true }).waitFor();
   await page.reload();
-  await page.locator('#menu').click();
-  await page.locator('#nav-notifications').click();
+  await navigate(page, 'notifications');
   await card.getByText('来源已启用', { exact: true }).waitFor();
   assert.equal(await card.getByLabel('启用采集').isChecked(), true);
   assert.equal(await card.getByLabel('默认记入平台').inputValue(), 'wallet');
-  await card.getByLabel('启用采集').uncheck();
-  await card.getByRole('button', { name: '保存来源' }).click();
-  await card.getByText('来源已关闭', { exact: true }).waitFor();
   await page.close();
 });

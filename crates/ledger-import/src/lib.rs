@@ -3,6 +3,7 @@
 pub mod alipay;
 mod csv;
 mod dedupe;
+mod excel;
 mod normalize;
 pub mod preview;
 pub mod wechat;
@@ -22,6 +23,67 @@ pub enum Provider {
     Wechat,
     Alipay,
     Bank,
+}
+
+/// Read UTF-8 CSV, XLS or XLSX by file contents, keeping one normalization path.
+pub fn parse_bill(provider: Provider, bytes: &[u8]) -> Result<ParsedImport, ImportError> {
+    if bytes.len() > 5 * 1024 * 1024 {
+        return Err(ImportError::LimitExceeded("账单文件不能超过 5 MiB".into()));
+    }
+    if bytes.starts_with(b"PK") || bytes.starts_with(b"\xd0\xcf\x11\xe0") {
+        excel::parse_excel(provider, bytes)
+    } else {
+        parse_provider_csv(bytes, provider.source_kind(), provider)
+    }
+}
+
+impl Provider {
+    fn source_kind(self) -> SourceKind {
+        match self {
+            Self::Wechat => SourceKind::WeChat,
+            Self::Alipay => SourceKind::Alipay,
+            Self::Bank => SourceKind::Bank,
+        }
+    }
+    fn date_headers(self) -> &'static [&'static str] {
+        match self {
+            Self::Wechat => &["交易时间", "时间", "日期"],
+            Self::Alipay => &["交易时间", "付款时间", "日期"],
+            Self::Bank => &["交易日期", "日期", "记账日期", "交易时间"],
+        }
+    }
+    fn amount_headers(self) -> &'static [&'static str] {
+        match self {
+            Self::Wechat | Self::Alipay => &["金额", "交易金额", "金额(元)"],
+            Self::Bank => &["交易金额", "金额", "发生额"],
+        }
+    }
+    fn id_headers(self) -> &'static [&'static str] {
+        match self {
+            Self::Wechat => &["交易单号", "商户单号", "订单号", "流水号"],
+            Self::Alipay => &["交易订单号", "商家订单号", "交易单号", "流水号"],
+            Self::Bank => &["流水号", "交易流水号", "参考号", "交易单号"],
+        }
+    }
+}
+
+pub(crate) struct InputRow {
+    number: usize,
+    cells: Vec<String>,
+    error: Option<String>,
+}
+
+fn find_header(rows: &[InputRow], provider: Provider) -> Option<usize> {
+    rows.iter().position(|row| {
+        let headers = csv::header_map(&row.cells);
+        [provider.date_headers(), provider.amount_headers()]
+            .iter()
+            .all(|aliases| {
+                aliases
+                    .iter()
+                    .any(|alias| headers.contains_key(&csv::normalize_header(alias)))
+            })
+    })
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,29 +118,34 @@ pub(crate) fn parse_provider_csv(
     source_kind: SourceKind,
     provider: Provider,
 ) -> Result<ParsedImport, ImportError> {
-    let rows = csv::decode_csv(bytes)?;
-    let header_index = rows
-        .iter()
-        .position(|row| {
-            let map = csv::header_map(row);
-            ["交易时间", "日期", "交易日期", "记账日期", "付款时间"]
-                .iter()
-                .any(|key| map.contains_key(&csv::normalize_header(key)))
+    let rows = csv::decode_csv(bytes)?
+        .into_iter()
+        .enumerate()
+        .map(|(index, cells)| InputRow {
+            number: index + 1,
+            cells,
+            error: None,
         })
-        .unwrap_or(0);
-    let headers = csv::header_map(&rows[header_index]);
-    let date_aliases = match provider {
-        Provider::Wechat | Provider::Alipay => vec!["交易时间", "时间", "日期", "付款时间"],
-        Provider::Bank => vec!["交易日期", "日期", "记账日期", "交易时间"],
-    };
-    let amount_aliases = match provider {
-        Provider::Wechat | Provider::Alipay => vec!["金额", "交易金额", "金额(元)"],
-        Provider::Bank => vec!["交易金额", "金额", "发生额", "借方发生额", "贷方发生额"],
-    };
-    let has_date = date_aliases
+        .collect();
+    parse_provider_rows(rows, source_kind, provider)
+}
+
+fn parse_provider_rows(
+    rows: Vec<InputRow>,
+    source_kind: SourceKind,
+    provider: Provider,
+) -> Result<ParsedImport, ImportError> {
+    if rows.is_empty() {
+        return Err(ImportError::EmptyInput);
+    }
+    let header_index = find_header(&rows, provider).unwrap_or(0);
+    let headers = csv::header_map(&rows[header_index].cells);
+    let has_date = provider
+        .date_headers()
         .iter()
         .any(|alias| headers.contains_key(&csv::normalize_header(alias)));
-    let has_amount = amount_aliases
+    let has_amount = provider
+        .amount_headers()
         .iter()
         .any(|alias| headers.contains_key(&csv::normalize_header(alias)));
     if !has_date || !has_amount {
@@ -91,13 +158,27 @@ pub(crate) fn parse_provider_csv(
         }
         return Err(ImportError::MissingHeaders(missing));
     }
+    if rows.len() - header_index - 1 > 1000 {
+        return Err(ImportError::LimitExceeded(
+            "每次最多预览 1000 行，请拆分文件".into(),
+        ));
+    }
     let mut parsed = Vec::new();
     let mut warnings = Vec::new();
     let mut errors = Vec::new();
     let mut seen_ids = HashSet::new();
-    for (index, row) in rows.iter().enumerate().skip(header_index + 1) {
-        let row_number = index + 1;
-        if row.len() < rows[header_index].len() {
+    for input in rows.iter().skip(header_index + 1) {
+        let row_number = input.number;
+        if let Some(message) = &input.error {
+            errors.push(ImportWarning {
+                row: row_number,
+                code: "invalid_excel_cell".into(),
+                message: message.clone(),
+            });
+            continue;
+        }
+        let row = &input.cells;
+        if row.len() < rows[header_index].cells.len() {
             warnings.push(ImportWarning {
                 row: row_number,
                 code: "short_row".into(),

@@ -4,6 +4,20 @@ import { Pager } from '../../components/Pager';
 import { kindNames } from '../../shared/labels';
 import { money } from '../../shared/format';
 import { usePageSize } from '../../shared/usePageSize';
+
+function categoryIcon(category: string | null | undefined, income: boolean) {
+  const value = category ?? '';
+  if (value.includes('饮品')) return '🧋';
+  if (value.includes('餐饮')) return '🍜';
+  if (value.includes('超市') || value.includes('便利')) return '🛒';
+  if (value.includes('网购') || value.includes('服饰')) return '🛍️';
+  if (value.includes('交通') || value.includes('旅行')) return '🚗';
+  if (value.includes('居住')) return '🏠';
+  if (value.includes('医疗')) return '💊';
+  if (value.includes('娱乐')) return '🎬';
+  if (value.includes('工资')) return '💼';
+  return income ? '↙' : '↗';
+}
 export function RecordsPage({
   entries,
   onOpen,
@@ -51,12 +65,12 @@ export function RecordsPage({
                     aria-hidden="true"
                     className={'entry-icon ' + (income ? 'income' : 'expense')}
                   >
-                    {income ? '↙' : '↗'}
+                    {categoryIcon(entry.category_name, income)}
                   </span>
                   <div className="entry-body">
                     <h3>{entry.note || label}</h3>
                     <p>
-                      {label} · {entry.time}
+                      {entry.category_name || label} · {entry.time}
                     </p>
                   </div>
                   <span className={'entry-amount ' + (income ? 'income-text' : '')}>

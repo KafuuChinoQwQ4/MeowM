@@ -169,13 +169,17 @@ export function TransactionEditor({
         <button
           type="button"
           disabled={action.busy}
-          className="button button-primary"
+          className="button button-primary transaction-submit"
           onClick={save}
         >
           确认保存修改
         </button>
       ) : (
-        <button type="button" className="button button-secondary" onClick={showImpact}>
+        <button
+          type="button"
+          className="button button-secondary transaction-submit"
+          onClick={showImpact}
+        >
           查看影响并保存
         </button>
       )}

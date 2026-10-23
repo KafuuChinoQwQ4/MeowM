@@ -47,8 +47,15 @@ fn update_platform(
     access(state, |l| l.update_platform(&account_id, &name, &category))
 }
 #[tauri::command]
-fn get_day(state: State<'_, LedgerState>, account_id: String, date: String) -> Result<DayView> {
-    access(state, |l| l.day(&account_id, &date))
+fn get_day(
+    state: State<'_, LedgerState>,
+    account_id: Option<String>,
+    date: String,
+) -> Result<DayView> {
+    access(state, |l| match account_id {
+        Some(id) => l.day(&id, &date),
+        None => l.day_all(&date),
+    })
 }
 #[tauri::command]
 fn save_entry(

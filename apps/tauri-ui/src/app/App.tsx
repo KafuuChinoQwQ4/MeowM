@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { Account } from '../api/accounts';
+import { ALL_ACCOUNTS } from '../api/ledger';
 import type { PageEntry } from '../api/entries';
 import { Dialog } from '../components/Dialog';
 import { LoadState } from '../components/LoadState';
@@ -23,7 +24,7 @@ import { useRecurring } from '../features/recurring/useRecurring';
 import { today } from '../shared/format';
 import { ReconciliationPage } from '../features/reconciliation/ReconciliationPage';
 import { SearchPage } from '../features/search/SearchPage';
-import { Navigation, type View } from './Navigation';
+import { Navigation, NavigationDirectory, parentView, type View } from './Navigation';
 import { DataManagementPage } from '../features/data/DataManagementPage';
 import { Toolbar } from './Toolbar';
 import { usePrivacyGate } from '../features/privacy/usePrivacyGate';
@@ -69,9 +70,16 @@ function UnlockedApp({
   const accountsState = useAccounts();
   const accounts = accountsState.data ?? [];
   const [selected, setAccount] = useState('');
-  const accountId = accounts.some((a) => a.id === selected) ? selected : (accounts[0]?.id ?? '');
+  const accountId =
+    (selected === ALL_ACCOUNTS && accounts.length > 0) || accounts.some((a) => a.id === selected)
+      ? selected
+      : (accounts[0]?.id ?? '');
+  const allAccounts = accountId === ALL_ACCOUNTS;
+  const entryAccountId = allAccounts ? (accounts[0]?.id ?? '') : accountId;
   const [date, setDate] = useState(today);
   const [view, setView] = useState<View>('ledger');
+  const parent = parentView(view);
+  const [reconciliationId, setReconciliationId] = useState('');
   const [notice, setNotice] = useState('');
   const [navOpen, setNavOpen] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -87,6 +95,7 @@ function UnlockedApp({
   }
   function selectView(next: View) {
     if (next === 'pending') setPendingSource(undefined);
+    setReconciliationId('');
     setNotice('');
     setView(next);
     setNavOpen(false);
@@ -105,15 +114,21 @@ function UnlockedApp({
   return (
     <>
       <main className="app-shell">
-        <Navigation view={view} open={navOpen} onOpen={setNavOpen} onSelect={selectView} />
         <section className="ledger" aria-label="日常账本">
+          <Navigation view={view} open={navOpen} onOpen={setNavOpen} onSelect={selectView} />
           <button
             className="back-button"
             aria-label="返回上一级"
-            disabled={!navOpen && view === 'ledger'}
-            onClick={() => (navOpen ? setNavOpen(false) : selectView('ledger'))}
+            disabled={!navOpen && !parent && !(view === 'reconciliation' && reconciliationId)}
+            onClick={() => {
+              if (navOpen) setNavOpen(false);
+              else if (view === 'reconciliation' && reconciliationId) setReconciliationId('');
+              else if (parent) selectView(parent);
+            }}
           >
-            ‹
+            <svg className="back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m14 5-7 7 7 7" />
+            </svg>
           </button>
           <Toolbar
             accounts={accounts}
@@ -134,6 +149,7 @@ function UnlockedApp({
             />
             {!accountsState.loading && !accountsState.error && (
               <>
+                <NavigationDirectory view={view} onSelect={selectView} />
                 {view === 'data' && (
                   <DataManagementPage
                     accounts={accounts}
@@ -203,6 +219,8 @@ function UnlockedApp({
                   <ReconciliationPage
                     accounts={accounts}
                     revision={revision}
+                    sessionId={reconciliationId}
+                    onSession={setReconciliationId}
                     onChanged={refresh}
                     onReference={(id) => {
                       setAccount(id);
@@ -257,6 +275,7 @@ function UnlockedApp({
                     {day && view === 'ledger' && (
                       <LedgerPage
                         day={day}
+                        allAccounts={allAccounts}
                         onReference={() => setModal({ kind: 'reference' })}
                         onClear={() => setModal({ kind: 'clear' })}
                       />
@@ -278,7 +297,7 @@ function UnlockedApp({
       <div className="action-dock">
         <span className="dock-context">
           {accountId
-            ? `${accounts.find((a) => a.id === accountId)?.name} · ${date}`
+            ? `${allAccounts ? '总和' : accounts.find((a) => a.id === accountId)?.name} · ${date}`
             : '先创建一个平台，开始记录'}
         </span>
       </div>
@@ -294,7 +313,7 @@ function UnlockedApp({
               }}
             />
           )}
-          {(modal.kind === 'reference' || modal.kind === 'clear') && day && (
+          {(modal.kind === 'reference' || modal.kind === 'clear') && day && !allAccounts && (
             <ReferenceForm
               accountId={accountId}
               date={date}
@@ -306,7 +325,7 @@ function UnlockedApp({
           {modal.kind === 'transaction' && (
             <TransactionPanel
               id={modal.id}
-              accountId={accountId}
+              accountId={entryAccountId}
               date={date}
               onLink={(id) => setModal({ kind: 'transaction', id })}
               onSaved={refresh}
@@ -316,14 +335,14 @@ function UnlockedApp({
             <PendingEditor
               entry={modal.entry}
               accounts={accounts}
-              accountId={accountId}
+              accountId={entryAccountId}
               onSaved={refresh}
             />
           )}
           {modal.kind === 'import' && (
             <ImportPanel
               accounts={accounts}
-              accountId={accountId}
+              accountId={entryAccountId}
               onSaved={() => {
                 setView('pending');
                 refresh();

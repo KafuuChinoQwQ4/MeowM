@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1435');
 async function open(page) {
   await page.addInitScript(() => {
@@ -88,8 +89,7 @@ async function open(page) {
     };
   });
   await page.goto(url);
-  await page.locator('#menu').click();
-  await page.locator('#nav-search').click();
+  await navigate(page, 'search');
 }
 test('search combines filters, clears and exports filtered rows', async () => {
   const page = await newPage();
@@ -149,6 +149,31 @@ test('rule preview precedes save and aliases can be set', async () => {
     assert.ok(
       await page.evaluate(() =>
         window.calls.some((x) => x.cmd === 'save_merchant_alias' && x.args.alias === '星巴克'),
+      ),
+    );
+  } finally {
+    await page.close();
+  }
+});
+test('custom merchant classification is saved for future records', async () => {
+  const page = await newPage();
+  try {
+    await open(page);
+    await page.getByRole('button', { name: '分类规则' }).click();
+    await page.getByLabel('商家名称').fill('我家附近奶茶店');
+    await page.getByLabel('归入分类').selectOption('food');
+    await page.getByRole('button', { name: '预览商家分类' }).click();
+    await page.getByText(/将用于之后的新流水；匹配现有 3 条、其中待确认 1 条/).waitFor();
+    await page.getByRole('button', { name: '确认保存商家分类' }).click();
+    await page.waitForFunction(() => window.ruleSaved);
+    assert.ok(
+      await page.evaluate(() =>
+        window.calls.some(
+          (x) =>
+            x.cmd === 'write_classification_rule' &&
+            x.args.request.merchant_contains === '我家附近奶茶店' &&
+            x.args.request.category_id === 'food',
+        ),
       ),
     );
   } finally {

@@ -1,10 +1,12 @@
 import { invoke } from './client';
+export const ALL_ACCOUNTS = 'all';
 export interface Entry {
   id: string;
   kind: string;
   amount: string;
   note: string;
   time: string;
+  category_name?: string | null;
 }
 export interface Reference {
   date: string;
@@ -21,7 +23,8 @@ export interface DayView {
 }
 
 export const ledgerApi = {
-  day: (accountId: string, date: string) => invoke<DayView>('get_day', { accountId, date }),
+  day: (accountId: string, date: string) =>
+    invoke<DayView>('get_day', { accountId: accountId === ALL_ACCOUNTS ? null : accountId, date }),
   setReference: (accountId: string, date: string, amount: string) =>
     invoke<void>('set_reference', { accountId, date, amount }),
   clearReference: (accountId: string) => invoke<void>('clear_reference', { accountId }),

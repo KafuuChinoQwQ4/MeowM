@@ -2,6 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `excel_parsers.rs` — XLS/XLSX 真实样本、日期系统、金额精度及格式边界回归测试。
 - `import_preview.rs` — Stable-ID and suspected duplicate preview tests.
 - `provider_parsers.rs` — UTF-8/BOM payment and bank parser row validation tests.
 - `tree` — 本目录直接文件的说明索引。

@@ -25,9 +25,67 @@
   margin: 16px 0;
 }
 .notification-toggle input {
-  width: 20px;
-  height: 20px;
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
+  margin: 0;
+  border: 1.5px solid #b8cce7;
+  border-radius: 8px;
+  background: #f5f8ff;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.notification-toggle input::after {
+  width: 9px;
+  height: 5px;
+  border-bottom: 2px solid #fff;
+  border-left: 2px solid #fff;
+  content: '';
+  opacity: 0;
+  transform: translateY(-1px) rotate(-45deg) scale(0.45);
+  transition:
+    opacity 0.16s ease,
+    transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1.35);
+}
+.notification-toggle input:checked {
+  border-color: #5689c4;
+  background: #5689c4;
+  box-shadow: 0 3px 9px rgba(86, 137, 196, 0.25);
+  transform: scale(1.04);
+}
+.notification-toggle input:checked::after {
+  opacity: 1;
+  transform: translateY(-1px) rotate(-45deg) scale(1);
+}
+.notification-toggle input:active {
+  transform: scale(0.9);
+}
+.notification-settings select {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 7px;
+  padding: 9px 12px;
+  border: 1px solid #c9d9ee;
+  border-radius: 12px;
+  background: #f5f8ff;
+  color: var(--ink);
+}
+.notification-settings .form-field select {
+  margin-top: 7px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .notification-toggle input,
+  .notification-toggle input::after {
+    transition: none;
+  }
 }
 .screen-capture-card {
   margin: 1rem 0;

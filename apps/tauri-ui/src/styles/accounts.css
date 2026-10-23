@@ -44,6 +44,114 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+  align-items: flex-start;
+}
+.platform-badge {
+  display: inline-block;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.platform-color-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 16px;
+}
+.platform-color-preview .platform-badge {
+  max-width: 55%;
+  flex-shrink: 0;
+}
+.platform-color-preview .field-hint {
+  margin: 0;
+}
+.platform-name-picker,
+.platform-name-input {
+  position: relative;
+}
+.platform-name-input input {
+  padding-right: 44px;
+}
+.platform-list-toggle {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+.platform-list-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.platform-suggestions {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: min(180px, 28dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgb(53 70 95 / 14%);
+}
+.platform-suggestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.platform-suggestion + .platform-suggestion {
+  border-top: 1px solid #edf2f8;
+}
+.platform-suggestion[aria-selected='true'],
+.platform-suggestion:hover {
+  background: #edf4ff;
+}
+.platform-suggestion .platform-badge {
+  font-size: 0.8rem;
+}
+.platform-suggestion > span {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+.custom-platform {
+  display: block;
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
 }
 .platform-info strong {
   font-size: 0.9rem;

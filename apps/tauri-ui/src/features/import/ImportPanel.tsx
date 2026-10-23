@@ -51,7 +51,7 @@ export function ImportPanel({
   return (
     <div className="sheet-form">
       <p className="sheet-description">
-        选择 UTF-8 CSV
+        选择 UTF-8 CSV 或 Excel（.xls / .xlsx）
         文件。有效候选先进入待确认，精确重复不再次导入。支持微信、支付宝和银行的日期/金额表头。
       </p>
       <SelectField
@@ -66,10 +66,10 @@ export function ImportPanel({
         onChange={(e) => setProvider(e.target.value)}
       />
       <label className="form-field">
-        账单 CSV（最多 5 MiB / 1000 行）
+        账单文件（CSV / Excel，最多 5 MiB / 1000 行）
         <input
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           disabled={busy}
           onChange={(e) => void choose(e.target.files?.[0])}
         />

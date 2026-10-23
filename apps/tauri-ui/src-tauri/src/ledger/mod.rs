@@ -16,8 +16,8 @@ use imports::PreviewSession;
 use ledger_app::privacy::PrivacyService;
 use ledger_app::{AccountService, LedgerRepository, TransactionService};
 use ledger_domain::{
-    Account as DomainAccount, AccountId, AccountKind, CurrencyCode, Money, Posting, Transaction,
-    TransactionId, TransactionKind, TransactionStatus,
+    Account as DomainAccount, AccountId, AccountKind, Category, CategoryId, CurrencyCode, Money,
+    Posting, Transaction, TransactionId, TransactionKind, TransactionStatus,
 };
 use ledger_storage::sqlite::SqliteLedgerRepository;
 pub(crate) use parse::{account_id, date, kind_label, money, parse_amount, time, transaction_id};
@@ -58,6 +58,7 @@ impl Ledger {
                     .map_err(|e| e.to_string())?;
             }
         }
+        ensure_default_categories(&ledger)?;
         Ok(ledger)
     }
     pub(crate) fn clear_import_preview(&self) {
@@ -72,4 +73,26 @@ impl Ledger {
     pub(crate) fn repo(&self) -> Result<SqliteLedgerRepository> {
         SqliteLedgerRepository::open(&self.path).map_err(|e| e.to_string())
     }
+}
+
+fn ensure_default_categories(ledger: &Ledger) -> Result<()> {
+    use ledger_app::{ClassificationRuleRepository, classification::DEFAULT_CATEGORY_NAMES};
+    let repo = ledger.repo()?;
+    let existing = repo
+        .list_categories()
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .map(|category| category.name)
+        .collect::<std::collections::HashSet<_>>();
+    for name in DEFAULT_CATEGORY_NAMES {
+        if !existing.contains(*name) {
+            repo.insert_category(Category {
+                id: CategoryId::new(),
+                name: (*name).into(),
+                enabled: true,
+            })
+            .map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
 }

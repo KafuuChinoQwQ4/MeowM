@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1436');
 async function open(page, missing = false) {
   await page.addInitScript(
@@ -107,12 +108,39 @@ async function open(page, missing = false) {
     { missing },
   );
   await page.goto(url);
-  await page.locator('#menu').click();
-  await page.locator('#nav-reconciliation').click();
+  await navigate(page, 'reconciliation');
   await page.getByLabel('截止日期').fill('2026-10-16');
   await page.getByLabel('实际余额（元）').fill('-101.00');
   await page.getByRole('button', { name: '开始对账' }).click();
 }
+test('back from a reconciliation detail stays within reconciliation', async () => {
+  const page = await newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await open(page);
+    await page.getByRole('heading', { name: '对账快照' }).waitFor();
+    const back = page.getByRole('button', { name: '返回上一级', exact: true });
+    assert.equal(await back.isEnabled(), true);
+    await back.click();
+    assert.equal(await page.locator('#nav-finance').getAttribute('class'), 'nav-item active');
+    assert.equal(await page.getByRole('heading', { name: '对账快照' }).count(), 0);
+    assert.equal(await back.isEnabled(), true);
+    await page.locator('.reconciliation-history-item').click();
+    await page.getByRole('heading', { name: '对账快照' }).waitFor();
+    assert.equal(await back.isEnabled(), true);
+    await page.locator('#menu').click();
+    await page.locator('#nav-ledger').click();
+    assert.equal(await back.isDisabled(), true);
+    await navigate(page, 'reconciliation');
+    assert.equal(await back.isEnabled(), true);
+    await back.click();
+    await page.getByRole('heading', { name: '财务管理', exact: true }).waitFor();
+    assert.equal(await back.isDisabled(), true);
+    assert.equal(await page.getByRole('heading', { name: '对账快照' }).count(), 0);
+  } finally {
+    await page.close();
+  }
+});
+
 test('reviews snapshot then explicitly adjusts and closes/reopens with current versions', async () => {
   const page = await newPage({ viewport: { width: 390, height: 844 } });
   try {

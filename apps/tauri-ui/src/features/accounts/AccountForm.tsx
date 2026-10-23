@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { accountsApi, type Account } from '../../api/accounts';
-import { Field, SelectField, FormError } from '../../components/Fields';
+import { SelectField, FormError } from '../../components/Fields';
 import { useFormAction } from '../../components/Dialog';
 import { platformCategories } from '../../shared/labels';
+import { PlatformBadge } from '../../components/PlatformBadge';
+import { PlatformNamePicker } from './PlatformNamePicker';
 export function AccountForm({
   account,
   onSaved,
@@ -30,15 +32,18 @@ export function AccountForm({
       }}
     >
       <fieldset disabled={action.busy}>
-        <Field
-          label="平台名称"
-          required
-          maxLength={40}
-          autoFocus
+        <PlatformNamePicker
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="例如：微信、支付宝、银行卡"
+          onChange={setName}
+          onSelect={(name, category) => {
+            setName(name);
+            setCategory(category);
+          }}
         />
+        <div className="platform-color-preview" aria-label="平台颜色预览">
+          <PlatformBadge name={name.trim()} category={category} />
+          <span className="field-hint">按平台名称自动配色</span>
+        </div>
         <SelectField
           label="平台分类"
           options={Object.entries(platformCategories)}

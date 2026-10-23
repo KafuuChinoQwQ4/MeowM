@@ -32,13 +32,13 @@ export function NotificationSourceCard({
   const running = useRef(false);
   const [error, setError] = useState('');
   const name = source.package_name === 'com.tencent.mm' ? '微信' : '支付宝';
-  async function save() {
+  async function save(nextDraft: NotificationSource) {
     if (running.current) return;
     running.current = true;
     setBusy(true);
     setError('');
     try {
-      await notificationsApi.save(draft, consent);
+      await notificationsApi.save(nextDraft, consent);
       onSaved();
     } catch (cause) {
       setError(errorText(cause));
@@ -47,14 +47,18 @@ export function NotificationSourceCard({
       setBusy(false);
     }
   }
+  function update(change: Partial<NotificationSource>) {
+    const nextDraft = { ...draft, ...change };
+    if (nextDraft.enabled && !source.enabled && !consent) {
+      setError('请先阅读并同意通知采集说明');
+      return;
+    }
+    setError('');
+    setDraft(nextDraft);
+    void save(nextDraft);
+  }
   return (
-    <form
-      className="notification-card"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void save();
-      }}
-    >
+    <article className="notification-card">
       <fieldset aria-label={`${name}通知来源`} disabled={busy}>
         <legend>{name}</legend>
         <p className="field-hint">{source.enabled ? '来源已启用' : '来源已关闭'}</p>
@@ -62,7 +66,7 @@ export function NotificationSourceCard({
           <input
             type="checkbox"
             checked={draft.enabled}
-            onChange={(e) => setDraft((d) => ({ ...d, enabled: e.target.checked }))}
+            onChange={(e) => update({ enabled: e.target.checked })}
           />
           启用采集
         </label>
@@ -73,7 +77,7 @@ export function NotificationSourceCard({
             ['', '每次手动选择'],
             ...accounts.map((a) => [a.id, a.name] as [string, string]),
           ]}
-          onChange={(e) => setDraft((d) => ({ ...d, account_id: e.target.value || null }))}
+          onChange={(e) => update({ account_id: e.target.value || null })}
         />
         <p className="field-hint">
           {latest
@@ -81,13 +85,7 @@ export function NotificationSourceCard({
             : '尚无采集结果'}
         </p>
         <FormError message={error} />
-        <button
-          className="button button-primary"
-          disabled={busy || (draft.enabled && !source.enabled && !consent)}
-        >
-          保存来源
-        </button>
       </fieldset>
-    </form>
+    </article>
   );
 }

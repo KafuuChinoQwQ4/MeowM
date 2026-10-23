@@ -6,4 +6,5 @@
 - `Fields.tsx` — 可访问的输入、下拉框及表单错误组件。
 - `LoadState.tsx` — 异步加载、错误和重试展示。
 - `Pager.tsx` — 列表分页导航。
+- `PlatformBadge.tsx` — 平台名称的统一品牌色徽标，用于平台管理及表单预览。
 - `tree` — 本目录直接文件的说明索引。

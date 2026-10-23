@@ -10,3 +10,6 @@ ledger-app = { path = "../ledger-app" }
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 sha2 = "0.10"
 uuid = "1"
+calamine = { version = "0.37", features = ["chrono"] }
+cfb = "0.15"
+zip = { version = "9", default-features = false, features = ["deflate"] }

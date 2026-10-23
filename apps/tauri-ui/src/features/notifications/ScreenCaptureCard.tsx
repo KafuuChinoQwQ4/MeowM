@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Account } from '../../api/accounts';
 import {
   screenCaptureApi,
@@ -56,21 +56,32 @@ export function ScreenCaptureCard({ accounts }: { accounts: Account[] }) {
     return () => window.clearInterval(timer);
   }, [reload]);
   function update(package_name: string, change: Partial<ScreenCaptureSource>) {
+    const current = sources.find((source) => source.package_name === package_name);
+    if (!current) return;
+    const next = { ...current, ...change };
+    if (next.enabled && !consent) {
+      setError('请先同意屏幕识别用途');
+      return;
+    }
+    setError('');
     dirty.current = true;
-    setSources((current) =>
-      current.map((source) =>
-        source.package_name === package_name ? { ...source, ...change } : source,
-      ),
+    setSources((all) =>
+      all.map((source) => (source.package_name === package_name ? next : source)),
     );
+    void saveSource(next);
   }
-  async function saveSources() {
+  async function saveSource(source: ScreenCaptureSource) {
+    if (source.enabled && !consent) {
+      setError('请先同意屏幕识别用途');
+      return;
+    }
+    if (busy) return;
     setBusy(true);
     setError('');
-    setMessage('');
     try {
-      for (const source of sources) await screenCaptureApi.save(source, consent);
+      await screenCaptureApi.save(source, consent);
       dirty.current = false;
-      setMessage('屏幕识别来源设置已保存。');
+      setMessage('屏幕识别来源已自动保存。');
       await reload();
     } catch (cause) {
       setError(errorText(cause));
@@ -170,13 +181,6 @@ export function ScreenCaptureCard({ accounts }: { accounts: Account[] }) {
           }
         >
           打开使用情况访问设置
-        </button>
-        <button
-          className="button button-secondary"
-          disabled={busy || !status?.android || (!consent && sources.some((s) => s.enabled))}
-          onClick={() => void saveSources()}
-        >
-          保存识别来源
         </button>
         {status?.running ? (
           <button className="button button-secondary" disabled={busy} onClick={() => void stop()}>

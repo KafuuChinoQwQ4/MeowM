@@ -3,7 +3,7 @@
 - `ledger-domain` 定义金额、账户、交易及不变量，不依赖平台。
 - `ledger-app` 编排账户、交易、分类、报表、预算、周期和提醒用例，通过 ports 访问持久层。
 - `ledger-storage` 将账本保存在本机 SQLite。
-- `ledger-import` 处理微信/支付宝账单预览、标准化和去重。
+- `ledger-import` 处理微信、支付宝和银行卡 CSV/XLS/XLSX 账单预览、标准化和去重。Excel 使用 Calamine 离线读取单元格，共用现有交易标准化与去重规则；XLSX 按稀疏单元格读取并限制解压体积。
 - `ledger-notifications` 将受支持包名的内存事件解析为候选，经 `NotificationRepository` 原子写入 Pending、来源证据和去重收据；原始正文和通知 key 不持久化。
 - `ledger-backup` 管理本地加密备份和恢复。
 - `ledger-app/src/privacy.rs` 维护进程内应用锁、Argon2id 密码验证、尝试限速与自动锁定；`ledger-storage/src/sqlite/privacy.rs` 用立即事务按来源或全量清理，预览指纹防止账本变化后误删。锁验证值仅存在本机设置，不进入加密备份。

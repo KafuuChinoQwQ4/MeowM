@@ -11,6 +11,8 @@ import { localTime, statusLabel } from './display';
 export function ReconciliationPage({
   accounts,
   revision,
+  sessionId,
+  onSession,
   onChanged,
   onReference,
   onPending,
@@ -18,6 +20,8 @@ export function ReconciliationPage({
 }: {
   accounts: Account[];
   revision: number;
+  sessionId: string;
+  onSession: (id: string) => void;
   onChanged: () => void;
   onReference: (id: string) => void;
   onPending: () => void;
@@ -35,13 +39,18 @@ export function ReconciliationPage({
         label="对账平台"
         value={accountId}
         options={accounts.map((a) => [a.id, a.name])}
-        onChange={(e) => setSelected(e.target.value)}
+        onChange={(e) => {
+          setSelected(e.target.value);
+          onSession('');
+        }}
       />
       {accountId ? (
         <Workspace
           key={accountId}
           accountId={accountId}
           revision={revision}
+          id={sessionId}
+          onSession={onSession}
           onChanged={onChanged}
           onReference={() => onReference(accountId)}
           onPending={onPending}
@@ -56,6 +65,8 @@ export function ReconciliationPage({
 function Workspace({
   accountId,
   revision,
+  id,
+  onSession,
   onChanged,
   onReference,
   onPending,
@@ -63,12 +74,13 @@ function Workspace({
 }: {
   accountId: string;
   revision: number;
+  id: string;
+  onSession: (id: string) => void;
   onChanged: () => void;
   onReference: () => void;
   onPending: () => void;
   onEntry: (id: string) => void;
 }) {
-  const [id, setId] = useState('');
   const loader = useCallback(() => reconciliationApi.list(accountId), [accountId, revision]);
   const sessions = useResource(loader);
   return (
@@ -77,7 +89,7 @@ function Workspace({
         accountId={accountId}
         onReference={onReference}
         onStarted={(id) => {
-          setId(id);
+          onSession(id);
           onChanged();
         }}
       />
@@ -99,7 +111,7 @@ function Workspace({
             key={r.id}
             aria-pressed={id === r.id}
             className={'reconciliation-history-item' + (id === r.id ? ' selected' : '')}
-            onClick={() => setId(r.id)}
+            onClick={() => onSession(r.id)}
           >
             <span>
               {r.date} · {statusLabel[r.status]}

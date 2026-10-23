@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate as nav } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1432');
 async function install(page) {
   await page.addInitScript(() => {
@@ -26,7 +27,16 @@ async function install(page) {
             reference: null,
             entries: [],
           };
-        if (command === 'report_summary')
+        if (command === 'report_summary') {
+          const [year, month] = args.query.from_date.slice(0, 7).split('-').map(Number);
+          const until = args.query.until_date.slice(0, 7);
+          const trend = [];
+          let cursor = new Date(Date.UTC(year, month - 1, 1));
+          while (cursor < new Date(`${until}-01T00:00:00Z`)) {
+            const label = `${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, '0')}`;
+            trend.push({ month: label, income: '100.00', expense: '12.30' });
+            cursor.setUTCMonth(cursor.getUTCMonth() + 1);
+          }
           return {
             income: '100.00',
             expense: '12.30',
@@ -41,9 +51,10 @@ async function install(page) {
               },
             ],
             merchant_total: 11,
-            trend: [{ month: '2026-10', income: '100.00', expense: '12.30' }],
+            trend,
             balances: [{ account_id: 'wallet', name: '钱包', amount: '87.70' }],
           };
+        }
         if (command === 'list_budgets') return budgets;
         if (command === 'budget_reminders')
           return budgets
@@ -80,10 +91,6 @@ async function install(page) {
   });
   await page.goto(url);
 }
-async function nav(page, view) {
-  await page.locator('#menu').click();
-  await page.locator('#nav-' + view).click();
-}
 test('reports expose aggregates and preserve filters across merchant pages', async () => {
   const page = await newPage({ viewport: { width: 390, height: 844 } });
   try {
@@ -117,6 +124,22 @@ test('reports expose aggregates and preserve filters across merchant pages', asy
       await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
       false,
     );
+  } finally {
+    await page.close();
+  }
+});
+test('reports show a pie chart plus vertical month and year views', async () => {
+  const page = await newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await install(page);
+    await nav(page, 'reports');
+    await page.locator('[aria-label="分类支出饼图"]').waitFor();
+    await page.locator('.vertical-chart[aria-label="近12个月收支柱状图"]').waitFor();
+    await page.locator('.vertical-chart[aria-label="近6年收支柱状图"]').waitFor();
+    assert.equal(await page.locator('.report-pie').count(), 1);
+    assert.equal(await page.locator('.vertical-chart').count(), 2);
+    assert.equal(await page.locator('.monthly-chart .column-item').count(), 12);
+    assert.equal(await page.locator('.yearly-chart .column-item').count(), 6);
   } finally {
     await page.close();
   }

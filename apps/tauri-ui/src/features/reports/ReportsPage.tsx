@@ -5,7 +5,7 @@ import { entriesApi } from '../../api/entries';
 import { reportsApi } from '../../api/reports';
 import { LoadState } from '../../components/LoadState';
 import { Pager } from '../../components/Pager';
-import { monthRange } from '../../shared/calendar';
+import { monthRange, recentMonthRange, recentYearRange } from '../../shared/calendar';
 import { money, today, validDate } from '../../shared/format';
 import { useResource } from '../../shared/useResource';
 import { BudgetCard } from '../budgets/BudgetCard';
@@ -36,6 +36,32 @@ export function ReportsPage({ accounts, revision }: { accounts: Account[]; revis
         merchant_limit: 10,
       });
     }, [from, until, filters.account, filters.category, filters.merchant, page, revision]),
+  );
+  const [monthFrom, monthUntil] = recentMonthRange(today().slice(0, 7), 12);
+  const [yearFrom, yearUntil] = recentYearRange(today(), 6);
+  const timelineQuery = useCallback(
+    (rangeFrom: string, rangeUntil: string) => {
+      if (!validDate(rangeFrom) || !validDate(rangeUntil) || rangeFrom >= rangeUntil)
+        return Promise.reject(new Error('无法生成趋势范围'));
+      return reportsApi.summary({
+        from_date: rangeFrom,
+        until_date: rangeUntil,
+        account_id: filters.account || undefined,
+        category_id: filters.category || undefined,
+        merchant: filters.merchant || undefined,
+        merchant_offset: 0,
+        merchant_limit: 1,
+      });
+    },
+    [filters.account, filters.category, filters.merchant, revision],
+  );
+  const monthly = useResource(
+    useCallback(() => timelineQuery(monthFrom, monthUntil), [timelineQuery, monthFrom, monthUntil]),
+    true,
+  );
+  const yearly = useResource(
+    useCallback(() => timelineQuery(yearFrom, yearUntil), [timelineQuery, yearFrom, yearUntil]),
+    true,
   );
   const budgetState = useResource(
     useCallback(
@@ -87,7 +113,7 @@ export function ReportsPage({ accounts, revision }: { accounts: Account[]; revis
           {!data.transaction_count && (
             <p className="analytics-empty">本期没有符合筛选的已确认收支。</p>
           )}
-          <ReportCharts report={data} />
+          <ReportCharts report={data} monthly={monthly.data} yearly={yearly.data} />
           <section className="analytics-section">
             <h3>商户排行</h3>
             {!data.merchants.length && <p>暂无商户记录。</p>}

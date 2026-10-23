@@ -52,6 +52,9 @@
   width: 100%;
   margin-top: 22px;
 }
+.transaction-submit {
+  margin-top: 18px;
+}
 .form-error {
   background: #fff0e9;
   color: #a14f35;

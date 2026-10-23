@@ -126,7 +126,8 @@ input:focus-visible,
 textarea:focus-visible,
 a:focus-visible {
   outline: 3px solid #b6d9cc;
-  outline-offset: 3px;
+  /* Keep the focus ring inside controls at scroll-container edges. */
+  outline-offset: -3px;
 }
 html,
 body,

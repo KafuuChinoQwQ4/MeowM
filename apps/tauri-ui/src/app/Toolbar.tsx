@@ -1,5 +1,11 @@
 import type { Account } from '../api/accounts';
+import { ALL_ACCOUNTS } from '../api/ledger';
 import { moveDate, today, validDate } from '../shared/format';
+import {
+  platformThemeStyle,
+  resolvePlatformTheme,
+  TOTAL_PLATFORM_THEME,
+} from '../shared/platformThemes';
 export function Toolbar({
   accounts,
   accountId,
@@ -19,13 +25,21 @@ export function Toolbar({
   onDate: (date: string) => void;
   onAdd: () => void;
 }) {
+  const account = accounts.find((a) => a.id === accountId);
+  const theme =
+    accountId === ALL_ACCOUNTS
+      ? TOTAL_PLATFORM_THEME
+      : resolvePlatformTheme(account?.name ?? '', account?.category);
   return (
     <>
       <div className={'ledger-toolbar' + (hidden ? ' platform-mode' : '')}>
         <div className="account-field">
           <label htmlFor="account">当前平台</label>
-          <div className="account-select-wrap">
-            <span aria-hidden="true">▣</span>
+          <div
+            className="account-select-wrap"
+            data-platform={theme.id}
+            style={platformThemeStyle(theme)}
+          >
             <select
               id="account"
               aria-label="当前平台"
@@ -34,6 +48,7 @@ export function Toolbar({
               onChange={(e) => onAccount(e.target.value)}
             >
               {!accounts.length && <option value="">尚无平台</option>}
+              {!!accounts.length && <option value={ALL_ACCOUNTS}>总和</option>}
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -62,10 +77,17 @@ export function Toolbar({
             disabled={date <= '0001-01-01'}
             onClick={() => onDate(moveDate(date, -1))}
           >
-            ‹
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m15 6-6 6 6 6" />
+            </svg>
           </button>
           <label className="date-label">
             <span className="sr-only">记账日期</span>
+            <span className="date-value" aria-hidden="true">
+              {date.split('-').map((part, index) => (
+                <span key={index}>{part}</span>
+              ))}
+            </span>
             <input
               type="date"
               id="date"
@@ -84,7 +106,9 @@ export function Toolbar({
             disabled={date >= '9999-12-31'}
             onClick={() => onDate(moveDate(date, 1))}
           >
-            ›
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m9 6 6 6-6 6" />
+            </svg>
           </button>
         </div>
         <button className="today-button" id="today" onClick={() => onDate(today())}>

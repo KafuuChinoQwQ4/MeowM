@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Account } from '../../api/accounts';
 import { Pager } from '../../components/Pager';
+import { PlatformBadge } from '../../components/PlatformBadge';
 import { platformCategories } from '../../shared/labels';
 import { usePageSize } from '../../shared/usePageSize';
 export function AccountsPage({
@@ -46,7 +47,7 @@ export function AccountsPage({
         {filtered.slice(page * size, (page + 1) * size).map((account) => (
           <div className="platform-row" key={account.id}>
             <div className="platform-info">
-              <strong>{account.name}</strong>
+              <PlatformBadge name={account.name} category={account.category} />
               <span>{platformCategories[account.category] ?? '其他'}</span>
             </div>
             <div className="platform-row-actions">

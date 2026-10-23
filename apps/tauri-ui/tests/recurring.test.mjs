@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate as nav } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1434');
 async function install(page) {
   await page.addInitScript(() => {
@@ -91,10 +92,6 @@ async function install(page) {
     };
   });
   await page.goto(url);
-}
-async function nav(page, view) {
-  await page.locator('#menu').click();
-  await page.locator('#nav-' + view).click();
 }
 test('recurring create edit pause resume skip and persisted history; conflicts keep draft', async () => {
   const page = await newPage({ viewport: { width: 390, height: 844 } });

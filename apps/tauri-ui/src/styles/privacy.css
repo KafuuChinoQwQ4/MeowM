@@ -22,6 +22,10 @@
   max-height: 260px;
   overflow: auto;
 }
+.delete-data-actions {
+  display: grid;
+  gap: 14px;
+}
 @media (max-width: 430px) {
   .privacy-lock-screen {
     padding: 16px;

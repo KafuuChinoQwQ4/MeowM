@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1437');
 async function open(page) {
   await page.addInitScript(() => {
@@ -69,8 +70,7 @@ async function open(page) {
     };
   });
   await page.goto(url);
-  await page.getByRole('button', { name: '打开导航' }).click();
-  await page.getByRole('button', { name: '备份与导出', exact: true }).click();
+  await navigate(page, 'data');
 }
 test('backup download clears password and restore requires successful preview plus explicit replacement consent', async () => {
   const page = await newPage({ viewport: { width: 390, height: 844 } });

@@ -115,7 +115,9 @@
   gap: 8px;
 }
 .entry-icon {
-  display: none;
+  width: 32px;
+  height: 32px;
+  font-size: 0.95rem;
 }
 .entry-amount {
   font-size: 0.75rem;

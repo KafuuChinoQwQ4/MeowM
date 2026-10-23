@@ -1,4 +1,5 @@
 use super::*;
+use ledger_app::ClassificationRuleRepository;
 
 #[derive(Serialize)]
 pub struct Entry {
@@ -7,6 +8,7 @@ pub struct Entry {
     pub amount: String,
     pub note: String,
     pub time: String,
+    pub category_name: Option<String>,
 }
 #[derive(Serialize)]
 pub struct Reference {
@@ -42,30 +44,38 @@ impl Ledger {
         } else {
             -1
         };
-        TransactionService::new(self.repo()?)
-            .confirm(Transaction {
-                id: TransactionId::new(),
-                occurred_at: time(date(day)?, false)?.with_timezone(&Utc),
-                kind: if income {
-                    TransactionKind::Income
-                } else {
-                    TransactionKind::Expense
-                },
-                status: TransactionStatus::Confirmed,
-                postings: vec![Posting {
-                    account_id: account.id,
-                    delta: money(amount * sign),
-                }],
-                category_id: None,
-                original_transaction_id: None,
-                report_amount_cny: Some(money(amount)),
-                merchant: None,
-                description: if note.trim().is_empty() {
-                    None
-                } else {
-                    Some(note.trim().into())
-                },
-            })
+        let repo = self.repo()?;
+        let mut transaction = Transaction {
+            id: TransactionId::new(),
+            occurred_at: time(date(day)?, false)?.with_timezone(&Utc),
+            kind: if income {
+                TransactionKind::Income
+            } else {
+                TransactionKind::Expense
+            },
+            status: TransactionStatus::Confirmed,
+            postings: vec![Posting {
+                account_id: account.id,
+                delta: money(amount * sign),
+            }],
+            category_id: None,
+            original_transaction_id: None,
+            report_amount_cny: Some(money(amount)),
+            merchant: None,
+            description: if note.trim().is_empty() {
+                None
+            } else {
+                Some(note.trim().into())
+            },
+        };
+        transaction.category_id = ledger_app::classification::auto_category(
+            &repo.list_categories().map_err(|error| error.to_string())?,
+            &repo.list_rules().map_err(|error| error.to_string())?,
+            &transaction,
+            None,
+        );
+        TransactionService::new(repo)
+            .confirm(transaction)
             .map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -87,16 +97,31 @@ impl Ledger {
             .map_err(|e| e.to_string())
     }
     pub fn day(&self, id: &str, day: &str) -> Result<DayView> {
-        let account = self.account(id)?;
+        self.day_view(Some(id), day)
+    }
+    pub fn day_all(&self, day: &str) -> Result<DayView> {
+        self.day_view(None, day)
+    }
+    fn day_view(&self, id: Option<&str>, day: &str) -> Result<DayView> {
+        let account = id.map(|id| self.account(id)).transpose()?;
         let day = date(day)?;
         let repo = self.repo()?;
-        let balance = repo
-            .balance_as_of(account.id, time(day, true)?.with_timezone(&Utc))
-            .map_err(|e| e.to_string())?
-            .map(|m| m.decimal_string());
+        let balance = if let Some(account) = &account {
+            repo.balance_as_of(account.id, time(day, true)?.with_timezone(&Utc))
+                .map_err(|e| e.to_string())?
+                .map(|m| m.decimal_string())
+        } else {
+            None
+        };
         let mut income = 0_i64;
         let mut expense = 0_i64;
         let mut entries = Vec::new();
+        let category_names = repo
+            .list_categories()
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .map(|category| (category.id, category.name))
+            .collect::<std::collections::HashMap<_, _>>();
         for tx in repo
             .list_transactions()
             .map_err(|e| e.to_string())?
@@ -108,7 +133,11 @@ impl Ledger {
             {
                 continue;
             }
-            let Some(posting) = tx.postings.iter().find(|p| p.account_id == account.id) else {
+            let posting = match &account {
+                Some(account) => tx.postings.iter().find(|p| p.account_id == account.id),
+                None => tx.postings.first(),
+            };
+            let Some(posting) = posting else {
                 continue;
             };
             if let Some(effect) = repo
@@ -140,11 +169,17 @@ impl Ledger {
                     .with_timezone(&Local)
                     .format("%H:%M")
                     .to_string(),
+                category_name: tx
+                    .category_id
+                    .and_then(|id| category_names.get(&id).cloned()),
             });
         }
         let reference = account
-            .opening_balance
-            .zip(account.opening_balance_effective_at)
+            .and_then(|account| {
+                account
+                    .opening_balance
+                    .zip(account.opening_balance_effective_at)
+            })
             .map(|(amount, dt)| Reference {
                 date: dt.with_timezone(&Local).date_naive().to_string(),
                 amount: amount.decimal_string(),

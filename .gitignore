@@ -17,3 +17,26 @@ dist/
 *.sqlite3-shm
 
 /apps/tauri-ui/src-tauri/gen/android/.kotlin/
+
+# Local credentials, signing keys and private ledger data.
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+/backups/
+/private/
+微信支付账单*
+支付宝交易明细*
+支付宝账单*

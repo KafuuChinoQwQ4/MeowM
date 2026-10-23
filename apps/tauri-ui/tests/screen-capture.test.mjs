@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { browserSuite } from './helpers/browser.mjs';
+import { navigate } from './helpers/navigation.mjs';
 import { installWorkflowIpc } from './helpers/workflow-ipc.mjs';
 const suite = browserSuite(1444);
 test('screen capture preserves drafts, requires source consent and OS usage access, surfaces cancel and stops', async () => {
@@ -43,17 +44,15 @@ test('screen capture preserves drafts, requires source consent and OS usage acce
     };
   });
   await page.goto(suite.url);
-  await page.locator('#menu').click();
-  await page.locator('#nav-notifications').click();
+  await navigate(page, 'notifications');
   const card = page.getByRole('article', { name: '支付页面识别' });
+  await card.getByLabel('我已了解屏幕捕获和本地识别用途').check();
   await card.getByLabel('启用识别').check();
   await card.getByLabel('默认记入平台').selectOption('wallet');
   assert.equal(await card.getByRole('button', { name: '授权并开始识别' }).isEnabled(), false);
-  await page.waitForTimeout(3200);
+  assert.equal(await card.getByRole('button', { name: '保存识别来源' }).count(), 0);
+  await page.waitForTimeout(500);
   assert.equal(await card.getByLabel('默认记入平台').inputValue(), 'wallet');
-  await card.getByLabel('我已了解屏幕捕获和本地识别用途').check();
-  await card.getByRole('button', { name: '保存识别来源' }).click();
-  await card.getByText('屏幕识别来源设置已保存。').waitFor();
   await card.getByRole('button', { name: '打开使用情况访问设置' }).click();
   await card.getByText('识别服务未运行', { exact: true }).waitFor();
   await card.getByRole('button', { name: '授权并开始识别' }).click();

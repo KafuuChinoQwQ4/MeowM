@@ -20,6 +20,128 @@ fn request(account: &str, kind: &str, amount: &str) -> WriteTransaction {
 }
 
 #[test]
+fn new_transactions_auto_classify_known_unknown_and_custom_merchants() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("ledger.sqlite3")).unwrap();
+    let account = ledger.accounts().unwrap()[0].id.clone();
+    let categories = ledger.categories().unwrap();
+    let drinks = categories
+        .iter()
+        .find(|c| c.name == "饮品")
+        .unwrap()
+        .id
+        .clone();
+    let other = categories
+        .iter()
+        .find(|c| c.name == "其他")
+        .unwrap()
+        .id
+        .clone();
+    let mut known = request(&account, "expense", "12.00");
+    known.edit.merchant = "喜茶中心店".into();
+    let known_id = ledger.write_transaction(known).unwrap();
+    assert_eq!(
+        ledger
+            .repo()
+            .unwrap()
+            .get_transaction(ledger::transaction_id(&known_id).unwrap())
+            .unwrap()
+            .unwrap()
+            .category_id
+            .unwrap()
+            .as_uuid()
+            .to_string(),
+        drinks
+    );
+    assert_eq!(
+        ledger.day(&account, "2026-10-14").unwrap().entries[0]
+            .category_name
+            .as_deref(),
+        Some("饮品")
+    );
+
+    let mut unknown = request(&account, "expense", "8.00");
+    unknown.edit.merchant = "小众小店".into();
+    let unknown_id = ledger.write_transaction(unknown).unwrap();
+    assert_eq!(
+        ledger
+            .repo()
+            .unwrap()
+            .get_transaction(ledger::transaction_id(&unknown_id).unwrap())
+            .unwrap()
+            .unwrap()
+            .category_id
+            .unwrap()
+            .as_uuid()
+            .to_string(),
+        other
+    );
+
+    ledger
+        .write_rule(crate::search_rules::RuleInput {
+            id: None,
+            priority: 0,
+            merchant_contains: Some("小众小店".into()),
+            description_contains: None,
+            category_id: drinks.clone(),
+            enabled: true,
+        })
+        .unwrap();
+    let mut custom = request(&account, "expense", "9.00");
+    custom.edit.merchant = "小众小店二号".into();
+    let custom_id = ledger.write_transaction(custom).unwrap();
+    assert_eq!(
+        ledger
+            .repo()
+            .unwrap()
+            .get_transaction(ledger::transaction_id(&custom_id).unwrap())
+            .unwrap()
+            .unwrap()
+            .category_id
+            .unwrap()
+            .as_uuid()
+            .to_string(),
+        drinks
+    );
+}
+
+#[test]
+fn all_platform_day_totals_count_refunds_and_transfers_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("ledger.sqlite3")).unwrap();
+    let accounts = ledger.accounts().unwrap();
+    let source = &accounts[0].id;
+    let destination = &accounts[1].id;
+    ledger
+        .write_transaction(request(source, "income", "10.10"))
+        .unwrap();
+    ledger
+        .write_transaction(request(destination, "income", "20.20"))
+        .unwrap();
+    let expense = ledger
+        .write_transaction(request(source, "expense", "15.10"))
+        .unwrap();
+    let mut refund = request(source, "refund", "3.00");
+    refund.edit.original_transaction_id = Some(expense);
+    ledger.write_transaction(refund).unwrap();
+    let mut transfer = request(source, "transfer", "5.00");
+    transfer.destination_id = Some(destination.clone());
+    ledger.write_transaction(transfer).unwrap();
+    ledger
+        .save_entry(source, "2026-10-15", "99.99", "", true)
+        .unwrap();
+    let day = ledger.day_all("2026-10-14").unwrap();
+    assert_eq!(
+        (&*day.income, &*day.expense, &*day.net),
+        ("30.30", "12.10", "18.20")
+    );
+    assert_eq!(day.entries.len(), 5);
+    assert!(day.balance.is_none() && day.reference.is_none());
+    assert_eq!(ledger.day(source, "2026-10-14").unwrap().income, "10.10");
+    assert_eq!(ledger.day_all("2026-10-13").unwrap().net, "0.00");
+}
+
+#[test]
 fn manual_transfer_and_refund_keep_links_after_reopen() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("ledger.sqlite3");

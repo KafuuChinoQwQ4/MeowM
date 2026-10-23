@@ -1,7 +1,7 @@
 //! WeChat personal bill CSV adapter.
 
 use crate::{Provider, csv, normalize::*};
-use ledger_domain::SourceKind;
+use ledger_domain::{SourceKind, TransactionKind};
 use std::collections::HashSet;
 
 pub fn parse_wechat_csv(bytes: &[u8]) -> Result<crate::ParsedImport, ImportError> {
@@ -22,7 +22,8 @@ pub(crate) fn normalize_row(
     let (parsed, negative) = parse_minor(amount_text, 2, row_number)?;
     let direction = csv::value(row, headers, &["收/支", "收支", "借贷标记"]).unwrap_or("");
     let type_text = csv::value(row, headers, &["交易类型", "类型"]).unwrap_or("");
-    let kind = direction_kind(type_text, direction, negative, false, row_number)?;
+    let status = csv::value(row, headers, &["当前状态", "交易状态", "状态"]).unwrap_or("");
+    let kind = wechat_kind(type_text, status, direction, negative, row_number)?;
     let amount_minor =
         parsed
             .unsigned_abs()
@@ -69,4 +70,28 @@ pub(crate) fn normalize_row(
         source_fields_digest: digest,
         warnings,
     })
+}
+
+fn wechat_kind(
+    type_text: &str,
+    status: &str,
+    direction: &str,
+    negative: bool,
+    row: usize,
+) -> Result<TransactionKind, ImportError> {
+    if direction.trim() == "/" {
+        let transaction_type = type_text.trim();
+        let status = status.trim();
+        match transaction_type {
+            "零钱充值" if status.contains("充值完成") => {
+                return Ok(TransactionKind::Income);
+            }
+            "零钱提现" if status.contains("提现已到账") => {
+                return Ok(TransactionKind::Expense);
+            }
+            "其他" if status.contains("已存入零钱") => return Ok(TransactionKind::Income),
+            _ => {}
+        }
+    }
+    direction_kind(type_text, direction, negative, false, row)
 }

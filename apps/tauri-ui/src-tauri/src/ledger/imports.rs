@@ -42,16 +42,14 @@ impl Ledger {
         if bytes.len() > 5 * 1024 * 1024 {
             return Err("账单文件不能超过 5 MiB".into());
         }
-        let parsed = match provider {
-            "wechat" => ledger_import::parse_wechat_csv(&bytes),
-            "alipay" => ledger_import::parse_alipay_csv(&bytes),
-            "bank" => ledger_import::parse_bank_csv(&bytes),
+        let provider = match provider {
+            "wechat" => ledger_import::Provider::Wechat,
+            "alipay" => ledger_import::Provider::Alipay,
+            "bank" => ledger_import::Provider::Bank,
             _ => return Err("请选择账单来源".into()),
-        }
-        .map_err(|error| error.to_string())?;
-        if parsed.rows.len() > 1000 {
-            return Err("每次最多预览 1000 行，请拆分文件".into());
-        }
+        };
+        let parsed =
+            ledger_import::parse_bill(provider, &bytes).map_err(|error| error.to_string())?;
         let repo = self.repo()?;
         let mut existing = Vec::new();
         let mut seen_transactions = std::collections::HashSet::new();

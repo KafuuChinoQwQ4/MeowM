@@ -16,6 +16,8 @@ pub enum ImportError {
     InvalidAmount { row: usize, value: String },
     InvalidDirection { row: usize, value: String },
     Csv(String),
+    Excel(String),
+    LimitExceeded(String),
 }
 
 impl fmt::Display for ImportError {
@@ -30,6 +32,8 @@ impl fmt::Display for ImportError {
             Self::InvalidAmount { row, value } => write!(f, "第 {row} 行金额无效：{value}"),
             Self::InvalidDirection { row, value } => write!(f, "第 {row} 行收支方向无效：{value}"),
             Self::Csv(message) => write!(f, "账单 CSV 无效：{message}"),
+            Self::Excel(message) => write!(f, "Excel 账单无法读取：{message}"),
+            Self::LimitExceeded(message) => f.write_str(message),
         }
     }
 }
@@ -54,7 +58,7 @@ pub struct NormalizedImportRow {
     pub currency: CurrencyCode,
     pub merchant: Option<String>,
     pub description: Option<String>,
-    /// Digest of normalized fields. Raw CSV text is intentionally not retained.
+    /// Digest of normalized fields. Raw bill contents are intentionally not retained.
     pub source_fields_digest: [u8; 32],
     pub warnings: Vec<ImportWarning>,
 }

@@ -1,4 +1,5 @@
 use super::*;
+use ledger_app::ClassificationRuleRepository;
 pub fn ignore_pending(ledger: &Ledger, ids: Vec<String>) -> Result<()> {
     use ledger_app::FeatureRepository;
     let repo = ledger.repo()?;
@@ -118,11 +119,35 @@ impl Ledger {
                     .map_err(|_| "无效分类".to_owned())
             })
             .transpose()?;
+        if tx.category_id.is_none()
+            && matches!(
+                tx.kind,
+                TransactionKind::Income | TransactionKind::Expense | TransactionKind::Refund
+            )
+        {
+            let repo = self.repo()?;
+            let canonical = tx
+                .merchant
+                .as_deref()
+                .map(|merchant| repo.canonical_merchant(merchant))
+                .transpose()
+                .map_err(|error| error.to_string())?;
+            tx.category_id = ledger_app::classification::auto_category(
+                &repo.list_categories().map_err(|error| error.to_string())?,
+                &repo.list_rules().map_err(|error| error.to_string())?,
+                &tx,
+                canonical.as_deref(),
+            );
+        }
         Ok(tx)
     }
     pub fn confirm_pending(&self, ids: Vec<String>, edits: Vec<PendingEdit>) -> Result<()> {
         let repo = self.repo()?;
         let mut domain_edits = Vec::new();
+        let edited_ids = edits
+            .iter()
+            .map(|edit| transaction_id(&edit.id))
+            .collect::<Result<std::collections::HashSet<_>>>()?;
         for edit in edits {
             let id = transaction_id(&edit.id)?;
             let tx = repo
@@ -133,6 +158,51 @@ impl Ledger {
                 transaction: self.apply_pending_edit(tx, &edit)?,
                 expected_version: edit.expected_version,
             });
+        }
+        for id in ids
+            .iter()
+            .map(|id| transaction_id(id))
+            .collect::<Result<Vec<_>>>()?
+        {
+            if edited_ids.contains(&id) {
+                continue;
+            }
+            let Some(mut tx) = repo
+                .get_transaction(id)
+                .map_err(|error| error.to_string())?
+            else {
+                return Err("流水不存在".into());
+            };
+            if tx.status != TransactionStatus::Pending || tx.category_id.is_some() {
+                continue;
+            }
+            if !matches!(
+                tx.kind,
+                TransactionKind::Income | TransactionKind::Expense | TransactionKind::Refund
+            ) {
+                continue;
+            }
+            let canonical = tx
+                .merchant
+                .as_deref()
+                .map(|merchant| repo.canonical_merchant(merchant))
+                .transpose()
+                .map_err(|error| error.to_string())?;
+            tx.category_id = ledger_app::classification::auto_category(
+                &repo.list_categories().map_err(|error| error.to_string())?,
+                &repo.list_rules().map_err(|error| error.to_string())?,
+                &tx,
+                canonical.as_deref(),
+            );
+            if tx.category_id.is_some() {
+                domain_edits.push(ledger_domain::TransactionEdit {
+                    transaction: tx,
+                    expected_version: repo
+                        .metadata(id)
+                        .map_err(|error| error.to_string())?
+                        .edit_version,
+                });
+            }
         }
         ledger_app::PendingService::new(repo)
             .confirm(

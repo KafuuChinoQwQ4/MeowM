@@ -68,3 +68,36 @@ dialog::backdrop {
   background: #edf2fc;
   color: #607c9d;
 }
+dialog:has(.import-preview-form) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+dialog:has(.import-preview-form) #sheet-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.import-preview-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.import-preview-form fieldset {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.import-preview-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+  padding-top: 10px;
+  background: #fcfdff;
+}
+.import-preview-actions .submit-button {
+  margin-top: 0;
+}
