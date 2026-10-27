@@ -1,6 +1,8 @@
 //! Privacy-preserving duplicate classification.
 
-use chrono::{DateTime, Local, Utc};
+use std::collections::HashSet;
+
+use chrono::{DateTime, Duration, Local, Utc};
 use ledger_domain::{SourceKind, TransactionKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,14 +41,33 @@ pub fn classify_duplicate(
             };
         }
     }
+    let conflicts_with_id = |candidate: &ExistingImport| {
+        candidate.source_kind == row.source_kind
+            && matches!(
+                (row.external_transaction_id.as_deref(), candidate.external_transaction_id.as_deref()),
+                (Some(incoming), Some(saved)) if incoming != saved
+            )
+    };
+    // A transaction can have several evidence rows, including an ID-less fallback.
+    // A known conflicting platform ID must exclude all of them.
+    let conflicting_transactions: HashSet<_> = existing
+        .iter()
+        .filter(|candidate| conflicts_with_id(candidate))
+        .filter_map(|candidate| candidate.transaction_id)
+        .collect();
     let candidate = existing.iter().find(|candidate| {
-        candidate.occurred_at.with_timezone(&Local).date_naive()
-            == row.occurred_at.with_timezone(&Local).date_naive()
+        !conflicts_with_id(candidate)
+            && candidate
+                .transaction_id
+                .is_none_or(|id| !conflicting_transactions.contains(&id))
+            && candidate.occurred_at.with_timezone(&Local).date_naive()
+                == row.occurred_at.with_timezone(&Local).date_naive()
+            && (candidate.occurred_at - row.occurred_at).abs() <= Duration::minutes(5)
             && candidate.kind == row.kind
             && candidate.amount_minor == row.amount_minor
-            && (candidate.merchant.is_none()
-                || row.merchant.is_none()
-                || candidate.merchant == row.merchant)
+            && row.merchant.as_deref().is_some_and(|merchant| {
+                !merchant.trim().is_empty() && candidate.merchant.as_deref() == Some(merchant)
+            })
     });
     candidate.map_or(DuplicateMatch::New, |candidate| {
         DuplicateMatch::SuspectedDuplicate {

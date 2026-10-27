@@ -24,7 +24,9 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
             .unchecked_transaction()
             .map_err(storage_error)?;
         let ids = request.transaction_ids;
-        if ids.len() > 200 || edits.iter().any(|edit| !ids.contains(&edit.transaction.id)) {
+        // A filtered confirm-all can span more than one query page. Keep the
+        // complete selection in this transaction so a later failure rolls back all.
+        if edits.iter().any(|edit| !ids.contains(&edit.transaction.id)) {
             return Err(RepositoryError::InvalidData(
                 "invalid confirmation selection".into(),
             ));
@@ -175,7 +177,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
         tx.commit().map_err(storage_error)
     }
     fn source_evidence(&self, id: TransactionId) -> Result<Vec<SourceEvidence>, RepositoryError> {
-        let mut stmt=self.connection.prepare("SELECT source_kind,external_transaction_id,import_batch_id,source_fields_digest FROM source_evidence WHERE transaction_id=?1 ORDER BY id").map_err(storage_error)?;
+        let mut stmt=self.connection.prepare("SELECT source_kind,external_transaction_id,import_batch_id,source_fields_digest,original_external_transaction_id FROM source_evidence WHERE transaction_id=?1 ORDER BY id").map_err(storage_error)?;
         stmt.query_map([id.as_uuid().to_string()], |r| {
             let k: String = r.get(0)?;
             let batch: String = r.get(2)?;
@@ -192,6 +194,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
                     _ => return Err(rusqlite::Error::InvalidQuery),
                 },
                 external_transaction_id: r.get(1)?,
+                original_external_transaction_id: r.get(4)?,
                 import_batch_id: Uuid::parse_str(&batch)
                     .map_err(|_| rusqlite::Error::InvalidQuery)?,
                 source_fields_digest: digest

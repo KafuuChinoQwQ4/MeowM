@@ -121,6 +121,7 @@ export async function installWorkflowIpc(page) {
               category_id: null,
               original_transaction_id: null,
               sources: ['bank'],
+              external_ids: [],
             };
           });
           return args.ids;

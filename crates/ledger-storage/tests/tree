@@ -5,7 +5,7 @@
 - `privacy_lifecycle.rs` — 通知候选保留、删除回滚、引用阻断和本机设置清理测试。
 - `reconciliation_persistence.rs` — 旧库对账迁移、失败回滚和多连接幂等测试。
 - `recurring_persistence.rs` — 带数据迁移、并发幂等、时区及失败回滚测试。
-- `search_and_rules.rs` — 旧库迁移、别名、金额范围、规则优先级和 SQL 特殊字符测试。
+- `search_and_rules.rs` — 搜索、规则、旧库迁移及分类删除持久化和关联保护测试。
 - `snapshot_integrity.rs` — 大账本、回滚、对账和畸形快照验证。
 - `snapshot_restore.rs` — 敏感设置排除、重复恢复和 SQLite 快照测试。
 - `sqlite_repository.rs` — Integration tests for SQLite persistence, balances, import provenance, category validation, and rule lifecycle.

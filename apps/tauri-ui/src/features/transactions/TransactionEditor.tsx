@@ -60,10 +60,6 @@ export function TransactionEditor({
       action.setError('转账需要选择不同的转入账户。');
       return;
     }
-    if (draft.kind === 'refund' && !draft.original_transaction_id?.trim()) {
-      action.setError('退款必须关联原消费。');
-      return;
-    }
     setPreview(
       tx
         ? impact(
@@ -73,7 +69,7 @@ export function TransactionEditor({
             draft.account_id !== tx.account_id || draft.to_account_id !== (tx.to_account_id ?? ''),
             draft.date !== tx.date,
           )
-        : `保存后将新增一笔${kindNames[draft.kind]} ¥ ${money(draft.amount)}。${draft.kind === 'transfer' ? '转账只改变两端余额。' : draft.kind === 'refund' ? '退款会抵减原消费。' : ''}`,
+        : `保存后将新增一笔${kindNames[draft.kind]} ¥ ${money(draft.amount)}。${draft.kind === 'transfer' ? '转账只改变两端余额。' : draft.kind === 'refund' ? '退款会抵减净支出。' : ''}`,
     );
     setSnapshot(JSON.stringify(draft));
     setConfirming(true);
@@ -92,7 +88,7 @@ export function TransactionEditor({
         category_id: draft.category_id || null,
         to_account_id: draft.kind === 'transfer' ? draft.to_account_id : null,
         original_transaction_id:
-          draft.kind === 'refund' ? draft.original_transaction_id?.trim() : null,
+          draft.kind === 'refund' ? draft.original_transaction_id?.trim() || null : null,
       }),
     );
   }
@@ -157,7 +153,7 @@ export function TransactionEditor({
         />
         {draft.kind === 'refund' && (
           <Field
-            label="退款原消费 ID（退款必填）"
+            label="退款原消费 ID（可选）"
             disabled={!!tx}
             value={draft.original_transaction_id ?? ''}
             onChange={(e) => update('original_transaction_id', e.target.value)}

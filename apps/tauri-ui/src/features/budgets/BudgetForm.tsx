@@ -36,6 +36,7 @@ export function BudgetForm({
     categoryOptions.push([budget.category_id, budget.category_name + '（已停用，保留原范围）']);
   return (
     <form
+      className="sheet-form"
       onSubmit={(event) => {
         event.preventDefault();
         const [start, end] = custom ? [from, until] : monthRange(month);

@@ -5,16 +5,7 @@ impl SqliteLedgerRepository {
         &self,
         t: &Transaction,
     ) -> Result<(), RepositoryError> {
-        let mut shape = t.clone();
-        if t.status == TransactionStatus::Pending
-            && t.kind == TransactionKind::Refund
-            && t.original_transaction_id.is_none()
-        {
-            // Candidate review may correct amount/account/text before the user
-            // resolves a refund parent. Confirmation still validates Refund.
-            shape.kind = TransactionKind::Income;
-        }
-        ledger_domain::validate_transaction_shape(&shape, &self.list_accounts()?)
+        ledger_domain::validate_transaction_shape(t, &self.list_accounts()?)
             .map_err(|e| RepositoryError::InvalidData(e.to_string()))?;
         if t.kind == TransactionKind::Refund {
             if let Some(parent_id) = t.original_transaction_id {
@@ -32,10 +23,6 @@ impl SqliteLedgerRepository {
                 if parent.kind != TransactionKind::Expense || !valid_status {
                     return Err(RepositoryError::InvalidData("refund parent must be an expense; confirmation requires a confirmed parent".into()));
                 }
-            } else if t.status != TransactionStatus::Pending {
-                return Err(RepositoryError::InvalidData(
-                    "refund parent must be confirmed expense".into(),
-                ));
             }
         }
         Ok(())

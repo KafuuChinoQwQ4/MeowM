@@ -44,7 +44,7 @@ fn schema_eight_placeholders_are_preserved_but_never_presented_as_complete_snaps
     drop(db);
     for _ in 0..2 {
         let repo = SqliteLedgerRepository::open(&path).unwrap();
-        assert_eq!(repo.schema_version().unwrap(), 10);
+        assert_eq!(repo.schema_version().unwrap(), 11);
         let service = ReconciliationService::new(&repo);
         let s = service.summary(id).unwrap();
         assert_eq!(s.record.session.actual_minor, 999);
@@ -65,7 +65,7 @@ fn schema_eight_placeholders_are_preserved_but_never_presented_as_complete_snaps
         db.query_row("SELECT COUNT(*) FROM schema_version", [], |r| r
             .get::<_, i64>(0))
             .unwrap(),
-        10
+        11
     );
 }
 #[test]

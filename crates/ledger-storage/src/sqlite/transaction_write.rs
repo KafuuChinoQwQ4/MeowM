@@ -30,14 +30,15 @@ impl SqliteLedgerRepository {
             .map_err(storage_error)?;
             tx.execute(
                 "INSERT INTO source_evidence(\
-                    transaction_id, source_kind, external_transaction_id, import_batch_id, source_fields_digest\
-                 ) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    transaction_id, source_kind, external_transaction_id, import_batch_id, source_fields_digest, original_external_transaction_id\
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
                     transaction.id.as_uuid().to_string(),
                     source_kind_str(evidence.source_kind),
                     evidence.external_transaction_id,
                     evidence.import_batch_id.to_string(),
                     evidence.source_fields_digest.as_slice(),
+                    evidence.original_external_transaction_id,
                 ],
             )
             .map_err(map_insert_error)?;

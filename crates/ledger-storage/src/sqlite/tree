@@ -4,10 +4,10 @@
 
 - `accounts.rs` — 平台分类及元数据持久化。
 - `budgets.rs` — 预算持久化、唯一范围和停用分类的事务校验。
-- `classification.rs` — 分类与分类规则仓储实现。
+- `classification.rs` — 分类与规则持久化及分类删除的关联保护。
 - `core_repository.rs` — 账户、交易、日末余额和来源仓储实现。
 - `diagnostics.rs` — 数据库诊断及审计数量查询。
-- `feature_repository.rs` — 分页查询、候选批处理、版本编辑及隐私仓储实现。
+- `feature_repository.rs` — 分页查询、跨页候选原子确认、版本编辑及隐私仓储实现。
 - `imports.rs` — 来源匹配及导入候选的原子存储。
 - `mapping.rs` — SQLite 行到领域对象及查询结果的映射。
 - `migrations.rs` — 保留旧数据的版本迁移及结构验证。

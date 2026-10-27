@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { Account } from '../../api/accounts';
 import { entriesApi, type PageEntry, type PendingEdit } from '../../api/entries';
 import { useResource } from '../../shared/useResource';
 import { useFormAction } from '../../components/Dialog';
 import { Field, SelectField, FormError } from '../../components/Fields';
 import { kindNames } from '../../shared/labels';
-import { validDate, validAmount } from '../../shared/format';
+import { validDate, validAmount, money } from '../../shared/format';
 export function PendingEditor({
   entry,
   accounts,
@@ -18,6 +18,11 @@ export function PendingEditor({
   onSaved: () => void;
 }) {
   const occurred = new Date(entry.occurred_at);
+  const matchedOriginal = entry.refund_matches?.find(
+    (match) => match.confidence === 'exact' && match.status === 'confirmed',
+  )?.id;
+  // A preview becomes a stored link only on confirmation or an explicit choice.
+  const automaticLink = useRef(!entry.original_transaction_id && !!matchedOriginal);
   const [draft, setDraft] = useState<PendingEdit>({
     id: entry.id,
     expected_version: entry.edit_version,
@@ -29,12 +34,34 @@ export function PendingEditor({
     merchant: entry.merchant ?? '',
     description: entry.description ?? '',
     category_id: entry.category_id,
-    original_transaction_id: entry.original_transaction_id,
+    original_transaction_id: entry.original_transaction_id ?? matchedOriginal ?? null,
   });
   const categories = useResource(useCallback(() => entriesApi.categories(), []));
+  const [originalQuery, setOriginalQuery] = useState({ keyword: '', page: 0 });
+  const originals = useResource(
+    useCallback(
+      () =>
+        draft.kind === 'refund'
+          ? entriesApi.query({
+              status: 'confirmed',
+              keyword: originalQuery.keyword.trim() || undefined,
+              offset: originalQuery.page * 20,
+              limit: 20,
+            })
+          : Promise.resolve(null),
+      [draft.kind, originalQuery],
+    ),
+  );
   const action = useFormAction(onSaved);
   function update(key: keyof PendingEdit, value: string) {
-    setDraft((d) => ({ ...d, [key]: value }));
+    const clearAutomatic =
+      automaticLink.current && ['account_id', 'date', 'amount', 'kind'].includes(key);
+    if (clearAutomatic || key === 'original_transaction_id') automaticLink.current = false;
+    setDraft((d) => ({
+      ...d,
+      [key]: value,
+      ...(clearAutomatic ? { original_transaction_id: null } : {}),
+    }));
   }
   function save(confirm: boolean) {
     if (!validAmount(draft.amount.trim()) || !validDate(draft.date)) {
@@ -47,7 +74,10 @@ export function PendingEditor({
       merchant: draft.merchant.trim(),
       description: draft.description.trim(),
       category_id: categories.data ? draft.category_id || null : entry.category_id,
-      original_transaction_id: draft.original_transaction_id?.trim() || null,
+      original_transaction_id:
+        draft.kind === 'refund' && (confirm || !automaticLink.current)
+          ? draft.original_transaction_id?.trim() || null
+          : null,
     };
     void action.run(() =>
       confirm ? entriesApi.confirm([entry.id], [edit]) : entriesApi.edit(edit),
@@ -59,6 +89,31 @@ export function PendingEditor({
   ];
   if (draft.category_id && !options.some(([id]) => id === draft.category_id))
     options.push([draft.category_id, '当前分类']);
+  const originalOptions: [string, string][] = [
+    ['', '不关联原消费（直接记账）'],
+    ...(originals.data?.items ?? [])
+      .filter((item) => item.kind === 'expense' && !item.reversal_of && !item.reversal_id)
+      .map(
+        (item) =>
+          [
+            item.id,
+            `${new Date(item.occurred_at).toLocaleString()} · ${item.merchant || '消费'} · ¥ ${money(item.amount ?? '0')} · ${accounts.find((account) => account.id === item.account_id)?.name ?? '其他平台'}${item.description ? ` · ${item.description}` : ''}${item.external_ids?.[0] ? ` · 订单 ${item.external_ids[0].id}` : ''}`,
+          ] as [string, string],
+      ),
+  ];
+  for (const match of entry.refund_matches ?? []) {
+    if (match.status === 'confirmed' && !originalOptions.some(([id]) => id === match.id))
+      originalOptions.push([
+        match.id,
+        `${new Date(match.occurred_at).toLocaleDateString()} · ${match.merchant || '消费'} · ¥ ${money(match.amount ?? '0')}（匹配建议）`,
+      ]);
+  }
+  if (
+    draft.original_transaction_id &&
+    !originalOptions.some(([id]) => id === draft.original_transaction_id)
+  )
+    originalOptions.push([draft.original_transaction_id, '已关联的原消费（不在当前页）']);
+  const originalPages = Math.max(1, Math.ceil((originals.data?.total ?? 0) / 20));
   return (
     <form
       className="sheet-form"
@@ -148,11 +203,99 @@ export function PendingEditor({
             </button>
           </>
         )}
-        <Field
-          label="退款原消费 ID（退款必填）"
-          value={draft.original_transaction_id ?? ''}
-          onChange={(e) => update('original_transaction_id', e.target.value)}
-        />
+        {draft.kind === 'refund' && (
+          <>
+            <p className="field-hint">
+              原消费关联可选。未关联也可直接确认，退款按发生日期抵减净支出。
+            </p>
+            {(entry.refund_matches ?? []).map((match) => (
+              <div className="field-hint" key={match.id}>
+                <p>
+                  {match.confidence === 'exact' ? '原订单号匹配' : '疑似原消费'}：
+                  {new Date(match.occurred_at).toLocaleDateString()} · {match.merchant || '消费'} ·
+                  ¥ {money(match.amount ?? '0')}
+                  {' · '}
+                  {match.reason}
+                </p>
+                {match.status === 'confirmed' ? (
+                  <button
+                    type="button"
+                    className="text-button"
+                    onClick={() => update('original_transaction_id', match.id)}
+                  >
+                    关联这笔消费
+                  </button>
+                ) : (
+                  <p>
+                    原消费尚待确认。可先直接确认退款，或返回列表同时勾选原消费；原订单号匹配时会自动关联。
+                  </p>
+                )}
+              </div>
+            ))}
+            <Field
+              label="搜索原消费（商户、备注或订单号）"
+              maxLength={200}
+              value={originalQuery.keyword}
+              onChange={(e) => setOriginalQuery({ keyword: e.target.value, page: 0 })}
+            />
+            <SelectField
+              label="退款原消费"
+              value={draft.original_transaction_id ?? ''}
+              options={originalOptions}
+              disabled={originals.loading || !!originals.error}
+              onChange={(e) => update('original_transaction_id', e.target.value)}
+            />
+            {originals.loading && <p className="field-hint">正在加载原消费…</p>}
+            {originals.error && (
+              <>
+                <FormError message={originals.error} />
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={originals.reload}
+                >
+                  重试原消费
+                </button>
+              </>
+            )}
+            {originals.data && (
+              <>
+                {originalOptions.length === 1 && (
+                  <p className="field-hint">
+                    本页没有可选的已确认消费，可直接确认退款，也可翻页或更换关键词查找。
+                  </p>
+                )}
+                <div className="pending-actions">
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    aria-label="上一页原消费"
+                    disabled={originalQuery.page === 0}
+                    onClick={() =>
+                      setOriginalQuery((query) => ({ ...query, page: query.page - 1 }))
+                    }
+                  >
+                    上一页
+                  </button>
+                  <span>
+                    原消费 {originalQuery.page + 1} / {originalPages} 页
+                  </span>
+                  <button
+                    type="button"
+                    className="button button-secondary"
+                    aria-label="下一页原消费"
+                    disabled={originalQuery.page >= originalPages - 1}
+                    onClick={() =>
+                      setOriginalQuery((query) => ({ ...query, page: query.page + 1 }))
+                    }
+                  >
+                    下一页
+                  </button>
+                </div>
+              </>
+            )}
+          </>
+        )}
         <button type="button" className="button button-secondary" onClick={() => save(false)}>
           仅保存修改
         </button>

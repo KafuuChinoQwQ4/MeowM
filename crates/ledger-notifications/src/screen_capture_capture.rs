@@ -102,6 +102,7 @@ pub fn capture_screen(
             let evidence = SourceEvidence {
                 source_kind: SourceKind::ScreenCapture,
                 external_transaction_id: Some(identity.clone()),
+                original_external_transaction_id: None,
                 import_batch_id: uuid::Uuid::new_v4(),
                 source_fields_digest: digest,
             };

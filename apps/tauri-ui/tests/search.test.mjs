@@ -6,6 +6,7 @@ import { navigate } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1435');
 async function open(page) {
   await page.addInitScript(() => {
+    let categories = [{ id: 'food', name: '餐饮', enabled: true }];
     window.calls = [];
     window.ruleSaved = false;
     window.__TAURI_INTERNALS__ = {
@@ -38,6 +39,7 @@ async function open(page) {
                 merchant: '星巴克',
                 description: '午餐',
                 sources: ['manual'],
+                external_ids: [],
                 edit_version: 0,
                 account_id: 'wallet',
                 category_id: null,
@@ -50,7 +52,7 @@ async function open(page) {
           };
         if (cmd === 'classification_state')
           return {
-            categories: [{ id: 'food', name: '餐饮', enabled: true }],
+            categories,
             rules: window.ruleSaved
               ? [
                   {
@@ -79,6 +81,16 @@ async function open(page) {
           return 'rule-1';
         }
         if (cmd === 'save_merchant_alias') return;
+        if (cmd === 'write_category') {
+          const id = args.id ?? 'new-category';
+          categories = categories.filter((category) => category.id !== id).concat({ ...args, id });
+          return id;
+        }
+        if (cmd === 'delete_category') {
+          if (window.rejectCategoryDelete) throw Error('分类已有关联，请先调整关联或停用分类。');
+          categories = categories.filter((category) => category.id !== args.id);
+          return;
+        }
         if (cmd === 'save_search_csv') {
           window.savedCsv = args.csv;
           return;
@@ -176,6 +188,65 @@ test('custom merchant classification is saved for future records', async () => {
         ),
       ),
     );
+  } finally {
+    await page.close();
+  }
+});
+test('category names remain visible on a phone and a new category can be deleted after confirmation', async () => {
+  const page = await newPage({ viewport: { width: 390, height: 844 } });
+  try {
+    await open(page);
+    await page.getByRole('button', { name: '分类规则', exact: true }).click();
+    const name = '日常生活用品采购';
+    const input = page.getByLabel('新分类名称', { exact: true });
+    await input.fill(name);
+    const box = await input.boundingBox();
+    assert.ok(box.width >= 230 && box.height >= 40, JSON.stringify(box));
+    assert.equal(await input.inputValue(), name);
+    await page.getByRole('button', { name: '新增分类', exact: true }).click();
+    const category = page.locator('.search-list-row').filter({ hasText: name });
+    await category.getByText(`${name} · 启用`, { exact: true }).waitFor();
+    assert.equal(await input.inputValue(), '');
+    page.once('dialog', (dialog) => dialog.dismiss());
+    await category.getByRole('button', { name: `删除分类 ${name}`, exact: true }).click();
+    assert.equal(await category.count(), 1);
+    page.once('dialog', (dialog) => dialog.accept());
+    await category.getByRole('button', { name: `删除分类 ${name}`, exact: true }).click();
+    await category.waitFor({ state: 'hidden' });
+    assert.equal(await page.getByRole('button', { name: '删除分类 餐饮', exact: true }).count(), 1);
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+test('failed category deletion preserves the category and its enable controls for retry', async () => {
+  const page = await newPage();
+  try {
+    await open(page);
+    await page.getByRole('button', { name: '分类规则', exact: true }).click();
+    await page.evaluate(() => {
+      window.rejectCategoryDelete = true;
+    });
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: '删除分类 餐饮', exact: true }).click();
+    await page
+      .getByRole('alert')
+      .getByText('分类已有关联，请先调整关联或停用分类。', { exact: true })
+      .waitFor();
+    const category = page.locator('.search-list-row').filter({ hasText: '餐饮 · 启用' });
+    assert.equal(
+      await category.getByRole('button', { name: '停用', exact: true }).isEnabled(),
+      true,
+    );
+    await page.evaluate(() => {
+      window.rejectCategoryDelete = false;
+    });
+    page.once('dialog', (dialog) => dialog.accept());
+    await category.getByRole('button', { name: '删除分类 餐饮', exact: true }).click();
+    await category.waitFor({ state: 'hidden' });
   } finally {
     await page.close();
   }

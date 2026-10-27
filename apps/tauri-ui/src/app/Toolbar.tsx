@@ -25,6 +25,7 @@ export function Toolbar({
   onDate: (date: string) => void;
   onAdd: () => void;
 }) {
+  const currentDate = today();
   const account = accounts.find((a) => a.id === accountId);
   const theme =
     accountId === ALL_ACCOUNTS
@@ -92,10 +93,10 @@ export function Toolbar({
               type="date"
               id="date"
               min="0001-01-01"
-              max="9999-12-31"
+              max={currentDate}
               value={date}
               onChange={(e) => {
-                if (validDate(e.target.value)) onDate(e.target.value);
+                if (validDate(e.target.value) && e.target.value <= today()) onDate(e.target.value);
               }}
             />
           </label>
@@ -103,8 +104,10 @@ export function Toolbar({
             className="icon-button"
             id="next"
             aria-label="后一天"
-            disabled={date >= '9999-12-31'}
-            onClick={() => onDate(moveDate(date, 1))}
+            disabled={date >= currentDate}
+            onClick={() => {
+              if (date < today()) onDate(moveDate(date, 1));
+            }}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="m9 6 6 6-6 6" />

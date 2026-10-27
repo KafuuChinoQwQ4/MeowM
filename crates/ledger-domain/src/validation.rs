@@ -18,14 +18,10 @@ pub fn validate_transaction_shape(
     transaction: &Transaction,
     accounts: &[Account],
 ) -> Result<(), DomainError> {
-    if transaction.kind.requires_original_transaction() {
-        match transaction.original_transaction_id {
-            None => return Err(DomainError::RefundOriginalRequired),
-            Some(original_id) if original_id == transaction.id => {
-                return Err(DomainError::SelfReferentialRefund);
-            }
-            Some(_) => {}
-        }
+    if transaction.kind == TransactionKind::Refund
+        && transaction.original_transaction_id == Some(transaction.id)
+    {
+        return Err(DomainError::SelfReferentialRefund);
     }
 
     if transaction.postings.is_empty() {
@@ -421,16 +417,22 @@ mod tests {
     }
 
     #[test]
-    fn refund_requires_parent_and_offsets_expense() {
+    fn refund_can_be_unlinked_and_still_offsets_expense() {
         let wallet = asset_account("wallet", "CNY");
         let mut refund = confirmed_expense(wallet.clone(), 500);
         refund.kind = TransactionKind::Refund;
         refund.postings[0].delta = Money::new(500, wallet.currency.clone());
-        assert!(validate_transaction_shape(&refund, std::slice::from_ref(&wallet)).is_err());
+        validate_transaction_shape(&refund, std::slice::from_ref(&wallet)).unwrap();
+        assert_eq!(report_effect(&refund).unwrap().expense_cny_minor, -500);
 
         refund.original_transaction_id = Some(TransactionId::new());
-        validate_transaction_shape(&refund, &[wallet]).unwrap();
+        validate_transaction_shape(&refund, std::slice::from_ref(&wallet)).unwrap();
         assert_eq!(report_effect(&refund).unwrap().expense_cny_minor, -500);
+        refund.original_transaction_id = Some(refund.id);
+        assert_eq!(
+            validate_transaction_shape(&refund, &[wallet]),
+            Err(crate::DomainError::SelfReferentialRefund)
+        );
     }
 
     #[test]

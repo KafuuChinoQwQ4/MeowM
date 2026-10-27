@@ -3,7 +3,7 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `DuplicateDetails.tsx` — 疑似重复记录的按需查询与对比。
-- `PendingEditor.tsx` — 候选修订、分类加载重试和单条确认。
+- `PendingEditor.tsx` — 退款可选关联、原订单号预选、消费建议及待确认编辑。
 - `PendingFilters.tsx` — 待确认列表的平台、来源、类型和日期筛选。
-- `PendingPage.tsx` — 待确认分页、选择、批量确认、忽略及恢复。
+- `PendingPage.tsx` — 待确认收件箱、筛选下跨页全部确认和退款匹配提示。
 - `tree` — 本目录直接文件的说明索引。

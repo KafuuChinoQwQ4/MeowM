@@ -51,6 +51,7 @@ pub struct NormalizedImportRow {
     pub row_number: usize,
     pub source_kind: SourceKind,
     pub external_transaction_id: Option<String>,
+    pub original_external_transaction_id: Option<String>,
     pub occurred_at: DateTime<Utc>,
     pub kind: TransactionKind,
     /// Absolute amount in the source currency's minor unit. Direction is in `kind`.
@@ -61,6 +62,34 @@ pub struct NormalizedImportRow {
     /// Digest of normalized fields. Raw bill contents are intentionally not retained.
     pub source_fields_digest: [u8; 32],
     pub warnings: Vec<ImportWarning>,
+}
+
+pub(crate) const ORIGINAL_ORDER_HEADERS: &[&str] =
+    &["原交易单号", "原交易订单号", "原订单号", "原交易号"];
+
+pub(crate) fn refund_reference(
+    row: &[String],
+    headers: &std::collections::HashMap<String, usize>,
+    kind: TransactionKind,
+) -> Option<String> {
+    if kind != TransactionKind::Refund {
+        return None;
+    }
+    normalize_text(crate::csv::value(row, headers, ORIGINAL_ORDER_HEADERS))
+}
+
+// Preserve existing dedupe digests when no new reference was supplied.
+pub(crate) fn digest_with_reference(digest: [u8; 32], reference: Option<&str>) -> [u8; 32] {
+    match reference {
+        None => digest,
+        Some(reference) => {
+            let mut hash = Sha256::new();
+            hash.update(digest);
+            hash.update(b"\0original_order\0");
+            hash.update(reference.as_bytes());
+            hash.finalize().into()
+        }
+    }
 }
 
 impl NormalizedImportRow {

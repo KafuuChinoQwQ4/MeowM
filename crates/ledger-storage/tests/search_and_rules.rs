@@ -25,6 +25,115 @@ fn setup() -> (SqliteLedgerRepository, AccountId) {
     .unwrap();
     (repo, id)
 }
+#[test]
+fn deleting_unused_categories_is_persistent_and_keeps_other_categories() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("delete-category.sqlite3");
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    let keep = Category {
+        id: CategoryId::new(),
+        name: "保留".into(),
+        enabled: true,
+    };
+    repo.insert_category(keep.clone()).unwrap();
+    for enabled in [true, false] {
+        let category = Category {
+            id: CategoryId::new(),
+            name: "误建分类".into(),
+            enabled,
+        };
+        repo.insert_category(category.clone()).unwrap();
+        repo.delete_category(category.id).unwrap();
+        assert!(repo.get_category(category.id).unwrap().is_none());
+        assert!(matches!(
+            repo.delete_category(category.id),
+            Err(ledger_app::RepositoryError::NotFound)
+        ));
+    }
+    drop(repo);
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    assert_eq!(repo.list_categories().unwrap(), vec![keep]);
+}
+#[test]
+fn deleting_a_used_category_preserves_transactions_in_every_status() {
+    for status in [
+        TransactionStatus::Pending,
+        TransactionStatus::Confirmed,
+        TransactionStatus::Ignored,
+    ] {
+        let (repo, account) = setup();
+        let category = Category {
+            id: CategoryId::new(),
+            name: "已使用".into(),
+            enabled: true,
+        };
+        repo.insert_category(category.clone()).unwrap();
+        let id = add(
+            &repo,
+            account,
+            "商户",
+            1234,
+            "2026-10-01T10:00:00Z",
+            status,
+            Some(category.id),
+        );
+        let before = repo.get_transaction(id).unwrap().unwrap();
+        let error = repo.delete_category(category.id).unwrap_err();
+        assert!(error.to_string().contains("停用"), "{error}");
+        assert_eq!(repo.get_category(category.id).unwrap(), Some(category));
+        assert_eq!(repo.get_transaction(id).unwrap(), Some(before));
+    }
+}
+#[test]
+fn deleting_categories_used_by_rules_budgets_or_recurring_templates_is_rejected() {
+    for table in ["classification_rules", "budgets", "recurring_templates"] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("used-category.sqlite3");
+        let repo = SqliteLedgerRepository::open(&path).unwrap();
+        let category = Category {
+            id: CategoryId::new(),
+            name: "已使用".into(),
+            enabled: true,
+        };
+        repo.insert_category(category.clone()).unwrap();
+        let db = rusqlite::Connection::open(&path).unwrap();
+        db.execute_batch("PRAGMA foreign_keys=ON").unwrap();
+        let account = AccountId::new().as_uuid().to_string();
+        db.execute(
+            "INSERT INTO accounts VALUES(?1,'现金','asset','CNY',2,NULL,NULL)",
+            [&account],
+        )
+        .unwrap();
+        let id = uuid::Uuid::new_v4().to_string();
+        let category_id = category.id.as_uuid().to_string();
+        match table {
+            "classification_rules" => db.execute("INSERT INTO classification_rules VALUES(?1,1,'商户',NULL,?2,0)", rusqlite::params![id,category_id]).unwrap(),
+            "budgets" => db.execute("INSERT INTO budgets(id,month,category_id,amount_cny_minor,enabled) VALUES(?1,'2026-10',?2,10000,0)", rusqlite::params![id,category_id]).unwrap(),
+            _ => db.execute("INSERT INTO recurring_templates(id,account_id,category_id,kind,amount_cny_minor,next_date,interval_months,enabled) VALUES(?1,?2,?3,'expense',100,'2026-11-01',1,0)", rusqlite::params![id,account,category_id]).unwrap(),
+        };
+        let error = repo.delete_category(category.id).unwrap_err();
+        assert!(error.to_string().contains("停用"), "{table}: {error}");
+        assert_eq!(repo.get_category(category.id).unwrap(), Some(category));
+        assert_eq!(
+            db.query_row(
+                &format!("SELECT category_id FROM {table} WHERE id=?1"),
+                [&id],
+                |row| row.get::<_, String>(0)
+            )
+            .unwrap(),
+            category_id
+        );
+        assert!(
+            db.prepare("PRAGMA foreign_key_check")
+                .unwrap()
+                .query([])
+                .unwrap()
+                .next()
+                .unwrap()
+                .is_none()
+        );
+    }
+}
 fn add(
     repo: &SqliteLedgerRepository,
     account: AccountId,
@@ -260,7 +369,7 @@ fn version_seven_data_migrates_without_changing_merchant_or_transaction_id() {
     .unwrap();
     drop(db);
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 10);
+    assert_eq!(repo.schema_version().unwrap(), 11);
     let page = repo
         .query_transactions(PendingQuery {
             keyword: Some("star bucks".into()),
@@ -276,5 +385,5 @@ fn version_seven_data_migrates_without_changing_merchant_or_transaction_id() {
     );
     drop(repo);
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 10);
+    assert_eq!(repo.schema_version().unwrap(), 11);
 }

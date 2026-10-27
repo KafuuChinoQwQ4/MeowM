@@ -37,6 +37,7 @@ export function RecurringForm({
     options.push([template.category_id, template.category_name + '（已停用）']);
   return (
     <form
+      className="sheet-form"
       onSubmit={(event) => {
         event.preventDefault();
         if (!/^\d+(\.\d{1,2})?$/.test(amount) || !/[1-9]/.test(amount)) {

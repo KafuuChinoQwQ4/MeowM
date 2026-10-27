@@ -29,7 +29,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 10
+                && v <= 11
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -49,12 +49,13 @@ impl SqliteLedgerRepository {
                 | (7, Some(7))
                 | (8, Some(8))
                 | (9, Some(9))
-                | (10, Some(10)) => {
+                | (10, Some(10))
+                | (11, Some(11)) => {
                     return Ok(());
                 }
-                (_, Some(version)) if version > 10 => {
+                (_, Some(version)) if version > 11 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 10"
+                        "database schema version {version} is newer than supported version 11"
                     )));
                 }
                 _ => {
@@ -325,6 +326,24 @@ impl SqliteLedgerRepository {
             .map_err(storage_error)?;
         tx.execute(
             "INSERT INTO schema_version VALUES(10,?1)",
+            [Utc::now().timestamp_micros()],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    pub(super) fn apply_refund_reference_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 11 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!("../../migrations/0011_refund_references.sql"))
+            .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO schema_version VALUES(11,?1)",
             [Utc::now().timestamp_micros()],
         )
         .map_err(storage_error)?;

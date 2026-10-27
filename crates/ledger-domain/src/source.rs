@@ -19,6 +19,8 @@ pub enum SourceKind {
 pub struct SourceEvidence {
     pub source_kind: SourceKind,
     pub external_transaction_id: Option<String>,
+    /// Explicit original order reference on a refund, in the same provider's ID space.
+    pub original_external_transaction_id: Option<String>,
     pub import_batch_id: Uuid,
     /// Digest of normalized source fields, not the original source content.
     pub source_fields_digest: [u8; 32],

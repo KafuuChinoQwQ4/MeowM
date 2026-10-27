@@ -7,14 +7,14 @@
 - `imports.test.mjs` — CSV/XLS/XLSX 文件选择及原始字节传递的界面回归测试。
 - `mobile-layout.test.mjs` — Small-screen and landscape scrolling, navigation reachability, keyboard-sized unlock and dialog layout regressions.
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
-- `pending-inbox.test.mjs` — Playwright mock-IPC workflow regressions for pending confirmation refresh and category retry.
+- `pending-inbox.test.mjs` — 跨页全部确认、筛选、失败重试及退款关联界面测试。
 - `platform-themes.test.mjs` — 平台别名、误匹配边界、白色回退及全部配色文字对比度检查。
 - `privacy.test.mjs` — 模拟 IPC 的锁定、金额遮盖和删除确认浏览器测试。
-- `react-workflows.test.mjs` — 平台、参考余额、导入修订、弹窗生命周期、撤销及过期请求的浏览器回归。
+- `react-workflows.test.mjs` — 平台、日期本地当天上限、参考余额、导入修订、弹窗生命周期、撤销及过期请求的浏览器回归。
 - `reconciliation.test.mjs` — 对账完整交互、版本更新、负余额和失败保留浏览器测试。
 - `recurring.test.mjs` — 周期管理完整交互、持久化重载和首页待确认跳转的浏览器测试。
-- `reports-budgets.test.mjs` — 模拟 IPC 的报表筛选分页及预算编辑停用浏览器测试。
+- `reports-budgets.test.mjs` — 报表筛选、半年切换、自适应金额刻度和点选交互、饼图及预算工作流测试。
 - `screen-capture.test.mjs` — Browser workflow test for screen capture controls.
-- `search.test.mjs` — 搜索筛选、导出与规则预览确认的 React 浏览器测试。
+- `search.test.mjs` — 搜索与导出、分类输入和删除、商户别名及规则工作流测试。
 - `transactions.test.mjs` — Browser workflow test for transaction detail and versioned editing.
 - `tree` — 本目录直接文件的说明索引。

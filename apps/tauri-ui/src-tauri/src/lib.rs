@@ -145,6 +145,10 @@ fn confirm_pending(
     access(state, |l| l.confirm_pending(ids, edits))
 }
 #[tauri::command]
+fn confirm_all_pending(state: State<'_, LedgerState>, query: ledger::PageQuery) -> Result<u64> {
+    access(state, |l| l.confirm_all_pending(query))
+}
+#[tauri::command]
 fn edit_pending(state: State<'_, LedgerState>, edit: ledger::PendingEdit) -> Result<()> {
     access(state, |l| l.edit_pending(edit))
 }
@@ -216,6 +220,7 @@ pub fn run() {
             search_rules::preview_classification_rule,
             search_rules::write_classification_rule,
             search_rules::write_category,
+            search_rules::delete_category,
             search_rules::save_merchant_alias,
             search_rules::delete_merchant_alias,
             search_export::save_search_csv,
@@ -245,6 +250,7 @@ pub fn run() {
             preview_bill,
             stage_bill,
             confirm_pending,
+            confirm_all_pending,
             edit_pending,
             list_categories,
             transaction_detail,

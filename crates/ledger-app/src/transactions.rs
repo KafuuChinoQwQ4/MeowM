@@ -63,10 +63,9 @@ impl<R: LedgerRepository> TransactionService<R> {
     }
 
     fn validate_confirmation(&self, transaction: &Transaction) -> Result<(), AppError> {
-        if transaction.kind == TransactionKind::Refund {
-            let parent_id = transaction
-                .original_transaction_id
-                .ok_or(AppError::RefundParentInvalid)?;
+        if transaction.kind == TransactionKind::Refund
+            && let Some(parent_id) = transaction.original_transaction_id
+        {
             match self.repository.get_transaction(parent_id)? {
                 Some(parent)
                     if parent.kind == TransactionKind::Expense

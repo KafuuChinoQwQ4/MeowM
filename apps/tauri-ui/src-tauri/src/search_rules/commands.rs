@@ -174,6 +174,15 @@ impl Ledger {
         .map_err(|e| e.to_string())?;
         Ok(id.as_uuid().to_string())
     }
+    pub fn delete_category(&self, id: &str) -> Result<()> {
+        let id = uuid::Uuid::parse_str(id).map_err(|_| "无效的分类标识")?;
+        if id.is_nil() {
+            return Err("无效的分类标识".into());
+        }
+        self.repo()?
+            .delete_category(CategoryId::from_uuid(id))
+            .map_err(|e| e.to_string())
+    }
     pub fn save_alias(&self, alias: &str, canonical: &str) -> Result<()> {
         self.repo()?
             .save_merchant_alias(alias, canonical)
@@ -211,6 +220,10 @@ pub fn write_category(
     enabled: bool,
 ) -> Result<String> {
     access(state, |l| l.write_category(id, name, enabled))
+}
+#[tauri::command]
+pub fn delete_category(state: State<'_, LedgerState>, id: String) -> Result<()> {
+    access(state, |l| l.delete_category(&id))
 }
 #[tauri::command]
 pub fn save_merchant_alias(

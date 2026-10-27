@@ -6,6 +6,7 @@ mod imports;
 mod parse;
 mod pending;
 mod query;
+mod refunds;
 #[cfg(test)]
 mod tests;
 pub use accounts::Account;
@@ -57,8 +58,9 @@ impl Ledger {
                     .create_account(DomainAccount::new(name, AccountKind::Asset, cny()))
                     .map_err(|e| e.to_string())?;
             }
+            // Seed a new ledger once; later launches must respect category deletions.
+            ensure_default_categories(&ledger)?;
         }
-        ensure_default_categories(&ledger)?;
         Ok(ledger)
     }
     pub(crate) fn clear_import_preview(&self) {

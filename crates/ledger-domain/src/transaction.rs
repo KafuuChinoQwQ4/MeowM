@@ -36,10 +36,6 @@ pub enum TransactionKind {
 }
 
 impl TransactionKind {
-    pub const fn requires_original_transaction(self) -> bool {
-        matches!(self, Self::Refund)
-    }
-
     pub const fn requires_two_distinct_postings(self) -> bool {
         matches!(self, Self::Transfer)
     }

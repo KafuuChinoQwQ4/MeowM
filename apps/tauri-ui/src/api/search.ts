@@ -41,6 +41,7 @@ export const searchApi = {
   rule: (request: RuleInput) => invoke<string>('write_classification_rule', { request }),
   category: (name: string, enabled: boolean, id?: string) =>
     invoke<string>('write_category', { id: id ?? null, name, enabled }),
+  deleteCategory: (id: string) => invoke<void>('delete_category', { id }),
   alias: (alias: string, canonical: string) =>
     invoke<void>('save_merchant_alias', { alias, canonical }),
   deleteAlias: (alias: string) => invoke<void>('delete_merchant_alias', { alias }),

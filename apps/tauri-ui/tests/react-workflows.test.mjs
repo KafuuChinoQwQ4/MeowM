@@ -11,6 +11,48 @@ async function open() {
   await page.locator('.balance-value').waitFor();
   return page;
 }
+test('ledger dates stop at the local current day and advance after midnight', async () => {
+  const page = await newPage({ timezoneId: 'Asia/Shanghai' });
+  try {
+    await page.clock.setFixedTime(new Date('2026-10-26T17:00:00Z'));
+    await installWorkflowIpc(page);
+    await page.goto(url);
+    await page.locator('.balance-value').waitFor();
+    const date = page.locator('#date');
+    const next = page.getByRole('button', { name: '后一天', exact: true });
+    assert.equal(await date.inputValue(), '2026-10-27');
+    assert.equal(await next.isDisabled(), true);
+    assert.equal(await date.getAttribute('max'), '2026-10-27');
+    await next.evaluate((button) => button.click());
+    await date.fill('2026-10-28');
+    assert.equal(await date.inputValue(), '2026-10-27');
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((c) => c.command === 'get_day' && c.args.date > '2026-10-27'),
+      ),
+      false,
+    );
+    await page.getByRole('button', { name: '前一天', exact: true }).click();
+    assert.equal(await date.inputValue(), '2026-10-26');
+    assert.equal(await next.isDisabled(), false);
+    await next.click();
+    assert.equal(await date.inputValue(), '2026-10-27');
+    assert.equal(await next.isDisabled(), true);
+    await date.fill('2026-10-01');
+    await page.getByRole('button', { name: '回到今天', exact: true }).click();
+    assert.equal(await date.inputValue(), '2026-10-27');
+    await page.clock.setFixedTime(new Date('2026-10-27T17:00:00Z'));
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.waitForFunction(() => document.querySelector('#date').max === '2026-10-28');
+    assert.equal(await next.isDisabled(), false);
+    await next.click();
+    assert.equal(await date.inputValue(), '2026-10-28');
+    assert.equal(await next.isDisabled(), true);
+  } finally {
+    await page.close();
+  }
+});
+
 test('navigation directories return to their parent without crossing navigation roots', async () => {
   const page = await open();
   try {
@@ -365,7 +407,7 @@ test('an old account response cannot overwrite the newly selected account', asyn
     await page.evaluate(() => {
       window.delayWallet = true;
     });
-    await page.locator('#next').click();
+    await page.locator('#previous').click();
     await page.waitForFunction(
       () => window.workflowCalls.filter((c) => c.command === 'get_day').length >= 2,
     );

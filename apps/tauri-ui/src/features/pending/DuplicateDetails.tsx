@@ -4,6 +4,35 @@ import { useResource } from '../../shared/useResource';
 import { sourceNames, kindNames } from '../../shared/labels';
 import { today, moveDate } from '../../shared/format';
 import { LoadState } from '../../components/LoadState';
+
+function isDuplicateCandidate(entry: PageEntry, candidate: PageEntry) {
+  if (candidate.id === entry.id) return false;
+  if (
+    entry.external_ids.some((incoming) =>
+      candidate.external_ids.some(
+        (saved) => incoming.source === saved.source && incoming.id === saved.id,
+      ),
+    )
+  )
+    return true;
+  if (
+    entry.external_ids.some((incoming) =>
+      candidate.external_ids.some(
+        (saved) => incoming.source === saved.source && incoming.id !== saved.id,
+      ),
+    )
+  )
+    return false;
+  return (
+    entry.amount !== null &&
+    candidate.amount === entry.amount &&
+    candidate.kind === entry.kind &&
+    Boolean(entry.merchant?.trim()) &&
+    candidate.merchant === entry.merchant &&
+    Math.abs(Date.parse(candidate.occurred_at) - Date.parse(entry.occurred_at)) <= 5 * 60 * 1000
+  );
+}
+
 function Matches({ entry }: { entry: PageEntry }) {
   const state = useResource(
     useCallback(async () => {
@@ -17,7 +46,7 @@ function Matches({ entry }: { entry: PageEntry }) {
         offset: 0,
         limit: 200,
       });
-      return page.items.filter((item) => item.id !== entry.id && item.amount === entry.amount);
+      return page.items.filter((item) => isDuplicateCandidate(entry, item));
     }, [entry]),
   );
   return (
@@ -32,7 +61,7 @@ function Matches({ entry }: { entry: PageEntry }) {
                     `${item.merchant || item.description || kindNames[item.kind]} · ${item.status} · ${item.id}`,
                 )
                 .join('\n')
-            : '未发现同日同金额候选。'}
+            : '未发现符合条件的疑似重复记录。'}
         </p>
       )}
     </>
@@ -45,7 +74,7 @@ export function DuplicateDetails({ entry }: { entry: PageEntry }) {
       <summary>查看来源 / 疑似重复</summary>
       <p className="field-hint">
         来源：{entry.sources.map((source) => sourceNames[source] ?? source).join('、') || '未知'}
-        。仅金额和日期相同不会自动合并。
+        。同平台不同交易号会排除；缺少可比交易号时，需商户、金额、类型一致且相隔不超过 5 分钟。
       </p>
       {open && <Matches entry={entry} />}
     </details>

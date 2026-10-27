@@ -26,12 +26,20 @@ pub struct PageEntry {
     pub description: Option<String>,
     pub edit_version: u32,
     pub reversal_of: Option<String>,
+    pub reversal_id: Option<String>,
     pub account_id: Option<String>,
     pub destination_id: Option<String>,
     pub category_id: Option<String>,
     pub original_transaction_id: Option<String>,
+    pub refund_matches: Vec<super::refunds::RefundMatch>,
     pub sources: Vec<String>,
+    pub external_ids: Vec<ExternalId>,
     pub suggestion: Option<SuggestionView>,
+}
+#[derive(Serialize)]
+pub struct ExternalId {
+    pub source: String,
+    pub id: String,
 }
 #[derive(Serialize)]
 pub struct SuggestionView {
@@ -150,6 +158,20 @@ impl Ledger {
             .into(),
             message: "无法查询流水，请检查筛选条件或重试".into(),
         })?;
+        let refund_matcher = if page.items.iter().any(|c| {
+            c.transaction.kind == TransactionKind::Refund
+                && c.transaction.status == TransactionStatus::Pending
+                && c.transaction.original_transaction_id.is_none()
+        }) {
+            Some(
+                super::refunds::RefundMatcher::load(&repo, &[]).map_err(|_| CommandError {
+                    code: "storage_error".into(),
+                    message: "无法读取退款匹配建议，请重试".into(),
+                })?,
+            )
+        } else {
+            None
+        };
         Ok(EntryPage {
             total: page.total,
             offset: page.offset,
@@ -159,6 +181,15 @@ impl Ledger {
                 .into_iter()
                 .map(|c| {
                     let t = c.transaction;
+                    let refund_matches = refund_matcher
+                        .as_ref()
+                        .map(|matcher| matcher.matches(&t))
+                        .transpose()
+                        .map_err(|_| CommandError {
+                            code: "storage_error".into(),
+                            message: "无法读取退款匹配建议，请重试".into(),
+                        })?
+                        .unwrap_or_default();
                     let suggestion = if t.status == TransactionStatus::Pending {
                         repo.suggest_pending(t.id)
                             .map_err(|_| CommandError {
@@ -177,6 +208,19 @@ impl Ledger {
                         code: "storage_error".into(),
                         message: "无法读取流水来源，请重试".into(),
                     })?;
+                    let reversal_id = if t.status == TransactionStatus::Confirmed {
+                        repo.related_transactions(t.id)
+                            .map_err(|_| CommandError {
+                                code: "storage_error".into(),
+                                message: "无法读取流水撤销状态，请重试".into(),
+                            })?
+                            .into_iter()
+                            .find_map(|(id, is_reversal)| {
+                                is_reversal.then(|| id.as_uuid().to_string())
+                            })
+                    } else {
+                        None
+                    };
                     Ok::<PageEntry, CommandError>(PageEntry {
                         id: t.id.as_uuid().to_string(),
                         status: match t.status {
@@ -192,6 +236,7 @@ impl Ledger {
                         description: t.description,
                         edit_version: c.metadata.edit_version,
                         reversal_of: c.metadata.reversal_of.map(|v| v.as_uuid().to_string()),
+                        reversal_id,
                         account_id: t
                             .postings
                             .first()
@@ -211,7 +256,17 @@ impl Ledger {
                             .iter()
                             .map(|e| source_label(e.source_kind).into())
                             .collect(),
+                        external_ids: sources
+                            .iter()
+                            .filter_map(|e| {
+                                e.external_transaction_id.as_ref().map(|id| ExternalId {
+                                    source: source_label(e.source_kind).into(),
+                                    id: id.clone(),
+                                })
+                            })
+                            .collect(),
                         suggestion,
+                        refund_matches,
                     })
                 })
                 .collect::<std::result::Result<Vec<_>, _>>()?,

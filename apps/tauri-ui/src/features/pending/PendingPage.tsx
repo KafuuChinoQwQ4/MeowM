@@ -34,8 +34,10 @@ export function PendingPage({
   const state = useResource(useCallback(() => entriesApi.query(query), [query, revision]));
   const [selected, setSelected] = useState(new Set<string>());
   const [busy, setBusy] = useState(false);
+  const [confirmingAll, setConfirmingAll] = useState(false);
   const running = useRef(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   useEffect(() => setSelected(new Set()), [state.data]);
   const items = state.data?.items ?? [];
   function select(id: string, checked: boolean) {
@@ -51,6 +53,7 @@ export function PendingPage({
     running.current = true;
     setBusy(true);
     setError('');
+    setNotice('');
     try {
       await operation();
       setSelected(new Set());
@@ -61,6 +64,21 @@ export function PendingPage({
       running.current = false;
       setBusy(false);
     }
+  }
+  function confirmSelected() {
+    void act(() => entriesApi.confirm([...selected]));
+  }
+  function confirmAll() {
+    void act(async () => {
+      setConfirmingAll(true);
+      try {
+        const count = await entriesApi.confirmAll(query);
+        setQuery((current) => ({ ...current, offset: 0 }));
+        setNotice(`已确认 ${count} 条记录。`);
+      } finally {
+        setConfirmingAll(false);
+      }
+    });
   }
   return (
     <>
@@ -81,8 +99,23 @@ export function PendingPage({
       <PendingFilters accounts={accounts} query={query} onChange={setQuery} disabled={busy} />
       <LoadState {...state} />
       <FormError message={error} />
+      {notice && <p role="status">{notice}</p>}
       {state.data && (
         <>
+          {query.status === 'pending' && (
+            <>
+              <div className="pending-actions">
+                <button
+                  className="button button-primary"
+                  disabled={busy || state.loading || !!state.error || !state.data.total}
+                  onClick={confirmAll}
+                >
+                  {confirmingAll ? '正在确认全部…' : `一键确认全部（${state.data.total} 条）`}
+                </button>
+              </div>
+              <p className="field-hint">确认当前筛选下所有页的待确认记录，无需逐页勾选。</p>
+            </>
+          )}
           <div className="pending-actions">
             <input
               type="checkbox"
@@ -101,7 +134,7 @@ export function PendingPage({
                 <button
                   className="button button-primary"
                   disabled={busy || !selected.size}
-                  onClick={() => void act(() => entriesApi.confirm([...selected]))}
+                  onClick={confirmSelected}
                 >
                   批量确认
                 </button>
@@ -136,6 +169,17 @@ export function PendingPage({
                 {entry.sources.map((source) => sourceNames[source] ?? source).join('、')} ·{' '}
                 {query.status === 'pending' ? '待确认' : '已忽略'}
               </p>
+              {query.status === 'pending' &&
+                entry.kind === 'refund' &&
+                !entry.original_transaction_id && (
+                  <p className="field-hint">
+                    {entry.refund_matches?.some((match) => match.confidence === 'exact')
+                      ? '原订单号已匹配；原消费已确认或同时勾选时，将自动关联。'
+                      : entry.refund_matches?.length
+                        ? '找到疑似原消费，可打开编辑查看建议；也可直接确认。'
+                        : '原消费关联可选，可直接确认；退款会抵减净支出。'}
+                  </p>
+                )}
               {entry.suggestion && (
                 <p className="field-hint">
                   分类建议：{entry.suggestion.reason}。打开编辑后可选择采用。

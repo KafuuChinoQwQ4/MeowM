@@ -40,7 +40,7 @@ impl BackupService {
         let plaintext = crypto::decrypt(data, password)?;
         let archive: Archive =
             serde_json::from_slice(&plaintext).map_err(|_| BackupError::InvalidData)?;
-        if archive.format_version != 1 || !(1..=10).contains(&archive.snapshot.schema_version) {
+        if archive.format_version != 1 || !(1..=11).contains(&archive.snapshot.schema_version) {
             return Err(BackupError::Version);
         }
         if archive.snapshot.fingerprint()? != archive.checksum
@@ -88,6 +88,9 @@ mod tests {
             if t["name"] == "transactions" {
                 t["columns"].as_array_mut().unwrap().pop();
             }
+            if t["name"] == "source_evidence" {
+                t["columns"].as_array_mut().unwrap().pop();
+            }
         }
         let snapshot: LedgerSnapshot = serde_json::from_value(data).unwrap();
         let a = Archive {
@@ -99,7 +102,7 @@ mod tests {
         let bytes = crypto::encrypt(&serde_json::to_vec(&a).unwrap(), "test-only-pass").unwrap();
         let checked = BackupService::inspect(&bytes, "test-only-pass").unwrap();
         assert_eq!(checked.info.schema_version, 3);
-        assert_eq!(checked.snapshot.schema_version, 10);
+        assert_eq!(checked.snapshot.schema_version, 11);
         let mut bytes = bytes;
         bytes[8] = 2;
         assert!(matches!(

@@ -42,37 +42,72 @@ export function ClassificationPage({
           <div className="analytics-row">
             <h3>分类</h3>
           </div>
-          <div className="pending-actions">
+          <form
+            className="category-create"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (busy || !category.trim()) return;
+              void act(
+                () => searchApi.category(category, true),
+                () => setCategory(''),
+              );
+            }}
+          >
             <Field
               label="新分类名称"
+              maxLength={60}
+              disabled={busy}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
             />
             <button
+              type="submit"
               className="button button-secondary"
               disabled={busy || !category.trim()}
-              onClick={() =>
-                void act(
-                  () => searchApi.category(category, true),
-                  () => setCategory(''),
-                )
-              }
             >
               新增分类
             </button>
-          </div>
+          </form>
           {state.data.categories.map((c) => (
             <div className="search-list-row" key={c.id}>
               <span>
                 {c.name} · {c.enabled ? '启用' : '停用'}
               </span>
-              <button
-                className="text-button"
-                disabled={busy}
-                onClick={() => void act(() => searchApi.category(c.name, !c.enabled, c.id))}
-              >
-                {c.enabled ? '停用' : '启用'}
-              </button>
+              <div className="category-actions">
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={busy}
+                  onClick={() => void act(() => searchApi.category(c.name, !c.enabled, c.id))}
+                >
+                  {c.enabled ? '停用' : '启用'}
+                </button>
+                <button
+                  type="button"
+                  className="text-button"
+                  aria-label={`删除分类 ${c.name}`}
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      !window.confirm(
+                        `确定删除分类「${c.name}」？删除后无法恢复；有关联记录的分类请先调整关联或停用。`,
+                      )
+                    )
+                      return;
+                    void act(
+                      () => searchApi.deleteCategory(c.id),
+                      () => {
+                        if (merchantCategory === c.id) {
+                          setMerchantCategory('');
+                          setMerchantPreview(null);
+                        }
+                      },
+                    );
+                  }}
+                >
+                  删除分类
+                </button>
+              </div>
             </div>
           ))}
           <div className="analytics-row">

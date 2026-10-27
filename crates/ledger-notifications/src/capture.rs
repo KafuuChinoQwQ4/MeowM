@@ -101,6 +101,7 @@ pub fn capture_notification(
             let evidence = SourceEvidence {
                 source_kind: SourceKind::Notification,
                 external_transaction_id: Some(identity.clone()),
+                original_external_transaction_id: None,
                 import_batch_id: uuid::Uuid::new_v4(),
                 source_fields_digest: digest,
             };

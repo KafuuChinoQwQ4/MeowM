@@ -57,10 +57,13 @@ pub(crate) fn normalize_row(
         merchant.as_deref(),
         description.as_deref(),
     );
+    let original_external_transaction_id = refund_reference(row, headers, kind);
+    let digest = digest_with_reference(digest, original_external_transaction_id.as_deref());
     Ok(NormalizedImportRow {
         row_number,
         source_kind: SourceKind::WeChat,
         external_transaction_id: id,
+        original_external_transaction_id,
         occurred_at,
         kind,
         amount_minor,

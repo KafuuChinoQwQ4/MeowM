@@ -278,6 +278,7 @@ fn bank_row(
         row_number,
         source_kind: SourceKind::Bank,
         external_transaction_id: id,
+        original_external_transaction_id: None,
         occurred_at,
         kind,
         amount_minor,

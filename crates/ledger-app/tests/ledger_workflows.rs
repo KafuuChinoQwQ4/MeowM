@@ -457,6 +457,23 @@ fn transfer_changes_both_account_balances_without_changing_total_funds() {
 }
 
 #[test]
+fn unlinked_refund_can_be_confirmed_and_updates_the_account_balance() {
+    let (service, account_id) = service_with_account("CNY", 10_000);
+    let mut refund = expense_for(account_id, 250, utc("2026-01-03T00:00:00Z"));
+    refund.kind = TransactionKind::Refund;
+    refund.postings[0].delta = Money::new(250, CurrencyCode::new("CNY", 2).unwrap());
+    service.confirm(refund).unwrap();
+    assert_eq!(
+        service
+            .account_balance(account_id, utc("2026-01-04T00:00:00Z"))
+            .unwrap()
+            .unwrap()
+            .minor_units(),
+        10_250
+    );
+}
+
+#[test]
 fn refund_requires_a_confirmed_expense_parent() {
     let (service, account_id) = service_with_account("CNY", 10_000);
     let mut refund = expense_for(account_id, 250, utc("2026-01-03T00:00:00Z"));
@@ -643,6 +660,7 @@ fn sqlite_pending_batch_and_edited_confirmation_are_atomic_and_idempotent() {
     let evidence = SourceEvidence {
         source_kind: SourceKind::Bank,
         external_transaction_id: Some("bank-1".into()),
+        original_external_transaction_id: None,
         import_batch_id: batch,
         source_fields_digest: [5; 32],
     };
@@ -767,6 +785,7 @@ fn sqlite_invalid_import_row_rolls_back_batch_postings_and_evidence() {
     let evidence = |id: &str| SourceEvidence {
         source_kind: SourceKind::WeChat,
         external_transaction_id: Some(id.into()),
+        original_external_transaction_id: None,
         import_batch_id: batch,
         source_fields_digest: [7; 32],
     };
@@ -786,7 +805,7 @@ fn sqlite_invalid_import_row_rolls_back_batch_postings_and_evidence() {
 }
 
 #[test]
-fn sqlite_pending_refund_edits_allow_unresolved_parent_but_confirmation_remains_strict() {
+fn sqlite_pending_refund_edits_allow_unresolved_parent_but_validate_explicit_links() {
     use ledger_app::{FeatureRepository, PendingService};
     use ledger_domain::{SourceEvidence, SourceKind, TransactionEdit};
     use ledger_storage::sqlite::SqliteLedgerRepository;
@@ -813,6 +832,7 @@ fn sqlite_pending_refund_edits_allow_unresolved_parent_but_confirmation_remains_
                 SourceEvidence {
                     source_kind: SourceKind::WeChat,
                     external_transaction_id: Some("refund-review".into()),
+                    original_external_transaction_id: None,
                     import_batch_id: batch,
                     source_fields_digest: [5; 32],
                 },
@@ -827,7 +847,8 @@ fn sqlite_pending_refund_edits_allow_unresolved_parent_but_confirmation_remains_
             expected_version: 0,
         })
         .unwrap();
-    assert!(service.confirm(vec![refund.id], vec![]).is_err());
+    // Saving an unlinked draft is allowed. An explicitly chosen pending parent
+    // must still be confirmed before this linked refund can be confirmed.
     refund.original_transaction_id = Some(parent.id);
     service
         .repository()

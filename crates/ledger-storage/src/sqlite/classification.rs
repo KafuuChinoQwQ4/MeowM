@@ -1,5 +1,44 @@
 use super::*;
 
+impl SqliteLedgerRepository {
+    pub fn delete_category(&self, id: CategoryId) -> Result<(), RepositoryError> {
+        let transaction = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        let id = id.as_uuid().to_string();
+        let exists: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM categories WHERE id = ?1)",
+                [&id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !exists {
+            return Err(RepositoryError::NotFound);
+        }
+        let used: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM transactions WHERE category_id = ?1)
+                    OR EXISTS(SELECT 1 FROM classification_rules WHERE category_id = ?1)
+                    OR EXISTS(SELECT 1 FROM budgets WHERE category_id = ?1)
+                    OR EXISTS(SELECT 1 FROM recurring_templates WHERE category_id = ?1)",
+                [&id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if used {
+            return Err(RepositoryError::InvalidData(
+                "分类已被流水、分类规则、预算或周期账单使用，请先调整关联或停用分类。".into(),
+            ));
+        }
+        transaction
+            .execute("DELETE FROM categories WHERE id = ?1", [&id])
+            .map_err(storage_error)?;
+        transaction.commit().map_err(storage_error)
+    }
+}
+
 impl ClassificationRuleRepository for SqliteLedgerRepository {
     fn insert_rule(&self, rule: ClassificationRule) -> Result<(), RepositoryError> {
         let enabled: Option<i64> = self

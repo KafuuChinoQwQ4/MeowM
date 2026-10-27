@@ -73,6 +73,7 @@ impl Ledger {
                 ledger_domain::SourceEvidence {
                     source_kind: row.source_kind,
                     external_transaction_id: row.external_transaction_id.clone(),
+                    original_external_transaction_id: row.original_external_transaction_id.clone(),
                     import_batch_id: session.id,
                     source_fields_digest: row.source_fields_digest,
                 },

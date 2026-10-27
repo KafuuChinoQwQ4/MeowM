@@ -7,6 +7,23 @@
 .search-grid .form-field {
   min-width: 0;
 }
+.category-create {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin: 16px 0;
+}
+.category-create .form-field {
+  min-width: 0;
+  margin: 0;
+}
+.category-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  flex-shrink: 0;
+}
 .search-rule-form {
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -33,6 +50,12 @@
   margin: 12px 0;
 }
 @media (max-width: 480px) {
+  .category-create {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .category-create > button {
+    justify-self: start;
+  }
   .search-list-row {
     align-items: flex-start;
     flex-direction: column;

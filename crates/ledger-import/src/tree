@@ -7,7 +7,7 @@
 - `dedupe.rs` — Import duplicate matching and merge candidates.
 - `excel.rs` — Excel 工作表识别、日期单元格转换与交易号精度校验。
 - `lib.rs` — 微信、支付宝和银行卡 CSV/XLS/XLSX 统一导入与逐行校验。
-- `normalize.rs` — Provider row to standard transaction mapping.
+- `normalize.rs` — 跨来源账单标准化及明确退款原订单号解析。
 - `preview.rs` — Import preview, warnings, and confirmation boundary.
 - `wechat.rs` — WeChat bill file adapter.
 - `tree` — 本目录直接文件的说明索引。

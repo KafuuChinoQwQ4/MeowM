@@ -42,8 +42,8 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.pending-top input,
-.pending-actions input {
+.pending-top input[type='checkbox'],
+.pending-actions input[type='checkbox'] {
   width: 18px;
   height: 18px;
   accent-color: var(--teal);

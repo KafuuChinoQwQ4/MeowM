@@ -1,5 +1,35 @@
 use super::super::*;
 #[test]
+fn deleted_categories_stay_deleted_after_reopening_the_app() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ledger.sqlite3");
+    let ledger = Ledger::open(&path).unwrap();
+    let categories = ledger.classification_state().unwrap().categories;
+    assert!(
+        !categories.is_empty(),
+        "a new ledger should have default categories"
+    );
+    assert!(ledger.delete_category("invalid").is_err());
+    assert!(
+        ledger
+            .delete_category(&uuid::Uuid::nil().to_string())
+            .is_err()
+    );
+    assert_eq!(
+        ledger.classification_state().unwrap().categories.len(),
+        categories.len()
+    );
+    for category in categories {
+        ledger.delete_category(&category.id).unwrap();
+    }
+    assert!(ledger.classification_state().unwrap().categories.is_empty());
+    drop(ledger);
+    let ledger = Ledger::open(&path).unwrap();
+    assert!(ledger.classification_state().unwrap().categories.is_empty());
+    assert_eq!(ledger.accounts().unwrap().len(), 3);
+}
+
+#[test]
 fn platform_management_persists_and_preserves_ledger() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("ledger.sqlite3");

@@ -41,6 +41,7 @@ pub(crate) fn parse_excel(provider: Provider, bytes: &[u8]) -> Result<ParsedImpo
         let id_columns: Vec<_> = provider
             .id_headers()
             .iter()
+            .chain(crate::normalize::ORIGINAL_ORDER_HEADERS.iter())
             .filter_map(|alias| headers.get(&csv::normalize_header(alias)).copied())
             .collect();
         let amount_columns: Vec<_> = provider

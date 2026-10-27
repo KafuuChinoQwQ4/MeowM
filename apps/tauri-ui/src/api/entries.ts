@@ -13,6 +13,16 @@ export interface PageQuery {
   offset: number;
   limit: number;
 }
+export interface RefundMatch {
+  id: string;
+  confidence: 'exact' | 'suggested';
+  reason: string;
+  merchant: string | null;
+  amount: string | null;
+  occurred_at: string;
+  account_id: string;
+  status: 'pending' | 'confirmed';
+}
 export interface PageEntry {
   id: string;
   status: 'pending' | 'confirmed' | 'ignored';
@@ -23,11 +33,14 @@ export interface PageEntry {
   description: string | null;
   edit_version: number;
   reversal_of: string | null;
+  reversal_id: string | null;
   account_id: string | null;
   destination_id?: string | null;
   category_id: string | null;
   original_transaction_id: string | null;
+  refund_matches?: RefundMatch[];
   sources: string[];
+  external_ids: { source: string; id: string }[];
   suggestion?: { category_id: string; rule_id: string; reason: string } | null;
 }
 export interface EntryPage {
@@ -62,6 +75,7 @@ export const entriesApi = {
   query: (query: PageQuery) => invoke<EntryPage>('query_entries', { query }),
   confirm: (ids: string[], edits: PendingEdit[] = []) =>
     invoke<void>('confirm_pending', { ids, edits }),
+  confirmAll: (query: PageQuery) => invoke<number>('confirm_all_pending', { query }),
   edit: (edit: PendingEdit) => invoke<void>('edit_pending', { edit }),
   ignore: (ids: string[]) => invoke<void>('ignore_pending', { ids }),
   restore: (id: string) => invoke<void>('restore_pending', { id }),

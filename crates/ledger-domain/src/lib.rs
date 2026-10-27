@@ -32,7 +32,6 @@ pub enum DomainError {
     UnbalancedTransfer,
     InvalidPostingDirection,
     NegativeReportAmount,
-    RefundOriginalRequired,
     SelfReferentialRefund,
 }
 
@@ -60,9 +59,6 @@ impl fmt::Display for DomainError {
             }
             Self::NegativeReportAmount => {
                 f.write_str("report amount cannot be negative for income, expense, or refund")
-            }
-            Self::RefundOriginalRequired => {
-                f.write_str("refund must reference its original transaction")
             }
             Self::SelfReferentialRefund => {
                 f.write_str("refund cannot reference itself as its original transaction")

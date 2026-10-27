@@ -47,6 +47,7 @@ fn seed() -> (
             Some(SourceEvidence {
                 source_kind: SourceKind::Notification,
                 external_transaction_id: Some(format!("{n:064x}")),
+                original_external_transaction_id: None,
                 import_batch_id: Uuid::new_v4(),
                 source_fields_digest: [n as u8; 32],
             }),

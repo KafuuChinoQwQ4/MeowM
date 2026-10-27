@@ -5,7 +5,7 @@ import { entriesApi } from '../../api/entries';
 import { reportsApi } from '../../api/reports';
 import { LoadState } from '../../components/LoadState';
 import { Pager } from '../../components/Pager';
-import { monthRange, recentMonthRange, recentYearRange } from '../../shared/calendar';
+import { monthRange, recentYearRange } from '../../shared/calendar';
 import { money, today, validDate } from '../../shared/format';
 import { useResource } from '../../shared/useResource';
 import { BudgetCard } from '../budgets/BudgetCard';
@@ -37,7 +37,7 @@ export function ReportsPage({ accounts, revision }: { accounts: Account[]; revis
       });
     }, [from, until, filters.account, filters.category, filters.merchant, page, revision]),
   );
-  const [monthFrom, monthUntil] = recentMonthRange(today().slice(0, 7), 12);
+  const [monthFrom, monthUntil] = recentYearRange(today(), 1);
   const [yearFrom, yearUntil] = recentYearRange(today(), 6);
   const timelineQuery = useCallback(
     (rangeFrom: string, rangeUntil: string) => {
