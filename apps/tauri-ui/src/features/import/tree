@@ -2,7 +2,9 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `ImportPanel.tsx` — 账单来源及文件选择、大小限制与预览加载。
-- `ImportPreview.tsx` — 预览行选择、修订验证和目标平台入箱。
-- `ImportRow.tsx` — 单行候选修订和精确或疑似重复的选择规则。
+- `ImportPanel.tsx` — 平台管理同步的账单来源选择、CSV、Excel、银行 PDF 本机预览及密码处理。
+- `ImportPreview.tsx` — 候选选择、切换平台重新查重及修订；提交时自动定位首个缺失转账平台并聚焦。
+- `ImportRow.tsx` — 单行账单修订、转账平台选择与待补字段高亮。
+- `importSources.ts` — 列出全部管理平台并映射支持的微信、支付宝和银行卡账单格式。
+- `transferMapping.ts` — 根据账单方向及对方户名，安全预填转账的转出转入平台。
 - `tree` — 本目录直接文件的说明索引。

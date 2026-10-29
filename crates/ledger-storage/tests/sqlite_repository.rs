@@ -153,8 +153,8 @@ fn reversing_refund_restores_expense_total_and_pending_cannot_be_reversed() {
 #[test]
 fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
     let repo = SqliteLedgerRepository::in_memory().unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 11);
-    assert_eq!(repo.schema_version().unwrap(), 11);
+    assert_eq!(repo.schema_version().unwrap(), 12);
+    assert_eq!(repo.schema_version().unwrap(), 12);
 
     let account = account("CNY", 20_000);
     let account_id = account.id;
@@ -176,7 +176,7 @@ fn fresh_database_migrates_once_and_round_trips_account_and_transaction() {
 }
 
 #[test]
-fn opening_existing_file_keeps_schema_at_version_eleven() {
+fn opening_existing_file_keeps_schema_at_version_twelve() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("ledger.sqlite3");
     assert_eq!(
@@ -184,15 +184,80 @@ fn opening_existing_file_keeps_schema_at_version_eleven() {
             .unwrap()
             .schema_version()
             .unwrap(),
-        11
+        12
     );
     assert_eq!(
         SqliteLedgerRepository::open(&path)
             .unwrap()
             .schema_version()
             .unwrap(),
-        11
+        12
     );
+}
+
+#[test]
+fn schema_eleven_migrates_existing_evidence_and_merchant_orders_survive_snapshots_atomically() {
+    use ledger_app::FeatureRepository;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("merchant-order-migration.sqlite");
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    let wallet = account("CNY", 10000);
+    repo.insert_account(wallet.clone()).unwrap();
+    let original = expense(
+        wallet.id,
+        TransactionId::new(),
+        TransactionStatus::Confirmed,
+    );
+    let evidence = SourceEvidence {
+        source_kind: SourceKind::WeChat,
+        external_transaction_id: Some("00001234".into()),
+        merchant_order_id: None,
+        original_external_transaction_id: None,
+        source_fields_digest: [7; 32],
+        import_batch_id: Uuid::new_v4(),
+    };
+    repo.insert_transaction_with_source(original.clone(), evidence.clone())
+        .unwrap();
+    drop(repo);
+    let connection = Connection::open(&path).unwrap();
+    connection.execute_batch("DROP INDEX source_evidence_merchant_order; ALTER TABLE source_evidence DROP COLUMN merchant_order_id; DELETE FROM schema_version WHERE version=12;").unwrap();
+    drop(connection);
+    let repo = SqliteLedgerRepository::open(&path).unwrap();
+    assert_eq!(repo.schema_version().unwrap(), 12);
+    assert_eq!(
+        repo.get_transaction(original.id).unwrap(),
+        Some(original.clone())
+    );
+    assert_eq!(
+        repo.source_evidence(original.id).unwrap(),
+        vec![evidence.clone()]
+    );
+    let duplicate = expense(
+        wallet.id,
+        TransactionId::new(),
+        TransactionStatus::Confirmed,
+    );
+    assert!(
+        repo.insert_transaction_with_source(duplicate, evidence.clone())
+            .is_err()
+    );
+    assert_eq!(repo.list_transactions().unwrap().len(), 1);
+    assert_eq!(repo.posting_count().unwrap(), 1);
+    let second = expense(
+        wallet.id,
+        TransactionId::new(),
+        TransactionStatus::Confirmed,
+    );
+    let evidence = SourceEvidence {
+        external_transaction_id: Some("00009999".into()),
+        merchant_order_id: Some("00005678".into()),
+        import_batch_id: Uuid::new_v4(),
+        ..evidence
+    };
+    repo.insert_transaction_with_source(second.clone(), evidence.clone())
+        .unwrap();
+    let restored = SqliteLedgerRepository::from_snapshot(&repo.snapshot().unwrap()).unwrap();
+    assert_eq!(restored.source_evidence(second.id).unwrap(), vec![evidence]);
 }
 
 #[test]
@@ -241,7 +306,7 @@ fn opening_database_with_invalid_schema_version_is_rejected() {
 }
 
 #[test]
-fn opening_version_one_database_upgrades_to_version_eleven() {
+fn opening_version_one_database_upgrades_to_version_twelve() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("upgrade.sqlite3");
     let connection = Connection::open(&path).unwrap();
@@ -257,7 +322,7 @@ fn opening_version_one_database_upgrades_to_version_eleven() {
     drop(connection);
 
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 11);
+    assert_eq!(repo.schema_version().unwrap(), 12);
     let connection = Connection::open(&path).unwrap();
     let has_rules: i64 = connection
         .query_row(
@@ -363,6 +428,7 @@ fn duplicate_source_external_id_is_rejected_without_duplicate_evidence() {
         source_kind: SourceKind::WeChat,
         external_transaction_id: Some("wx-transaction-42".into()),
         original_external_transaction_id: None,
+        merchant_order_id: None,
         import_batch_id: batch,
         source_fields_digest: [7; 32],
     };
@@ -388,6 +454,7 @@ fn evidence_conflict_rolls_back_transaction_postings_and_import_batch() {
             source_kind: SourceKind::WeChat,
             external_transaction_id: external_id.clone(),
             original_external_transaction_id: None,
+            merchant_order_id: None,
             import_batch_id: Uuid::new_v4(),
             source_fields_digest: [7; 32],
         }),
@@ -404,6 +471,7 @@ fn evidence_conflict_rolls_back_transaction_postings_and_import_batch() {
                 source_kind: SourceKind::WeChat,
                 external_transaction_id: external_id,
                 original_external_transaction_id: None,
+                merchant_order_id: None,
                 import_batch_id: candidate_batch,
                 source_fields_digest: [8; 32],
             }),
@@ -430,6 +498,7 @@ fn distinct_transactions_reuse_the_same_import_batch() {
         source_kind: SourceKind::WeChat,
         external_transaction_id: Some("wx-batch-entry-1".into()),
         original_external_transaction_id: None,
+        merchant_order_id: None,
         import_batch_id: batch,
         source_fields_digest: [1; 32],
     };
@@ -437,6 +506,7 @@ fn distinct_transactions_reuse_the_same_import_batch() {
         source_kind: SourceKind::WeChat,
         external_transaction_id: Some("wx-batch-entry-2".into()),
         original_external_transaction_id: None,
+        merchant_order_id: None,
         import_batch_id: batch,
         source_fields_digest: [2; 32],
     };
@@ -749,7 +819,7 @@ fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
     drop(db);
     for _ in 0..2 {
         let repo = SqliteLedgerRepository::open(&path).unwrap();
-        assert_eq!(repo.schema_version().unwrap(), 11);
+        assert_eq!(repo.schema_version().unwrap(), 12);
         assert_eq!(
             repo.list_accounts().unwrap()[0].id.as_uuid().to_string(),
             "00000000-0000-0000-0000-000000000001"
@@ -785,7 +855,7 @@ fn version_three_upgrade_preserves_all_rows_and_is_repeatable() {
         db.query_row("SELECT count(*) FROM schema_version", [], |r| r
             .get::<_, i64>(0))
             .unwrap(),
-        11
+        12
     );
 }
 
@@ -1021,7 +1091,7 @@ fn version_four_bank_migration_preserves_evidence_and_rolls_back_on_failure() {
                 .unwrap()
                 .schema_version()
                 .unwrap(),
-            11
+            12
         );
     }
     let db = Connection::open(&good).unwrap();
@@ -1073,6 +1143,7 @@ fn pending_import_receipt_survives_restart_and_keeps_bank_identity() {
         source_kind: SourceKind::Bank,
         external_transaction_id: Some("bank-stable".into()),
         original_external_transaction_id: None,
+        merchant_order_id: None,
         import_batch_id: batch,
         source_fields_digest: [9; 32],
     };

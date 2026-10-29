@@ -41,6 +41,7 @@ export interface PageEntry {
   refund_matches?: RefundMatch[];
   sources: string[];
   external_ids: { source: string; id: string }[];
+  merchant_order_ids?: { source: string; id: string }[];
   suggestion?: { category_id: string; rule_id: string; reason: string } | null;
 }
 export interface EntryPage {

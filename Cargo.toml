@@ -2,6 +2,12 @@
 resolver = "2"
 members = ["crates/ledger-domain", "crates/ledger-app", "crates/ledger-storage", "crates/ledger-import", "crates/ledger-notifications", "crates/ledger-backup", "crates/ledger-export", "apps/tauri-ui/src-tauri"]
 
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0
+
 [workspace.package]
 version = "0.1.0"
 edition = "2024"

@@ -29,7 +29,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 11
+                && v <= 12
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -50,12 +50,13 @@ impl SqliteLedgerRepository {
                 | (8, Some(8))
                 | (9, Some(9))
                 | (10, Some(10))
-                | (11, Some(11)) => {
+                | (11, Some(11))
+                | (12, Some(12)) => {
                     return Ok(());
                 }
-                (_, Some(version)) if version > 11 => {
+                (_, Some(version)) if version > 12 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 11"
+                        "database schema version {version} is newer than supported version 12"
                     )));
                 }
                 _ => {
@@ -344,6 +345,24 @@ impl SqliteLedgerRepository {
             .map_err(storage_error)?;
         tx.execute(
             "INSERT INTO schema_version VALUES(11,?1)",
+            [Utc::now().timestamp_micros()],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    pub(super) fn apply_merchant_order_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 12 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!("../../migrations/0012_merchant_orders.sql"))
+            .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO schema_version VALUES(12,?1)",
             [Utc::now().timestamp_micros()],
         )
         .map_err(storage_error)?;

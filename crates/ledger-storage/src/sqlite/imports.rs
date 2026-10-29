@@ -21,8 +21,8 @@ impl SqliteLedgerRepository {
         self.connection
             .execute(
                 "INSERT INTO source_evidence(\
-                    transaction_id, source_kind, external_transaction_id, import_batch_id, source_fields_digest, original_external_transaction_id\
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    transaction_id, source_kind, external_transaction_id, import_batch_id, source_fields_digest, original_external_transaction_id, merchant_order_id\
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     transaction_id.as_uuid().to_string(),
                     source_kind_str(evidence.source_kind),
@@ -30,6 +30,7 @@ impl SqliteLedgerRepository {
                     evidence.import_batch_id.to_string(),
                     evidence.source_fields_digest.as_slice(),
                     evidence.original_external_transaction_id,
+                    evidence.merchant_order_id,
                 ],
             )
             .map_err(map_insert_error)?;

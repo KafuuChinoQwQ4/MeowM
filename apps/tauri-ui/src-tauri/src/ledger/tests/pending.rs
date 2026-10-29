@@ -1,4 +1,280 @@
 use super::super::*;
+use std::fmt::Write as _;
+
+#[test]
+fn password_protected_pdf_can_change_platform_and_dedupe_without_retaining_credentials() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("bank-pdf.sqlite");
+    let ledger = Ledger::open(&path).unwrap();
+    let accounts = ledger.accounts().unwrap();
+    let first = &accounts[0].id;
+    let target = &accounts[1].id;
+    let bytes =
+        include_bytes!("../../../../../../crates/ledger-import/tests/fixtures/boc-encrypted.pdf");
+    assert!(
+        ledger
+            .bill_preview("bank", bytes.to_vec())
+            .err()
+            .unwrap()
+            .contains("密码")
+    );
+    assert!(
+        ledger
+            .bill_preview_with_password("bank", bytes.to_vec(), Some(first), Some("wrong"))
+            .err()
+            .unwrap()
+            .contains("密码不正确")
+    );
+    assert!(
+        ledger
+            .repo()
+            .unwrap()
+            .list_transactions()
+            .unwrap()
+            .is_empty()
+    );
+    let preview = ledger
+        .bill_preview_with_password("bank", bytes.to_vec(), Some(first), Some("fixture-only"))
+        .unwrap();
+    assert!(preview.errors.is_empty());
+    assert_eq!(preview.rows.len(), 4);
+    assert_eq!(
+        preview.rows[2].transfer_direction.as_deref(),
+        Some("outgoing")
+    );
+    let changed = ledger
+        .repreview_bill(&preview.preview_id, Some(target))
+        .unwrap();
+    assert_ne!(changed.preview_id, preview.preview_id);
+    assert_eq!(
+        changed
+            .rows
+            .iter()
+            .map(|row| (&row.date, &row.amount, &row.description))
+            .collect::<Vec<_>>(),
+        preview
+            .rows
+            .iter()
+            .map(|row| (&row.date, &row.amount, &row.description))
+            .collect::<Vec<_>>()
+    );
+    assert!(
+        ledger
+            .repreview_bill(&preview.preview_id, Some(first))
+            .is_err()
+    );
+    assert!(
+        ledger
+            .stage_preview(
+                &preview.preview_id,
+                first,
+                vec![preview.rows[0].id.clone()],
+                vec![]
+            )
+            .is_err()
+    );
+    let ids = changed
+        .rows
+        .iter()
+        .map(|row| row.id.clone())
+        .collect::<Vec<_>>();
+    let edits = changed
+        .rows
+        .iter()
+        .filter(|row| row.kind == "transfer")
+        .map(|row| PendingEdit {
+            id: row.id.clone(),
+            expected_version: 0,
+            account_id: target.clone(),
+            destination_id: Some(target.clone()),
+            date: row.date.clone(),
+            amount: row.amount.clone(),
+            kind: row.kind.clone(),
+            merchant: row.merchant.clone(),
+            description: row.description.clone(),
+            category_id: None,
+            original_transaction_id: None,
+        })
+        .collect();
+    ledger
+        .set_reference(target, "2026-10-02", "1000.00")
+        .unwrap();
+    ledger
+        .stage_preview(&changed.preview_id, target, ids.clone(), edits)
+        .unwrap();
+    ledger.confirm_pending(ids, vec![]).unwrap();
+    let day = ledger.day(target, "2026-10-04").unwrap();
+    assert_eq!(day.income, "0.29");
+    assert_eq!(day.balance.as_deref(), Some("988.99"));
+    assert!(ledger.day(first, "2026-10-03").unwrap().entries.is_empty());
+    let repeated = ledger
+        .repreview_bill(&changed.preview_id, Some(target))
+        .unwrap();
+    assert_eq!(repeated.exact_duplicates, 4);
+    ledger.clear_import_preview();
+    assert!(
+        ledger
+            .repreview_bill(&repeated.preview_id, Some(target))
+            .is_err()
+    );
+    drop(ledger);
+    let persisted = std::fs::read(path).unwrap();
+    for marker in [b"fixture-only".as_slice(), b"%PDF-".as_slice()] {
+        assert!(
+            !persisted
+                .windows(marker.len())
+                .any(|window| window == marker)
+        );
+    }
+}
+
+#[test]
+fn alipay_internal_transfers_preserve_records_without_changing_platform_balance_or_reports() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("alipay-internal.sqlite");
+    let ledger = Ledger::open(&path).unwrap();
+    let account = ledger
+        .accounts()
+        .unwrap()
+        .into_iter()
+        .find(|account| account.name == "支付宝")
+        .unwrap()
+        .id;
+    ledger
+        .set_reference(&account, "2026-08-01", "1000.00")
+        .unwrap();
+    let csv = "记录时间,分类,收支类型,金额,备注,账户\n2026-09-23 18:00:44,借还款,不计收支,1.22,花呗主动还款,银行卡|花呗\n2026-09-21 23:20:35,转账,不计收支,201.80,余额提现,银行卡|余额\n2026-09-21 23:20:03,转账,不计收支,2.80,余额宝-转出到余额,余额|余额宝\n2026-08-29 00:53:04,转账,不计收支,2.80,余额宝-自动转入,余额|余额宝\n2026-08-28 18:30:33,转账,不计收支,140.00,余额充值,银行卡|余额\n";
+    let preview = ledger
+        .bill_preview_for_account("alipay", csv.as_bytes().to_vec(), Some(&account))
+        .unwrap();
+    assert!(preview.errors.is_empty());
+    assert_eq!(preview.rows.len(), 5);
+    let ids = preview
+        .rows
+        .iter()
+        .map(|row| row.id.clone())
+        .collect::<Vec<_>>();
+    let mut edits = preview
+        .rows
+        .iter()
+        .map(|row| PendingEdit {
+            id: row.id.clone(),
+            expected_version: 0,
+            account_id: account.clone(),
+            destination_id: Some(account.clone()),
+            date: row.date.clone(),
+            amount: row.amount.clone(),
+            kind: "transfer".into(),
+            merchant: row.merchant.clone(),
+            description: row.description.clone(),
+            category_id: None,
+            original_transaction_id: None,
+        })
+        .collect::<Vec<_>>();
+    ledger
+        .stage_preview(&preview.preview_id, &account, ids.clone(), edits.clone())
+        .unwrap();
+    edits[0].description = "花呗主动还款（核对后确认）".into();
+    ledger
+        .confirm_pending(ids.clone(), vec![edits.remove(0)])
+        .unwrap();
+    drop(ledger);
+    let ledger = Ledger::open(&path).unwrap();
+    for (id, amount) in ids.iter().zip(["1.22", "201.80", "2.80", "2.80", "140.00"]) {
+        let detail = ledger.transaction_detail(id).unwrap();
+        assert_eq!(detail.kind, "transfer");
+        assert_eq!(detail.status, "confirmed");
+        assert_eq!(detail.account_id, account);
+        assert_eq!(detail.destination_id.as_deref(), Some(account.as_str()));
+        assert_eq!(detail.amount, amount);
+        let view = ledger.day(&account, &detail.date).unwrap();
+        assert_eq!(view.income, "0.00");
+        assert_eq!(view.expense, "0.00");
+        assert_eq!(view.net, "0.00");
+        assert_eq!(view.balance.as_deref(), Some("1000.00"));
+    }
+    assert_eq!(ledger.day(&account, "2026-09-21").unwrap().entries.len(), 2);
+    assert_eq!(
+        ledger.transaction_detail(&ids[0]).unwrap().description,
+        "花呗主动还款（核对后确认）"
+    );
+    assert_eq!(
+        ledger
+            .bill_preview_for_account("alipay", csv.as_bytes().to_vec(), Some(&account))
+            .unwrap()
+            .exact_duplicates,
+        5
+    );
+}
+
+#[test]
+fn alipay_uncounted_refund_and_transfer_stage_without_losing_balance_or_report_semantics() {
+    let directory = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&directory.path().join("uncounted.sqlite")).unwrap();
+    let accounts = ledger.accounts().unwrap();
+    let source = &accounts[0].id;
+    let destination = &accounts[1].id;
+    let csv = "记录时间,分类,收支类型,金额,备注,账户\n2026-10-07 18:25:37,退款,不计收支,249.00,退款-测试,银行卡\n2026-09-23 18:00:44,借还款,不计收支,1.22,花呗主动还款,银行卡|花呗\n";
+    let preview = ledger
+        .bill_preview_for_account("alipay", csv.as_bytes().to_vec(), Some(source))
+        .unwrap();
+    assert!(preview.errors.is_empty());
+    assert_eq!(preview.rows.len(), 2);
+    assert_eq!(preview.rows[1].account_hint.as_deref(), Some("银行卡|花呗"));
+    let ids = preview
+        .rows
+        .iter()
+        .map(|row| row.id.clone())
+        .collect::<Vec<_>>();
+    assert!(
+        ledger
+            .stage_preview(&preview.preview_id, source, ids.clone(), vec![])
+            .is_err()
+    );
+    assert!(
+        ledger
+            .repo()
+            .unwrap()
+            .list_transactions()
+            .unwrap()
+            .is_empty()
+    );
+    let row = &preview.rows[1];
+    let edit = PendingEdit {
+        id: row.id.clone(),
+        expected_version: 0,
+        account_id: source.clone(),
+        destination_id: Some(destination.clone()),
+        date: row.date.clone(),
+        amount: row.amount.clone(),
+        kind: "transfer".into(),
+        merchant: row.merchant.clone(),
+        description: row.description.clone(),
+        category_id: None,
+        original_transaction_id: None,
+    };
+    ledger
+        .stage_preview(&preview.preview_id, source, ids.clone(), vec![edit])
+        .unwrap();
+    ledger.confirm_pending(ids.clone(), vec![]).unwrap();
+    let transfer = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(transaction_id(&ids[1]).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(transfer.postings.len(), 2);
+    assert!(transfer.report_amount_cny.is_none());
+    assert_eq!(ledger.day_all("2026-09-23").unwrap().net, "0.00");
+    assert_eq!(ledger.day_all("2026-10-07").unwrap().expense, "-249.00");
+    assert_eq!(
+        ledger
+            .bill_preview("alipay", csv.as_bytes().to_vec())
+            .unwrap()
+            .exact_duplicates,
+        2
+    );
+}
 
 fn stage_confirm_all_fixture(ledger: &Ledger, account: &str) -> Vec<String> {
     let mut csv =
@@ -257,6 +533,30 @@ fn bill_preview_stage_and_pending_confirmation_use_real_sqlite_without_raw_text(
             .any(|window| window == b"RAW_PRIVATE_TEST_SENTINEL")
     );
 }
+
+#[test]
+fn bill_import_stages_10000_candidates() {
+    let directory = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&directory.path().join("large-import.sqlite")).unwrap();
+    let account = ledger.accounts().unwrap()[0].id.clone();
+    let mut csv = String::from("交易日期,交易金额,借贷标记,流水号\n");
+    for index in 0..ledger_import::MAX_IMPORT_ROWS {
+        writeln!(csv, "2026-10-03,1,借,bank-{index}").unwrap();
+    }
+
+    let preview = ledger.bill_preview("bank", csv.into_bytes()).unwrap();
+    assert_eq!(preview.new_count, ledger_import::MAX_IMPORT_ROWS);
+    let ids = preview.rows.into_iter().map(|row| row.id).collect();
+    let staged = ledger
+        .stage_preview(&preview.preview_id, &account, ids, vec![])
+        .unwrap();
+    assert_eq!(staged.len(), ledger_import::MAX_IMPORT_ROWS);
+    assert_eq!(
+        ledger.repo().unwrap().list_transactions().unwrap().len(),
+        staged.len()
+    );
+}
+
 #[test]
 fn preview_matches_manual_records_even_beyond_first_neighbor_page() {
     let directory = tempfile::tempdir().unwrap();
@@ -592,6 +892,7 @@ fn refund_matching_excludes_wrong_platform_provider_future_reversed_and_excess_a
                     },
                     external_transaction_id: Some("order-1".into()),
                     original_external_transaction_id: None,
+                    merchant_order_id: None,
                     import_batch_id: batch,
                     source_fields_digest: [1; 32],
                 },

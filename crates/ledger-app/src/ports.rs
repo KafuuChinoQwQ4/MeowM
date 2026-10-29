@@ -19,6 +19,15 @@ pub trait LedgerRepository {
     fn update_account(&self, account: Account) -> Result<(), RepositoryError>;
 
     fn insert_transaction(&self, transaction: Transaction) -> Result<(), RepositoryError>;
+    fn insert_transaction_with_source(
+        &self,
+        _transaction: Transaction,
+        _evidence: SourceEvidence,
+    ) -> Result<(), RepositoryError> {
+        Err(RepositoryError::InvalidData(
+            "repository does not support atomic source evidence".into(),
+        ))
+    }
     fn get_transaction(&self, id: TransactionId) -> Result<Option<Transaction>, RepositoryError>;
     fn list_transactions(&self) -> Result<Vec<Transaction>, RepositoryError>;
     fn update_transaction(&self, transaction: Transaction) -> Result<(), RepositoryError>;

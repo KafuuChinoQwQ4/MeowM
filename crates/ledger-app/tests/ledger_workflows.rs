@@ -661,6 +661,7 @@ fn sqlite_pending_batch_and_edited_confirmation_are_atomic_and_idempotent() {
         source_kind: SourceKind::Bank,
         external_transaction_id: Some("bank-1".into()),
         original_external_transaction_id: None,
+        merchant_order_id: None,
         import_batch_id: batch,
         source_fields_digest: [5; 32],
     };
@@ -786,6 +787,7 @@ fn sqlite_invalid_import_row_rolls_back_batch_postings_and_evidence() {
         source_kind: SourceKind::WeChat,
         external_transaction_id: Some(id.into()),
         original_external_transaction_id: None,
+        merchant_order_id: None,
         import_batch_id: batch,
         source_fields_digest: [7; 32],
     };
@@ -833,6 +835,7 @@ fn sqlite_pending_refund_edits_allow_unresolved_parent_but_validate_explicit_lin
                     source_kind: SourceKind::WeChat,
                     external_transaction_id: Some("refund-review".into()),
                     original_external_transaction_id: None,
+                    merchant_order_id: None,
                     import_batch_id: batch,
                     source_fields_digest: [5; 32],
                 },

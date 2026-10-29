@@ -177,7 +177,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
         tx.commit().map_err(storage_error)
     }
     fn source_evidence(&self, id: TransactionId) -> Result<Vec<SourceEvidence>, RepositoryError> {
-        let mut stmt=self.connection.prepare("SELECT source_kind,external_transaction_id,import_batch_id,source_fields_digest,original_external_transaction_id FROM source_evidence WHERE transaction_id=?1 ORDER BY id").map_err(storage_error)?;
+        let mut stmt=self.connection.prepare("SELECT source_kind,external_transaction_id,import_batch_id,source_fields_digest,original_external_transaction_id,merchant_order_id FROM source_evidence WHERE transaction_id=?1 ORDER BY id").map_err(storage_error)?;
         stmt.query_map([id.as_uuid().to_string()], |r| {
             let k: String = r.get(0)?;
             let batch: String = r.get(2)?;
@@ -195,6 +195,7 @@ impl ledger_app::FeatureRepository for SqliteLedgerRepository {
                 },
                 external_transaction_id: r.get(1)?,
                 original_external_transaction_id: r.get(4)?,
+                merchant_order_id: r.get(5)?,
                 import_batch_id: Uuid::parse_str(&batch)
                     .map_err(|_| rusqlite::Error::InvalidQuery)?,
                 source_fields_digest: digest

@@ -14,7 +14,7 @@ impl Ledger {
             return Err("预览已失效，请重新选择文件".into());
         }
         if ids.is_empty()
-            || ids.len() > 1000
+            || ids.len() > ledger_import::MAX_IMPORT_ROWS
             || ids.iter().collect::<std::collections::HashSet<_>>().len() != ids.len()
         {
             return Err("请选择有效候选行".into());
@@ -44,6 +44,19 @@ impl Ledger {
                 return Err("精确重复行不能再次导入".into());
             }
             let amount = row.amount_minor;
+            if row.kind == TransactionKind::Transfer
+                && !edits.iter().any(|edit| {
+                    edit.id == id
+                        && edit.kind == "transfer"
+                        && !edit.account_id.is_empty()
+                        && edit
+                            .destination_id
+                            .as_ref()
+                            .is_some_and(|id| !id.is_empty())
+                })
+            {
+                return Err(format!("第 {} 行转账需选择转出和转入平台", row.row_number));
+            }
             let positive = matches!(row.kind, TransactionKind::Income | TransactionKind::Refund);
             let sign = if positive == (account.kind == AccountKind::Asset) {
                 1
@@ -68,12 +81,16 @@ impl Ledger {
             if let Some(edit) = edits.iter().find(|edit| edit.id == id) {
                 tx = self.apply_pending_edit(tx, edit)?;
             }
+            if tx.kind == TransactionKind::Transfer {
+                tx.report_amount_cny = None;
+            }
             items.push((
                 tx,
                 ledger_domain::SourceEvidence {
                     source_kind: row.source_kind,
                     external_transaction_id: row.external_transaction_id.clone(),
                     original_external_transaction_id: row.original_external_transaction_id.clone(),
+                    merchant_order_id: row.merchant_order_id.clone(),
                     import_batch_id: session.id,
                     source_fields_digest: row.source_fields_digest,
                 },

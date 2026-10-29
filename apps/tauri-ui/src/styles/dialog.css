@@ -101,3 +101,260 @@ dialog:has(.import-preview-form) #sheet-content {
 .import-preview-actions .submit-button {
   margin-top: 0;
 }
+.import-preview-form .pending-card.import-row-needs-attention {
+  border-color: var(--teal);
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+  scroll-margin-block: 18px;
+}
+
+dialog:has(.import-panel) {
+  display: flex;
+  flex-direction: column;
+  width: min(100% - 24px, 540px);
+  max-height: min(92vh, 760px);
+  overflow: hidden;
+  border: 1px solid #dce6f2;
+  background: linear-gradient(180deg, #fff 0%, #f8faff 100%);
+  box-shadow: 0 28px 90px rgba(40, 67, 105, 0.28);
+}
+dialog:has(.import-panel) .sheet-head {
+  align-items: center;
+  padding: 23px 26px 10px;
+}
+dialog:has(.import-panel) .sheet-head h2 {
+  font-size: 1.45rem;
+  letter-spacing: -0.035em;
+}
+dialog:has(.import-panel) #sheet-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.import-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 26px 26px;
+  scrollbar-color: #cbd8e8 transparent;
+}
+.import-intro {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 16px;
+  margin-bottom: 15px;
+  border: 1px solid #e0e9f6;
+  border-radius: 17px;
+  background: linear-gradient(120deg, #eef5ff, #f5f5ff 72%, #fff5fa);
+}
+.import-intro-icon,
+.import-file-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: #e1ecff;
+  color: #4773a5;
+}
+.import-intro-icon svg,
+.import-file-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+.import-eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: #4c709b;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.import-intro p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+.import-source-card,
+.import-file-section,
+.import-password-card {
+  padding: 16px;
+  border: 1px solid #e1e8f1;
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 5px 18px rgba(70, 98, 136, 0.045);
+}
+.import-file-section {
+  margin-top: 13px;
+}
+.import-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.import-step-number {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  background: #edf3fc;
+  color: #53749b;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.67rem;
+  font-weight: 500;
+}
+.import-card-heading strong,
+.import-card-heading small,
+.import-source-summary strong,
+.import-source-summary small,
+.import-file-copy strong,
+.import-file-copy small {
+  display: block;
+}
+.import-card-heading strong,
+.import-source-summary strong,
+.import-file-copy strong {
+  color: #31445d;
+  font-size: 0.79rem;
+  font-weight: 800;
+}
+.import-card-heading small,
+.import-source-summary small,
+.import-file-copy small {
+  margin-top: 2px;
+  color: #7b8a9e;
+  font-size: 0.66rem;
+  line-height: 1.45;
+}
+.import-source-field {
+  margin: 13px 0 0;
+}
+.import-source-field select {
+  margin-top: 0;
+  min-height: 46px;
+  border-color: #d9e3ef;
+  border-radius: 12px;
+  background-color: #f8faff;
+  color: #30445e;
+  font-size: 0.8rem;
+}
+.import-source-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 51px;
+  padding-top: 12px;
+  margin-top: 12px;
+  border-top: 1px solid #edf1f6;
+}
+.import-source-summary .platform-badge {
+  max-width: 45%;
+  flex: 0 1 auto;
+  font-size: 0.72rem;
+}
+.import-source-summary > div {
+  min-width: 0;
+}
+.import-file-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 75px;
+  padding: 12px;
+  margin-top: 14px;
+  border: 1px dashed #b8cbe2;
+  border-radius: 14px;
+  background: #f8faff;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+.import-file-picker:hover,
+.import-file-picker:focus-within {
+  border-color: #6c94c3;
+  background: #f2f7ff;
+}
+.import-file-picker:active {
+  transform: scale(0.995);
+}
+.import-file-picker input[type='file'] {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.import-file-picker .import-file-icon {
+  width: 40px;
+  height: 40px;
+}
+.import-file-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.import-file-button {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border: 1px solid #dce6f2;
+  border-radius: 10px;
+  background: #fff;
+  color: #4c709b;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.import-format-note {
+  margin: 10px 1px 0;
+  color: #7d8b9e;
+  font-size: 0.65rem;
+  line-height: 1.65;
+}
+.import-password-card {
+  margin-top: 13px;
+}
+.import-password-card .field-hint {
+  margin: 8px 0 12px;
+}
+.import-password-card .button {
+  width: 100%;
+}
+dialog:has(.import-panel) .form-error {
+  flex: 0 0 auto;
+}
+@media (max-width: 560px) {
+  dialog:has(.import-panel) {
+    width: min(100% - 16px, 540px);
+    max-height: min(92vh, 760px);
+  }
+  dialog:has(.import-panel) .sheet-head {
+    padding: 19px 18px 9px;
+  }
+  .import-panel {
+    padding: 8px 18px 20px;
+  }
+  .import-intro,
+  .import-source-card,
+  .import-file-section {
+    border-radius: 15px;
+  }
+  .import-file-button {
+    padding: 8px;
+  }
+}

@@ -5,6 +5,7 @@ export interface TransactionDto {
   status: 'pending' | 'confirmed' | 'ignored';
   amount: string;
   date: string;
+  time?: string;
   account_id: string;
   to_account_id?: string | null;
   category_id?: string | null;
@@ -19,7 +20,12 @@ export interface TransactionDetail {
   reversal_of: string | null;
   reversal_id: string | null;
   related_ids: string[];
-  sources: { source: string; external_id?: string | null; digest?: string | null }[];
+  sources: {
+    source: string;
+    external_id?: string | null;
+    merchant_order_id?: string | null;
+    digest?: string | null;
+  }[];
   history: { id: string; action: string; time: string; detail: string }[];
 }
 interface RawTransactionDetail extends Omit<TransactionDto, 'to_account_id'> {
@@ -27,7 +33,12 @@ interface RawTransactionDetail extends Omit<TransactionDto, 'to_account_id'> {
   reversal_of: string | null;
   reversal_id: string | null;
   linked_ids: string[];
-  sources: { source: string; external_id?: string | null; digest?: string | null }[];
+  sources: {
+    source: string;
+    external_id?: string | null;
+    merchant_order_id?: string | null;
+    digest?: string | null;
+  }[];
   history: [string, number][];
 }
 export interface TransactionWrite {
@@ -36,6 +47,10 @@ export interface TransactionWrite {
   kind: string;
   amount: string;
   date: string;
+  time?: string;
+  source?: string;
+  transaction_number?: string;
+  merchant_order_id?: string;
   account_id: string;
   to_account_id?: string | null;
   category_id?: string | null;
@@ -77,6 +92,10 @@ export const transactionsApi = {
           original_transaction_id: payload.original_transaction_id ?? null,
         },
         destination_id: payload.to_account_id ?? null,
+        source: payload.source || null,
+        transaction_number: payload.transaction_number?.trim() || null,
+        merchant_order_id: payload.merchant_order_id?.trim() || null,
+        time: payload.time || null,
       },
     }),
   reverse: (id: string, reason: string) => invoke<string>('reverse_transaction', { id, reason }),

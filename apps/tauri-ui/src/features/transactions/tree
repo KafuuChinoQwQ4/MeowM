@@ -3,7 +3,7 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `RecordsPage.tsx` — 流水分页和详情入口。
-- `TransactionEditor.tsx` — 手动记账、转账、退款和版本化编辑确认。
+- `TransactionEditor.tsx` — 手动记账与编辑，规范商户时间、可选备注及双单号核对。
 - `TransactionHistory.tsx` — 交易来源、关联记录与审计历史。
 - `TransactionPanel.tsx` — 交易详情加载、编辑与撤销流程编排。
 - `impact.ts` — 使用整数分计算交易编辑前后的金额影响。

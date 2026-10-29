@@ -32,7 +32,7 @@ pub(crate) fn normalize_row(
                 row: row_number,
                 value: amount_text.into(),
             })?;
-    let id = csv::value(row, headers, &["交易单号", "商户单号", "订单号", "流水号"])
+    let id = csv::value(row, headers, &["交易单号", "订单号", "流水号"])
         .and_then(|v| normalize_text(Some(v)));
     let mut warnings = Vec::new();
     if let Some(id) = &id {
@@ -45,6 +45,7 @@ pub(crate) fn normalize_row(
         }
     }
     let merchant = normalize_text(csv::value(row, headers, &["交易对方", "对方"]));
+    let merchant_order_id = normalize_text(csv::value(row, headers, &["商户单号", "商户订单号"]));
     let description = normalize_text(csv::value(row, headers, &["商品", "商品说明", "备注"]));
     let currency = cny();
     let digest = NormalizedImportRow::digest_for(
@@ -59,17 +60,21 @@ pub(crate) fn normalize_row(
     );
     let original_external_transaction_id = refund_reference(row, headers, kind);
     let digest = digest_with_reference(digest, original_external_transaction_id.as_deref());
+    let digest = digest_with_merchant_order(digest, merchant_order_id.as_deref());
     Ok(NormalizedImportRow {
         row_number,
         source_kind: SourceKind::WeChat,
         external_transaction_id: id,
+        merchant_order_id,
         original_external_transaction_id,
         occurred_at,
         kind,
+        transfer_direction: None,
         amount_minor,
         currency,
         merchant,
         description,
+        account_hint: None,
         source_fields_digest: digest,
         warnings,
     })

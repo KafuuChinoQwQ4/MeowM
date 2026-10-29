@@ -79,6 +79,18 @@ impl<R: LedgerRepository> TransactionService<R> {
         Ok(())
     }
 
+    pub fn confirm_with_evidence(
+        &self,
+        mut transaction: Transaction,
+        evidence: SourceEvidence,
+    ) -> Result<TransactionId, AppError> {
+        transaction.status = TransactionStatus::Confirmed;
+        self.validate_confirmation(&transaction)?;
+        self.repository
+            .insert_transaction_with_source(transaction.clone(), evidence)?;
+        Ok(transaction.id)
+    }
+
     pub fn ignore(&self, transaction_id: TransactionId) -> Result<(), AppError> {
         let mut transaction = self
             .repository

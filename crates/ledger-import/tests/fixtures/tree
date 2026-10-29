@@ -4,6 +4,8 @@
 
 - `alipay.xls` — 带数值金额、日期和退款的合成支付宝 XLS 账单。
 - `bank-1904.xls` — 使用 1904 日期系统的合成银行卡 XLS 账单。
+- `boc-encrypted.pdf` — 合成加密中行 PDF，使用仅供测试的密码。
+- `boc.pdf` — 合成中行表格 PDF，覆盖分页、换行、退款和余额。
 - `generate.py` — 生成不含真实账单的 Excel 合成测试样本。
 - `sparse-large.xls` — 用于验证大型稀疏 XLS 在分配工作表前被拦截的合成文件。
 - `wechat.xlsx` — 带说明页、日期单元格和文本交易号的合成微信 XLSX 账单。

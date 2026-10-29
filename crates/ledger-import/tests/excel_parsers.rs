@@ -113,6 +113,27 @@ fn excel_cell_errors_and_unsafe_numeric_ids_stay_out_of_importable_rows() {
 }
 
 #[test]
+fn all_merchant_order_aliases_reject_excel_numbers_with_lost_precision() {
+    let sheet = bank_sheet(&[(
+        2,
+        "2026-10-03",
+        "<c r=\"B2\"><v>6.64</v></c>",
+        "<c r=\"D2\"><v>12345678901234567</v></c>",
+    )]);
+    for (provider, header) in [
+        (Provider::Wechat, "商户订单号"),
+        (Provider::Alipay, "商户单号"),
+        (Provider::Alipay, "商户订单号"),
+    ] {
+        let xml = sheet.replace("流水号", header).replace("收支", "收/支");
+        let parsed = parse_bill(provider, &replace_sheets(&xml, None)).unwrap();
+        assert!(parsed.rows.is_empty());
+        assert_eq!(parsed.errors.len(), 1);
+        assert!(parsed.errors[0].message.contains("文本"));
+    }
+}
+
+#[test]
 fn large_numeric_excel_amounts_are_rejected_before_float_precision_can_change_cents() {
     let xml = bank_sheet(&[
         (
@@ -160,7 +181,7 @@ fn sparse_xls_extents_are_rejected_before_dense_workbook_loading() {
 }
 
 #[test]
-fn row_limit_includes_invalid_rows_and_sparse_cells_do_not_expand_a_dense_range() {
+fn row_limit_is_10000_including_invalid_rows_and_sparse_cells_do_not_expand_a_dense_range() {
     let sparse = bank_sheet(&[(
         1_000_000,
         "2026-10-03",
@@ -171,11 +192,18 @@ fn row_limit_includes_invalid_rows_and_sparse_cells_do_not_expand_a_dense_range(
     assert_eq!(parsed.rows[0].row_number, 1_000_000);
     let wide = sparse.replace("B1000000", "XFD1000000");
     assert!(parse_bill(Provider::Bank, &replace_sheets(&wide, None)).is_err());
-    let rows: Vec<_> = (2..=1002).map(|n| (n, "invalid-date", "", "")).collect();
-    let message = parse_bill(Provider::Bank, &replace_sheets(&bank_sheet(&rows), None))
-        .unwrap_err()
-        .to_string();
-    assert!(message.contains("1000"));
+    let rows: Vec<_> = (2..=10_001).map(|n| (n, "invalid-date", "", "")).collect();
+    let parsed = parse_bill(Provider::Bank, &replace_sheets(&bank_sheet(&rows), None)).unwrap();
+    assert_eq!(parsed.errors.len(), 10_000);
+
+    let too_many: Vec<_> = (2..=10_002).map(|n| (n, "invalid-date", "", "")).collect();
+    let message = parse_bill(
+        Provider::Bank,
+        &replace_sheets(&bank_sheet(&too_many), None),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(message.contains("10,000"));
 }
 
 // The ZIP container remains a real Excel file; only the synthetic worksheet XML changes.

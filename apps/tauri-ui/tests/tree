@@ -4,7 +4,7 @@
 
 - `data.test.mjs` — 备份恢复确认和筛选导出的 React 浏览器测试。
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
-- `imports.test.mjs` — CSV/XLS/XLSX 文件选择及原始字节传递的界面回归测试。
+- `imports.test.mjs` — 账单导入 UI、加密 PDF、划转核对及缺失平台自动定位回归测试。
 - `mobile-layout.test.mjs` — Small-screen and landscape scrolling, navigation reachability, keyboard-sized unlock and dialog layout regressions.
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
 - `pending-inbox.test.mjs` — 跨页全部确认、筛选、失败重试及退款关联界面测试。

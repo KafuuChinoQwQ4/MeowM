@@ -17,22 +17,33 @@ pub enum ImportError {
     InvalidDirection { row: usize, value: String },
     Csv(String),
     Excel(String),
+    Pdf(String),
+    PdfPasswordRequired,
+    PdfIncorrectPassword,
     LimitExceeded(String),
 }
 
 impl fmt::Display for ImportError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::InvalidUtf8 => f.write_str("账单必须是 UTF-8 文本"),
+            Self::InvalidUtf8 => {
+                f.write_str("账单文本编码无法识别，请使用 UTF-8 或 GBK/GB18030 编码的 CSV 文件")
+            }
             Self::EmptyInput => f.write_str("账单文件为空"),
             Self::MissingHeaders(headers) => write!(f, "缺少必要表头：{}", headers.join("、")),
             Self::UnknownFormat(message) => write!(f, "无法识别账单格式：{message}"),
             Self::InvalidDate { row, value } => write!(f, "第 {row} 行日期无效：{value}"),
             Self::MissingAmount { row } => write!(f, "第 {row} 行缺少金额"),
             Self::InvalidAmount { row, value } => write!(f, "第 {row} 行金额无效：{value}"),
+            Self::InvalidDirection { row, value } if value.trim() == "不计收支" => {
+                write!(f, "第 {row} 行为不计收支记录，暂不支持导入")
+            }
             Self::InvalidDirection { row, value } => write!(f, "第 {row} 行收支方向无效：{value}"),
             Self::Csv(message) => write!(f, "账单 CSV 无效：{message}"),
             Self::Excel(message) => write!(f, "Excel 账单无法读取：{message}"),
+            Self::Pdf(message) => write!(f, "PDF 账单无法读取：{message}"),
+            Self::PdfPasswordRequired => f.write_str("PDF 已加密，请输入打开密码"),
+            Self::PdfIncorrectPassword => f.write_str("PDF 密码不正确，请重新输入"),
             Self::LimitExceeded(message) => f.write_str(message),
         }
     }
@@ -46,19 +57,30 @@ pub struct ImportWarning {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferDirection {
+    Outgoing,
+    Incoming,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NormalizedImportRow {
     pub row_number: usize,
     pub source_kind: SourceKind,
     pub external_transaction_id: Option<String>,
+    pub merchant_order_id: Option<String>,
     pub original_external_transaction_id: Option<String>,
     pub occurred_at: DateTime<Utc>,
     pub kind: TransactionKind,
-    /// Absolute amount in the source currency's minor unit. Direction is in `kind`.
+    /// Direction relative to the account represented by a signed source statement.
+    pub transfer_direction: Option<TransferDirection>,
+    /// Absolute amount in the source currency's minor unit.
     pub amount_minor: i64,
     pub currency: CurrencyCode,
     pub merchant: Option<String>,
     pub description: Option<String>,
+    /// Exported account names are hints; transfers require an explicit account mapping.
+    pub account_hint: Option<String>,
     /// Digest of normalized fields. Raw bill contents are intentionally not retained.
     pub source_fields_digest: [u8; 32],
     pub warnings: Vec<ImportWarning>,
@@ -90,6 +112,28 @@ pub(crate) fn digest_with_reference(digest: [u8; 32], reference: Option<&str>) -
             hash.finalize().into()
         }
     }
+}
+
+pub(crate) fn digest_with_merchant_order(digest: [u8; 32], id: Option<&str>) -> [u8; 32] {
+    let Some(id) = id else {
+        return digest;
+    };
+    let mut hash = Sha256::new();
+    hash.update(digest);
+    hash.update(b"\0merchant_order\0");
+    hash.update(id.as_bytes());
+    hash.finalize().into()
+}
+
+pub(crate) fn digest_with_account_hint(digest: [u8; 32], hint: Option<&str>) -> [u8; 32] {
+    let Some(hint) = hint else {
+        return digest;
+    };
+    let mut hash = Sha256::new();
+    hash.update(digest);
+    hash.update(b"\0account_hint\0");
+    hash.update(hint.as_bytes());
+    hash.finalize().into()
 }
 
 impl NormalizedImportRow {

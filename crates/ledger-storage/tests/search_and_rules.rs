@@ -164,6 +164,111 @@ fn add(
     id
 }
 #[test]
+fn amount_filters_find_internal_and_cross_platform_transfers_without_report_amounts() {
+    let (repo, account) = setup();
+    let cny = CurrencyCode::new("CNY", 2).unwrap();
+    let other_account = AccountId::new();
+    repo.insert_account(Account {
+        id: other_account,
+        display_name: "支付宝".into(),
+        kind: AccountKind::Asset,
+        currency: cny.clone(),
+        opening_balance: None,
+        opening_balance_effective_at: None,
+    })
+    .unwrap();
+    let mut expected = Vec::new();
+    for status in [TransactionStatus::Pending, TransactionStatus::Confirmed] {
+        for destination in [account, other_account] {
+            for amount in [50, 122, 250] {
+                let id = TransactionId::new();
+                repo.insert_transaction(Transaction {
+                    id,
+                    occurred_at: at("2026-10-01T10:00:00Z"),
+                    kind: TransactionKind::Transfer,
+                    status,
+                    postings: vec![
+                        Posting {
+                            account_id: account,
+                            delta: Money::new(-amount, cny.clone()),
+                        },
+                        Posting {
+                            account_id: destination,
+                            delta: Money::new(amount, cny.clone()),
+                        },
+                    ],
+                    category_id: None,
+                    original_transaction_id: None,
+                    report_amount_cny: None,
+                    merchant: None,
+                    description: Some("平台划转".into()),
+                })
+                .unwrap();
+                if amount == 122 {
+                    expected.push(id);
+                }
+            }
+        }
+    }
+    let foreign_account = AccountId::new();
+    let usd = CurrencyCode::new("USD", 2).unwrap();
+    repo.insert_account(Account {
+        id: foreign_account,
+        display_name: "美元".into(),
+        kind: AccountKind::Asset,
+        currency: usd.clone(),
+        opening_balance: None,
+        opening_balance_effective_at: None,
+    })
+    .unwrap();
+    repo.insert_transaction(Transaction {
+        id: TransactionId::new(),
+        occurred_at: at("2026-10-01T10:00:00Z"),
+        kind: TransactionKind::Transfer,
+        status: TransactionStatus::Confirmed,
+        postings: vec![
+            Posting {
+                account_id: foreign_account,
+                delta: Money::new(-122, usd.clone()),
+            },
+            Posting {
+                account_id: foreign_account,
+                delta: Money::new(122, usd),
+            },
+        ],
+        category_id: None,
+        original_transaction_id: None,
+        report_amount_cny: None,
+        merchant: None,
+        description: None,
+    })
+    .unwrap();
+    let query = PendingQuery {
+        min_amount_cny_minor: Some(100),
+        max_amount_cny_minor: Some(200),
+        limit: 2,
+        ..Default::default()
+    };
+    let mut actual = Vec::new();
+    for offset in [0, 2] {
+        let page = repo
+            .query_transactions(PendingQuery {
+                offset,
+                ..query.clone()
+            })
+            .unwrap();
+        assert_eq!(page.total, 4);
+        actual.extend(page.items.into_iter().map(|item| {
+            assert!(item.transaction.report_amount_cny.is_none());
+            item.transaction.id
+        }));
+    }
+    actual.sort_by_key(|id| id.as_uuid().to_string());
+    expected.sort_by_key(|id| id.as_uuid().to_string());
+    assert_eq!(actual, expected);
+}
+
+#[test]
 fn normalized_alias_amount_and_stable_paging_keep_raw_merchant() {
     let (repo, account) = setup();
     let first = add(
@@ -369,7 +474,7 @@ fn version_seven_data_migrates_without_changing_merchant_or_transaction_id() {
     .unwrap();
     drop(db);
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 11);
+    assert_eq!(repo.schema_version().unwrap(), 12);
     let page = repo
         .query_transactions(PendingQuery {
             keyword: Some("star bucks".into()),
@@ -385,5 +490,5 @@ fn version_seven_data_migrates_without_changing_merchant_or_transaction_id() {
     );
     drop(repo);
     let repo = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 11);
+    assert_eq!(repo.schema_version().unwrap(), 12);
 }

@@ -16,6 +16,111 @@ fn request(account: &str, kind: &str, amount: &str) -> WriteTransaction {
             original_transaction_id: None,
         },
         destination_id: None,
+        source: None,
+        transaction_number: None,
+        merchant_order_id: None,
+        time: None,
+    }
+}
+
+#[test]
+fn manual_order_ids_and_optional_note_survive_restart_and_prevent_reimport() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("manual-orders.sqlite");
+    let ledger = Ledger::open(&path).unwrap();
+    let account = ledger.accounts().unwrap()[0].id.clone();
+    let mut manual = request(&account, "expense", "6.64");
+    manual.edit.merchant = "饭小侠".into();
+    manual.edit.description.clear();
+    manual.source = Some("wechat".into());
+    manual.transaction_number = Some("00001234".into());
+    manual.merchant_order_id = Some("00005678".into());
+    manual.time = Some("17:26:28".into());
+    let id = ledger.write_transaction(manual).unwrap();
+    drop(ledger);
+    let ledger = Ledger::open(&path).unwrap();
+    let detail = ledger.transaction_detail(&id).unwrap();
+    assert!(detail.description.is_empty());
+    assert_eq!(detail.time, "17:26:28");
+    assert_eq!(detail.sources[0].external_id.as_deref(), Some("00001234"));
+    assert_eq!(
+        detail.sources[0].merchant_order_id.as_deref(),
+        Some("00005678")
+    );
+    let bill = |number: &str| {
+        format!("交易时间,交易对方,商品,收/支,金额(元),交易单号,商户单号\n2026-10-14 17:26:28,美团,饭小侠-美团App-测试,支出,6.64,{number},00005678\n").into_bytes()
+    };
+    let preview = ledger
+        .bill_preview_for_account("wechat", bill("00001234"), Some(&account))
+        .unwrap();
+    assert_eq!(preview.exact_duplicates, 1);
+    assert!(
+        ledger
+            .stage_preview(
+                &preview.preview_id,
+                &account,
+                vec![preview.rows[0].id.clone()],
+                vec![]
+            )
+            .is_err()
+    );
+    let different = ledger
+        .bill_preview_for_account("wechat", bill("00009999"), Some(&account))
+        .unwrap();
+    assert_eq!(different.new_count, 1);
+    let mut duplicate = request(&account, "expense", "6.64");
+    duplicate.source = Some("wechat".into());
+    duplicate.transaction_number = Some("00001234".into());
+    assert!(ledger.write_transaction(duplicate).is_err());
+    assert_eq!(ledger.repo().unwrap().list_transactions().unwrap().len(), 1);
+}
+
+#[test]
+fn manual_shop_matches_bill_product_without_note() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("manual-aux.sqlite")).unwrap();
+    let account = ledger.accounts().unwrap()[0].id.clone();
+    let mut manual = request(&account, "expense", "6.64");
+    manual.edit.merchant = "饭小侠".into();
+    manual.edit.description.clear();
+    manual.time = Some("17:27:30".into());
+    ledger.write_transaction(manual).unwrap();
+    let csv = "交易时间,交易对方,商品,收/支,金额(元),交易单号,商户单号\n2026-10-14 17:26:28,美团,饭小侠-美团App-测试,支出,6.64,00123,00456\n";
+    let preview = ledger
+        .bill_preview_for_account("wechat", csv.as_bytes().to_vec(), Some(&account))
+        .unwrap();
+    assert_eq!(preview.suspected_duplicates, 1);
+    assert_eq!(preview.new_count, 0);
+    let other = ledger.accounts().unwrap()[1].id.clone();
+    assert_eq!(
+        ledger
+            .bill_preview_for_account("wechat", csv.as_bytes().to_vec(), Some(&other))
+            .unwrap()
+            .new_count,
+        1
+    );
+}
+
+#[test]
+fn manual_merchant_order_without_channel_id_is_only_an_advisory_match() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("manual-only-merchant-id.sqlite")).unwrap();
+    let account = ledger.accounts().unwrap()[0].id.clone();
+    let mut manual = request(&account, "expense", "6.64");
+    manual.edit.description.clear();
+    manual.source = Some("wechat".into());
+    manual.merchant_order_id = Some("00005678".into());
+    manual.time = Some("17:26:28".into());
+    ledger.write_transaction(manual).unwrap();
+    for order in ["", "00005678"] {
+        let csv = format!(
+            "交易时间,交易对方,收/支,金额(元),商户单号\n2026-10-14 17:26:28,测试商户,支出,6.64,{order}\n"
+        );
+        let preview = ledger
+            .bill_preview_for_account("wechat", csv.into_bytes(), Some(&account))
+            .unwrap();
+        assert_eq!(preview.exact_duplicates, 0);
+        assert_eq!(preview.suspected_duplicates, 1);
     }
 }
 

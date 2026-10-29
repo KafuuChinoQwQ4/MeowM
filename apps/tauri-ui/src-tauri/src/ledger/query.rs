@@ -34,6 +34,7 @@ pub struct PageEntry {
     pub refund_matches: Vec<super::refunds::RefundMatch>,
     pub sources: Vec<String>,
     pub external_ids: Vec<ExternalId>,
+    pub merchant_order_ids: Vec<ExternalId>,
     pub suggestion: Option<SuggestionView>,
 }
 #[derive(Serialize)]
@@ -231,7 +232,11 @@ impl Ledger {
                         .into(),
                         kind: kind_label(t.kind).into(),
                         occurred_at: t.occurred_at.to_rfc3339(),
-                        amount: t.report_amount_cny.map(|v| v.decimal_string()),
+                        amount: t
+                            .report_amount_cny
+                            .as_ref()
+                            .or_else(|| t.postings.first().map(|p| &p.delta))
+                            .map(|v| v.decimal_string().trim_start_matches('-').to_string()),
                         merchant: t.merchant,
                         description: t.description,
                         edit_version: c.metadata.edit_version,
@@ -260,6 +265,15 @@ impl Ledger {
                             .iter()
                             .filter_map(|e| {
                                 e.external_transaction_id.as_ref().map(|id| ExternalId {
+                                    source: source_label(e.source_kind).into(),
+                                    id: id.clone(),
+                                })
+                            })
+                            .collect(),
+                        merchant_order_ids: sources
+                            .iter()
+                            .filter_map(|e| {
+                                e.merchant_order_id.as_ref().map(|id| ExternalId {
                                     source: source_label(e.source_kind).into(),
                                     id: id.clone(),
                                 })

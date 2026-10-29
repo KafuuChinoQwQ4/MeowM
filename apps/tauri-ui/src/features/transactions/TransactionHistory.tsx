@@ -57,6 +57,7 @@ export function TransactionHistory({
           <p key={i}>
             {source.source}
             {source.external_id && ` · ${source.external_id}`}
+            {source.merchant_order_id && ` · 商户单号 ${source.merchant_order_id}`}
             {source.digest && ` · 摘要 ${source.digest}`}
           </p>
         ))}

@@ -8,7 +8,7 @@
 - `lib.rs` — Public domain APIs and errors, including transfer conservation failures.
 - `money.rs` — Currency codes and integer minor-unit money.
 - `recurring.rs` — 周期模板、频率、实例状态和提醒的领域模型。
-- `source.rs` — 来源证据、交易订单号及退款原订单号。
+- `source.rs` — 来源证据、渠道交易单号、商户单号及退款原交易号。
 - `transaction.rs` — Transactions, postings, types, and lifecycle status.
 - `validation.rs` — 可选退款关联、分录约束与收支报表效应。
 - `tree` — 本目录直接文件的说明索引。

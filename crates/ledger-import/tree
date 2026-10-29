@@ -2,5 +2,5 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `Cargo.toml` — Manifest for payment bill import and reconciliation.
+- `Cargo.toml` — Manifest for CSV, Excel, and password-protected Chinese bank PDF statement import.
 - `tree` — 本目录直接文件的说明索引。

@@ -1,6 +1,8 @@
 //! Import preview and per-row duplicate decisions.
 
-use crate::{DuplicateMatch, ExistingImport, NormalizedImportRow, classify_duplicate};
+use crate::{
+    DuplicateMatch, ExistingImport, NormalizedImportRow, dedupe::classify_duplicate_for_account,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PreviewDecision {
@@ -55,36 +57,55 @@ pub struct ImportPreview {
 
 impl ImportPreview {
     pub fn build(rows: &[NormalizedImportRow], existing: &[ExistingImport]) -> Self {
+        Self::build_for_account(rows, existing, None)
+    }
+    pub fn build_for_account(
+        rows: &[NormalizedImportRow],
+        existing: &[ExistingImport],
+        account: Option<ledger_domain::AccountId>,
+    ) -> Self {
         let mut counts = PreviewCounts::default();
         let mut seen = existing.to_vec();
+        let mut claimed_idless = std::collections::HashSet::new();
         let rows = rows
             .iter()
             .cloned()
             .map(|row| {
-                let decision = match classify_duplicate(&row, &seen) {
-                    DuplicateMatch::New => {
-                        counts.new += 1;
-                        counts.pending += 1;
-                        PreviewDecision::New
-                    }
-                    DuplicateMatch::ExactDuplicate { transaction_id } => {
-                        counts.exact_duplicates += 1;
-                        PreviewDecision::ExactDuplicate { transaction_id }
-                    }
-                    DuplicateMatch::SuspectedDuplicate { transaction_id } => {
-                        counts.suspected_duplicates += 1;
-                        counts.pending += 1;
-                        PreviewDecision::SuspectedDuplicate { transaction_id }
-                    }
-                };
+                let decision =
+                    match classify_duplicate_for_account(&row, &seen, account, &claimed_idless) {
+                        DuplicateMatch::New => {
+                            counts.new += 1;
+                            counts.pending += 1;
+                            PreviewDecision::New
+                        }
+                        DuplicateMatch::ExactDuplicate { transaction_id } => {
+                            if row.external_transaction_id.is_none()
+                                && let Some(id) = transaction_id
+                            {
+                                claimed_idless.insert(id);
+                            }
+                            counts.exact_duplicates += 1;
+                            PreviewDecision::ExactDuplicate { transaction_id }
+                        }
+                        DuplicateMatch::SuspectedDuplicate { transaction_id } => {
+                            counts.suspected_duplicates += 1;
+                            counts.pending += 1;
+                            PreviewDecision::SuspectedDuplicate { transaction_id }
+                        }
+                    };
                 seen.push(ExistingImport {
                     transaction_id: None,
                     source_kind: row.source_kind,
                     external_transaction_id: row.external_transaction_id.clone(),
+                    merchant_order_id: row.merchant_order_id.clone(),
+                    source_fields_digest: Some(row.source_fields_digest),
                     occurred_at: row.occurred_at,
                     kind: row.kind,
                     amount_minor: row.amount_minor,
                     merchant: row.merchant.clone(),
+                    description: row.description.clone(),
+                    date_only: false,
+                    account_ids: account.into_iter().collect(),
                 });
                 counts.warnings += row.warnings.len();
                 PreviewRow {

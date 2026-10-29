@@ -3,10 +3,10 @@ import { test } from 'node:test';
 import { browserSuite } from './helpers/browser.mjs';
 const { url, newPage } = browserSuite(process.env.PENDING_INBOX_TEST_PORT || '1427');
 
-async function openInbox(page, categoryFailsOnce = false) {
+async function openInbox(page, categoryFailsOnce = false, internalTransfer = false) {
   page.setDefaultTimeout(5000);
   await page.addInitScript(
-    ({ categoryFailsOnce }) => {
+    ({ categoryFailsOnce, internalTransfer }) => {
       let confirmed = false;
       let categoryAttempts = 0;
       const account = '00000000-0000-4000-8000-000000000001';
@@ -31,15 +31,15 @@ async function openInbox(page, categoryFailsOnce = false) {
             return {
               date: args.date,
               income: '0.00',
-              expense: confirmed ? '12.30' : '0.00',
-              net: confirmed ? '-12.30' : '0.00',
-              balance: confirmed ? '87.70' : '100.00',
+              expense: confirmed && !internalTransfer ? '12.30' : '0.00',
+              net: confirmed && !internalTransfer ? '-12.30' : '0.00',
+              balance: confirmed && !internalTransfer ? '87.70' : '100.00',
               reference: { date: args.date, amount: '100.00' },
               entries: confirmed
                 ? [
                     {
                       id: 'confirmed',
-                      kind: 'expense',
+                      kind: internalTransfer ? 'transfer' : 'expense',
                       amount: '-12.30',
                       note: '测试商户',
                       time: '12:00',
@@ -55,7 +55,7 @@ async function openInbox(page, categoryFailsOnce = false) {
                     {
                       id: '00000000-0000-4000-8000-000000000002',
                       status: 'pending',
-                      kind: 'expense',
+                      kind: internalTransfer ? 'transfer' : 'expense',
                       occurred_at: new Date().toISOString(),
                       amount: '12.30',
                       merchant: '测试商户',
@@ -63,6 +63,7 @@ async function openInbox(page, categoryFailsOnce = false) {
                       edit_version: 0,
                       reversal_of: null,
                       account_id: account,
+                      destination_id: internalTransfer ? account : null,
                       category_id: null,
                       original_transaction_id: null,
                       sources: ['wechat'],
@@ -74,6 +75,7 @@ async function openInbox(page, categoryFailsOnce = false) {
               limit: 20,
             };
           if (command === 'confirm_pending') {
+            window.confirmPendingArgs = args;
             confirmed = true;
             return;
           }
@@ -85,7 +87,7 @@ async function openInbox(page, categoryFailsOnce = false) {
         },
       };
     },
-    { categoryFailsOnce },
+    { categoryFailsOnce, internalTransfer },
   );
   await page.goto(url);
   await page.waitForFunction(
@@ -95,6 +97,24 @@ async function openInbox(page, categoryFailsOnce = false) {
   await page.locator('#nav-pending').click();
   await page.getByText('测试商户', { exact: true }).waitFor();
 }
+
+test('pending internal transfer keeps its platform selectable when editing and confirming', async () => {
+  const page = await newPage();
+  try {
+    await openInbox(page, false, true);
+    await page.getByRole('button', { name: '编辑 / 确认', exact: true }).click();
+    const account = '00000000-0000-4000-8000-000000000001';
+    await page.getByLabel('转入平台', { exact: true }).selectOption(account);
+    await page.getByRole('button', { name: '保存并确认', exact: true }).click();
+    await page.waitForFunction(() => window.confirmPendingArgs);
+    const args = await page.evaluate(() => window.confirmPendingArgs);
+    assert.equal(args.edits[0].kind, 'transfer');
+    assert.equal(args.edits[0].account_id, account);
+    assert.equal(args.edits[0].destination_id, account);
+  } finally {
+    await page.close();
+  }
+});
 
 test('confirm all uses the current filters across pages, prevents repeat clicks and resets pagination', async () => {
   const page = await newPage({ viewport: { width: 390, height: 844 } });

@@ -48,9 +48,7 @@ impl fmt::Display for DomainError {
             Self::ArithmeticOverflow => f.write_str("money arithmetic overflowed"),
             Self::MissingPosting => f.write_str("confirmed transaction must have a posting"),
             Self::PostingAccountNotFound => f.write_str("posting references an unknown account"),
-            Self::InvalidTransferPostings => {
-                f.write_str("transfer must have postings for two distinct accounts")
-            }
+            Self::InvalidTransferPostings => f.write_str("transfer must have two postings"),
             Self::UnbalancedTransfer => {
                 f.write_str("transfer postings must conserve the same currency amount")
             }

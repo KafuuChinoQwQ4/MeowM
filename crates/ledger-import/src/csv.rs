@@ -2,10 +2,22 @@
 //! without retaining source rows after normalization.
 
 use crate::normalize::ImportError;
+use std::borrow::Cow;
 
 pub(crate) fn decode_csv(bytes: &[u8]) -> Result<Vec<Vec<String>>, ImportError> {
-    let text = std::str::from_utf8(bytes).map_err(|_| ImportError::InvalidUtf8)?;
-    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let text = match std::str::from_utf8(bytes) {
+        Ok(text) => Cow::Borrowed(text),
+        Err(_) => {
+            let (text, had_errors) = encoding_rs::GBK.decode_without_bom_handling(bytes);
+            if had_errors {
+                return Err(ImportError::InvalidUtf8);
+            }
+            text
+        }
+    };
+    let text = text
+        .strip_prefix('\u{feff}')
+        .unwrap_or_else(|| text.as_ref());
     if text.trim().is_empty() {
         return Err(ImportError::EmptyInput);
     }

@@ -88,6 +88,13 @@ impl LedgerRepository for SqliteLedgerRepository {
     fn insert_transaction(&self, transaction: Transaction) -> Result<(), RepositoryError> {
         self.insert_transaction_with_evidence(transaction, None)
     }
+    fn insert_transaction_with_source(
+        &self,
+        transaction: Transaction,
+        evidence: SourceEvidence,
+    ) -> Result<(), RepositoryError> {
+        self.insert_transaction_with_evidence(transaction, Some(evidence))
+    }
 
     fn get_transaction(&self, id: TransactionId) -> Result<Option<Transaction>, RepositoryError> {
         let row = self.connection.query_row(

@@ -66,6 +66,7 @@ impl SqliteLedgerRepository {
                         source_kind: SourceKind::Recurring,
                         external_transaction_id: Some(identity),
                         original_external_transaction_id: None,
+                        merchant_order_id: None,
                         import_batch_id: *t.id.as_uuid(),
                         source_fields_digest: digest,
                     };

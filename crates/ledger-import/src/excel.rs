@@ -1,6 +1,9 @@
 //! Decode Excel cells without running formulas or retaining the original file.
 
-use crate::{ImportError, InputRow, ParsedImport, Provider, csv, find_header, parse_provider_rows};
+use crate::{
+    ImportError, InputRow, MAX_IMPORT_ROWS, ParsedImport, Provider, csv, find_header,
+    parse_provider_rows,
+};
 use calamine::{Data, Reader, Xls, Xlsx};
 use cfb::CompoundFile;
 use std::{
@@ -8,7 +11,7 @@ use std::{
     io::{Cursor, Read},
 };
 
-const MAX_SHEET_ROWS: usize = 1100; // 1000 transactions plus titles and summary rows.
+const MAX_SHEET_ROWS: usize = MAX_IMPORT_ROWS + 100; // Allow titles and summary rows.
 const MAX_COLUMNS: usize = 128;
 const MAX_SHEETS: usize = 32;
 
@@ -362,7 +365,7 @@ fn check_xls_dimensions(
     }
     if end_row.saturating_sub(first_row) > MAX_SHEET_ROWS {
         return Err(ImportError::LimitExceeded(
-            "每次最多预览 1000 行；XLS 工作表尺寸过大，请精简文件".into(),
+            "每次最多导入 10,000 行；XLS 工作表尺寸过大，请精简文件".into(),
         ));
     }
     Ok(())
@@ -385,7 +388,7 @@ fn include_xls_cell(
     *max_col = (*max_col).max(col);
     if *max_row - *min_row + 1 > MAX_SHEET_ROWS {
         return Err(ImportError::LimitExceeded(
-            "每次最多预览 1000 行；XLS 单元格范围过大，请精简文件".into(),
+            "每次最多导入 10,000 行；XLS 单元格范围过大，请精简文件".into(),
         ));
     }
     if *max_col - *min_col + 1 > MAX_COLUMNS {
@@ -435,7 +438,7 @@ fn check_sheet_count(count: usize) -> Result<(), ImportError> {
 fn check_row_count(count: usize) -> Result<(), ImportError> {
     if count > MAX_SHEET_ROWS {
         return Err(ImportError::LimitExceeded(
-            "每次最多预览 1000 行；Excel 表头和说明行过多时请精简文件".into(),
+            "Excel 表头和说明行过多，请精简文件；每次最多导入 10,000 行".into(),
         ));
     }
     Ok(())
@@ -447,7 +450,7 @@ fn excel_error(_: impl std::fmt::Display) -> ImportError {
 
 #[cfg(test)]
 mod tests {
-    use super::check_xls_dimensions;
+    use super::{MAX_SHEET_ROWS, check_xls_dimensions};
 
     #[test]
     fn xls_dimensions_reject_out_of_format_coordinates_before_calamine_loads_them() {
@@ -455,5 +458,7 @@ mod tests {
         assert!(check_xls_dimensions(65_536, 65_537, 0, 4).is_err());
         assert!(check_xls_dimensions(0, 1000, 248, 257).is_err());
         assert!(check_xls_dimensions(0, 1000, 0, 8).is_ok());
+        assert!(check_xls_dimensions(0, MAX_SHEET_ROWS, 0, 8).is_ok());
+        assert!(check_xls_dimensions(0, MAX_SHEET_ROWS + 1, 0, 8).is_err());
     }
 }

@@ -53,10 +53,9 @@ pub fn validate_transaction_shape(
         }
     }
 
-    if transaction.kind.requires_two_distinct_postings()
-        && (transaction.postings.len() != 2
-            || transaction.postings[0].account_id == transaction.postings[1].account_id)
-    {
+    // An internal transfer keeps both legs on the same aggregate platform.
+    // Direction and equal-amount checks below still require a zero net change.
+    if transaction.kind.requires_two_postings() && transaction.postings.len() != 2 {
         return Err(DomainError::InvalidTransferPostings);
     }
 
@@ -462,10 +461,16 @@ mod tests {
     }
 
     #[test]
-    fn transfer_requires_two_distinct_postings() {
+    fn internal_transfer_keeps_two_balanced_postings_in_one_platform() {
         let wallet = asset_account("wallet", "CNY");
         let mut transfer = confirmed_transfer(wallet.clone(), wallet.clone(), 100);
-        assert!(validate_transaction_shape(&transfer, std::slice::from_ref(&wallet)).is_err());
+        validate_transaction_shape(&transfer, std::slice::from_ref(&wallet)).unwrap();
+        assert!(report_effect(&transfer).is_none());
+        transfer.postings[1].delta = report_amount(90);
+        assert_eq!(
+            validate_transaction_shape(&transfer, std::slice::from_ref(&wallet)),
+            Err(crate::DomainError::UnbalancedTransfer),
+        );
         transfer.postings.pop();
         assert!(validate_transaction_shape(&transfer, &[wallet]).is_err());
     }

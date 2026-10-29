@@ -9,7 +9,7 @@ import {
 import { useFormAction } from '../../components/Dialog';
 import { Field, SelectField, FormError } from '../../components/Fields';
 import { editableKinds, kindNames } from '../../shared/labels';
-import { money, validAmount, validDate } from '../../shared/format';
+import { money, validAmount, validDate, today } from '../../shared/format';
 import { impact } from './impact';
 export function TransactionEditor({
   detail,
@@ -33,6 +33,10 @@ export function TransactionEditor({
     kind: tx?.kind ?? 'expense',
     amount: tx?.amount ?? '',
     date: tx?.date ?? date,
+    time: tx?.time ?? (date === today() ? new Date().toTimeString().slice(0, 8) : ''),
+    source: '',
+    transaction_number: '',
+    merchant_order_id: '',
     account_id: tx?.account_id ?? accountId,
     to_account_id: tx?.to_account_id ?? '',
     category_id: tx?.category_id ?? '',
@@ -53,23 +57,32 @@ export function TransactionEditor({
       action.setError('请输入有效的正金额和日期。');
       return;
     }
-    if (
-      draft.kind === 'transfer' &&
-      (!draft.to_account_id || draft.to_account_id === draft.account_id)
-    ) {
-      action.setError('转账需要选择不同的转入账户。');
+    if (!tx && draft.kind === 'expense' && !draft.merchant?.trim()) {
+      action.setError('请填写实际消费商户，便于以后与账单核对。');
       return;
     }
+    if ((draft.transaction_number?.trim() || draft.merchant_order_id?.trim()) && !draft.source) {
+      action.setError('填写单号时请选择支付渠道。');
+      return;
+    }
+    if (draft.kind === 'transfer' && !draft.to_account_id) {
+      action.setError('请选择转入账户；同平台内部划转可选择相同账户。');
+      return;
+    }
+    const internalTransfer = draft.kind === 'transfer' && draft.to_account_id === draft.account_id;
     setPreview(
-      tx
-        ? impact(
-            draft.kind,
-            draft.amount,
-            tx.amount,
-            draft.account_id !== tx.account_id || draft.to_account_id !== (tx.to_account_id ?? ''),
-            draft.date !== tx.date,
-          )
-        : `保存后将新增一笔${kindNames[draft.kind]} ¥ ${money(draft.amount)}。${draft.kind === 'transfer' ? '转账只改变两端余额。' : draft.kind === 'refund' ? '退款会抵减净支出。' : ''}`,
+      internalTransfer && (!tx || tx.account_id === tx.to_account_id)
+        ? `保存后保留一笔平台内部划转，平台总余额和收支不变。${tx && draft.account_id !== tx.account_id ? '记录归属的平台会调整。' : ''}`
+        : tx
+          ? impact(
+              draft.kind,
+              draft.amount,
+              tx.amount,
+              draft.account_id !== tx.account_id ||
+                draft.to_account_id !== (tx.to_account_id ?? ''),
+              draft.date !== tx.date,
+            )
+          : `保存后将新增一笔${kindNames[draft.kind]} ¥ ${money(draft.amount)}。${draft.kind === 'transfer' ? '转账只改变两端余额。' : draft.kind === 'refund' ? '退款会抵减净支出。' : ''}`,
     );
     setSnapshot(JSON.stringify(draft));
     setConfirming(true);
@@ -96,6 +109,11 @@ export function TransactionEditor({
     <form onSubmit={(e) => e.preventDefault()}>
       {preview && <p className="impact-preview">{preview}</p>}
       <fieldset disabled={action.busy}>
+        {!tx && (
+          <p className="field-hint">
+            账户选实际记账平台，商户填实际消费店名，日期和时间按交易发生时填写。备注可选；有渠道交易单号时优先据此去重，商户单号辅助核对。没有单号时只提示疑似重复，不会自动合并。
+          </p>
+        )}
         <SelectField
           label="类型"
           options={editableKinds}
@@ -110,15 +128,20 @@ export function TransactionEditor({
           onChange={(e) => update('account_id', e.target.value)}
         />
         {draft.kind === 'transfer' && (
-          <SelectField
-            label="转入账户（转账时必填）"
-            options={[
-              ['', '请选择账户'],
-              ...accounts.map((a) => [a.id, a.name] as [string, string]),
-            ]}
-            value={draft.to_account_id ?? ''}
-            onChange={(e) => update('to_account_id', e.target.value)}
-          />
+          <>
+            <SelectField
+              label="转入账户（转账时必填）"
+              options={[
+                ['', '请选择账户'],
+                ...accounts.map((a) => [a.id, a.name] as [string, string]),
+              ]}
+              value={draft.to_account_id ?? ''}
+              onChange={(e) => update('to_account_id', e.target.value)}
+            />
+            <p className="field-hint">
+              花呗、余额和余额宝可统一记在支付宝；同平台内部划转可选择相同账户，平台总余额和收支不变。
+            </p>
+          </>
         )}
         <Field
           label="日期"
@@ -132,6 +155,13 @@ export function TransactionEditor({
           required
           value={draft.amount}
           onChange={(e) => update('amount', e.target.value)}
+        />
+        <Field
+          label="交易时间（可选）"
+          type="time"
+          step="1"
+          value={draft.time ?? ''}
+          onChange={(e) => update('time', e.target.value)}
         />
         <SelectField
           label="分类"
@@ -151,6 +181,38 @@ export function TransactionEditor({
           value={draft.description}
           onChange={(e) => update('description', e.target.value)}
         />
+        {!tx && (
+          <details>
+            <summary>交易单号（可选，用于去重）</summary>
+            <SelectField
+              label="支付渠道"
+              value={draft.source ?? ''}
+              options={[
+                ['', '请选择支付渠道'],
+                ['wechat', '微信'],
+                ['alipay', '支付宝'],
+                ['bank', '银行卡'],
+              ]}
+              onChange={(e) => update('source', e.target.value)}
+            />
+            <Field
+              label="渠道交易单号"
+              maxLength={200}
+              value={draft.transaction_number ?? ''}
+              onChange={(e) => update('transaction_number', e.target.value)}
+            />
+            <Field
+              label="商户单号"
+              maxLength={200}
+              value={draft.merchant_order_id ?? ''}
+              onChange={(e) => update('merchant_order_id', e.target.value)}
+            />
+            <p className="field-hint">
+              可从支付详情复制，保留前导
+              0。渠道交易单号与商户单号应分别填写；备注无需复制账单商品说明。
+            </p>
+          </details>
+        )}
         {draft.kind === 'refund' && (
           <Field
             label="退款原消费 ID（可选）"

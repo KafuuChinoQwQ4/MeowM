@@ -121,8 +121,24 @@ fn preview_bill(
     state: State<'_, LedgerState>,
     provider: String,
     bytes: Vec<u8>,
+    account_id: Option<String>,
+    password: Option<String>,
+    preview_id: Option<String>,
 ) -> Result<ledger::BillPreview> {
-    access(state, |l| l.bill_preview(&provider, bytes))
+    let password = password.map(zeroize::Zeroizing::new);
+    access(state, |l| match preview_id {
+        Some(id) => l.repreview_bill(&id, account_id.as_deref()),
+        None if password.is_none() => match account_id.as_deref() {
+            None => l.bill_preview(&provider, bytes),
+            Some(account) => l.bill_preview_for_account(&provider, bytes, Some(account)),
+        },
+        None => l.bill_preview_with_password(
+            &provider,
+            bytes,
+            account_id.as_deref(),
+            password.as_deref().map(|value| value.as_str()),
+        ),
+    })
 }
 #[tauri::command]
 fn stage_bill(

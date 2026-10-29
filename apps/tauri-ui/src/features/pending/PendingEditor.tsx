@@ -149,17 +149,20 @@ export function PendingEditor({
           onChange={(e) => update('kind', e.target.value)}
         />
         {draft.kind === 'transfer' && (
-          <SelectField
-            label="转入平台"
-            value={draft.destination_id ?? ''}
-            options={[
-              ['', '请选择转入平台'],
-              ...accounts
-                .filter((a) => a.id !== draft.account_id)
-                .map((a) => [a.id, a.name] as [string, string]),
-            ]}
-            onChange={(e) => update('destination_id', e.target.value)}
-          />
+          <>
+            <SelectField
+              label="转入平台"
+              value={draft.destination_id ?? ''}
+              options={[
+                ['', '请选择转入平台'],
+                ...accounts.map((a) => [a.id, a.name] as [string, string]),
+              ]}
+              onChange={(e) => update('destination_id', e.target.value)}
+            />
+            <p className="field-hint">
+              同平台内部划转可选择相同平台；保留划转记录，平台总余额和收支不变。
+            </p>
+          </>
         )}
         <Field
           label="商户"

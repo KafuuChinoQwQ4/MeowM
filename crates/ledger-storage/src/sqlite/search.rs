@@ -30,7 +30,11 @@ impl SqliteLedgerRepository {
             .as_deref()
             .map(normalize_merchant)
             .filter(|v| !v.is_empty());
+        // Transfers have no report amount. Filter by one CNY leg rather than
+        // their net balance, which is zero for an internal platform transfer.
         let sql = "FROM transactions t LEFT JOIN merchant_aliases a ON a.alias_normalized=t.merchant_normalized \
+            LEFT JOIN postings transfer_amount ON transfer_amount.transaction_id=t.id AND transfer_amount.ordinal=0 \
+             AND t.kind='transfer' AND transfer_amount.currency_code='CNY' AND transfer_amount.currency_exponent=2 \
             WHERE (?1 IS NULL OR t.status=?1) AND (?2 IS NULL OR t.occurred_at_utc_micros>=?2) \
             AND (?3 IS NULL OR t.occurred_at_utc_micros<?3) \
             AND (?4 IS NULL OR EXISTS(SELECT 1 FROM postings p WHERE p.transaction_id=t.id AND p.account_id=?4)) \
@@ -40,7 +44,8 @@ impl SqliteLedgerRepository {
              OR instr(coalesce(t.merchant_normalized,''),?7)>0 OR instr(lower(coalesce(t.description,'')),?7)>0 \
              OR EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND instr(lower(coalesce(e.external_transaction_id,'')),?7)>0)) \
             AND (?8 IS NULL OR EXISTS(SELECT 1 FROM source_evidence e WHERE e.transaction_id=t.id AND e.source_kind=?8)) \
-            AND (?9 IS NULL OR t.report_amount_minor>=?9) AND (?10 IS NULL OR t.report_amount_minor<=?10)";
+            AND (?9 IS NULL OR coalesce(t.report_amount_minor,abs(transfer_amount.delta_minor))>=?9) \
+            AND (?10 IS NULL OR coalesce(t.report_amount_minor,abs(transfer_amount.delta_minor))<=?10)";
         let args = rusqlite::params![
             q.status.map(transaction_status_str),
             q.from_utc_inclusive.map(|v| v.timestamp_micros()),

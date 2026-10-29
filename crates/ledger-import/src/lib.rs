@@ -1,10 +1,12 @@
 //! Offline bill-file decoding, preview, normalization, and reconciliation.
 
 pub mod alipay;
+mod boc_pdf;
 mod csv;
 mod dedupe;
 mod excel;
 mod normalize;
+mod pdf;
 pub mod preview;
 pub mod wechat;
 
@@ -12,9 +14,11 @@ use chrono::{DateTime, Utc};
 use ledger_domain::SourceKind;
 use std::collections::HashSet;
 
+pub const MAX_IMPORT_ROWS: usize = 10_000;
+
 pub use alipay::parse_alipay_csv;
-pub use dedupe::{DuplicateMatch, ExistingImport, classify_duplicate};
-pub use normalize::{ImportError, ImportWarning, NormalizedImportRow};
+pub use dedupe::{DuplicateMatch, ExistingImport, classify_duplicate, merchant_matches};
+pub use normalize::{ImportError, ImportWarning, NormalizedImportRow, TransferDirection};
 pub use preview::{ImportPreview, PreviewCounts, PreviewDecision, PreviewRow};
 pub use wechat::parse_wechat_csv;
 
@@ -25,12 +29,28 @@ pub enum Provider {
     Bank,
 }
 
-/// Read UTF-8 CSV, XLS or XLSX by file contents, keeping one normalization path.
+/// Read UTF-8/GBK CSV, XLS or XLSX by file contents, keeping one normalization path.
 pub fn parse_bill(provider: Provider, bytes: &[u8]) -> Result<ParsedImport, ImportError> {
+    parse_bill_with_password(provider, bytes, None)
+}
+
+/// PDF passwords are used only while decoding this file and are never part of a row.
+pub fn parse_bill_with_password(
+    provider: Provider,
+    bytes: &[u8],
+    password: Option<&str>,
+) -> Result<ParsedImport, ImportError> {
     if bytes.len() > 5 * 1024 * 1024 {
         return Err(ImportError::LimitExceeded("账单文件不能超过 5 MiB".into()));
     }
-    if bytes.starts_with(b"PK") || bytes.starts_with(b"\xd0\xcf\x11\xe0") {
+    if bytes.starts_with(b"%PDF-") {
+        if provider != Provider::Bank {
+            return Err(ImportError::Pdf(
+                "请将账单来源选择为银行卡后读取银行 PDF".into(),
+            ));
+        }
+        boc_pdf::parse(&pdf::read(bytes, password)?)
+    } else if bytes.starts_with(b"PK") || bytes.starts_with(b"\xd0\xcf\x11\xe0") {
         excel::parse_excel(provider, bytes)
     } else {
         parse_provider_csv(bytes, provider.source_kind(), provider)
@@ -48,7 +68,7 @@ impl Provider {
     fn date_headers(self) -> &'static [&'static str] {
         match self {
             Self::Wechat => &["交易时间", "时间", "日期"],
-            Self::Alipay => &["交易时间", "付款时间", "日期"],
+            Self::Alipay => &["交易时间", "付款时间", "记录时间", "日期"],
             Self::Bank => &["交易日期", "日期", "记账日期", "交易时间"],
         }
     }
@@ -60,8 +80,15 @@ impl Provider {
     }
     fn id_headers(self) -> &'static [&'static str] {
         match self {
-            Self::Wechat => &["交易单号", "商户单号", "订单号", "流水号"],
-            Self::Alipay => &["交易订单号", "商家订单号", "交易单号", "流水号"],
+            Self::Wechat => &["交易单号", "商户单号", "商户订单号", "订单号", "流水号"],
+            Self::Alipay => &[
+                "交易订单号",
+                "商家订单号",
+                "商户单号",
+                "商户订单号",
+                "交易单号",
+                "流水号",
+            ],
             Self::Bank => &["流水号", "交易流水号", "参考号", "交易单号"],
         }
     }
@@ -158,9 +185,9 @@ fn parse_provider_rows(
         }
         return Err(ImportError::MissingHeaders(missing));
     }
-    if rows.len() - header_index - 1 > 1000 {
+    if rows.len() - header_index - 1 > MAX_IMPORT_ROWS {
         return Err(ImportError::LimitExceeded(
-            "每次最多预览 1000 行，请拆分文件".into(),
+            "每次最多导入 10,000 行，请拆分文件".into(),
         ));
     }
     let mut parsed = Vec::new();
@@ -278,13 +305,16 @@ fn bank_row(
         row_number,
         source_kind: SourceKind::Bank,
         external_transaction_id: id,
+        merchant_order_id: None,
         original_external_transaction_id: None,
         occurred_at,
         kind,
+        transfer_direction: None,
         amount_minor,
         currency,
         merchant,
         description,
+        account_hint: None,
         source_fields_digest: digest,
         warnings,
     })

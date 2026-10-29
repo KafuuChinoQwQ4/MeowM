@@ -2,12 +2,14 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `alipay.rs` — Alipay bill file adapter.
-- `csv.rs` — CSV decoding and row validation helpers.
-- `dedupe.rs` — Import duplicate matching and merge candidates.
+- `alipay.rs` — 支付宝交易及记账导出标准化，保留退款与不计收支转账。
+- `boc_pdf.rs` — 中国银行带密码 PDF 的表格分页、列布局、交易分类与余额核对。
+- `csv.rs` — UTF-8/GBK/GB18030 CSV 解码、引号及表头处理。
+- `dedupe.rs` — 渠道单号精确去重及商户单号、实际店名、时间和平台辅助核对。
 - `excel.rs` — Excel 工作表识别、日期单元格转换与交易号精度校验。
-- `lib.rs` — 微信、支付宝和银行卡 CSV/XLS/XLSX 统一导入与逐行校验。
-- `normalize.rs` — 跨来源账单标准化及明确退款原订单号解析。
-- `preview.rs` — Import preview, warnings, and confirmation boundary.
+- `lib.rs` — 微信、支付宝和银行卡 CSV/XLS/XLSX、加密 PDF 统一导入和逐行校验。
+- `normalize.rs` — 跨来源账单标准化、PDF 密码错误及确定的金额日期解析。
+- `pdf.rs` — 内存 PDF 加密读取及带坐标的中文文字提取，不保留原文。
+- `preview.rs` — 按平台预览、重复次数核对及同文件疑似项的保守分类。
 - `wechat.rs` — WeChat bill file adapter.
 - `tree` — 本目录直接文件的说明索引。

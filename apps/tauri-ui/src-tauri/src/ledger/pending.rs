@@ -97,9 +97,6 @@ impl Ledger {
         if tx.kind == TransactionKind::Transfer {
             let destination =
                 self.account(edit.destination_id.as_deref().ok_or("请选择转入平台")?)?;
-            if destination.id == account.id {
-                return Err("转出和转入平台必须不同".into());
-            }
             if destination.currency.code() != "CNY" {
                 return Err("请选择人民币平台".into());
             }
@@ -117,7 +114,7 @@ impl Ledger {
                 }),
             });
         }
-        tx.report_amount_cny = Some(money(amount));
+        tx.report_amount_cny = (tx.kind != TransactionKind::Transfer).then(|| money(amount));
         tx.merchant = (!edit.merchant.trim().is_empty()).then(|| edit.merchant.trim().into());
         tx.description =
             (!edit.description.trim().is_empty()).then(|| edit.description.trim().into());
