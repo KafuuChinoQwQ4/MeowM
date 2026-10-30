@@ -29,7 +29,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 13
+                && v <= 14
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -55,9 +55,10 @@ impl SqliteLedgerRepository {
                 | (13, Some(13)) => {
                     return Ok(());
                 }
-                (_, Some(version)) if version > 13 => {
+                (14, Some(14)) => return Ok(()),
+                (_, Some(version)) if version > 14 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 13"
+                        "database schema version {version} is newer than supported version 14"
                     )));
                 }
                 _ => {
@@ -382,6 +383,26 @@ impl SqliteLedgerRepository {
             .map_err(storage_error)?;
         tx.execute(
             "INSERT INTO schema_version VALUES(13,?1)",
+            [Utc::now().timestamp_micros()],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
+    pub(super) fn apply_transaction_fx_migration(&self) -> Result<(), RepositoryError> {
+        if self.schema_version()? >= 14 {
+            return Ok(());
+        }
+        let tx = self
+            .connection
+            .unchecked_transaction()
+            .map_err(storage_error)?;
+        tx.execute_batch(include_str!(
+            "../../migrations/0014_transaction_fx_snapshots.sql"
+        ))
+        .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO schema_version VALUES(14,?1)",
             [Utc::now().timestamp_micros()],
         )
         .map_err(storage_error)?;

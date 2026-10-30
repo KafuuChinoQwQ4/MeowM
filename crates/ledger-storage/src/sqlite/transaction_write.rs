@@ -52,6 +52,16 @@ impl SqliteLedgerRepository {
         transaction: &Transaction,
         insert: bool,
     ) -> Result<(), RepositoryError> {
+        if transaction.fx_snapshot.is_some() {
+            let mut statement = tx.prepare("SELECT id,display_name,kind,currency_code,currency_exponent,opening_balance_minor,opening_balance_effective_at_utc_micros FROM accounts").map_err(storage_error)?;
+            let accounts = statement
+                .query_map([], account_from_row)
+                .map_err(storage_error)?
+                .collect::<rusqlite::Result<Vec<_>>>()
+                .map_err(storage_error)?;
+            ledger_domain::validate_transaction_shape(transaction, &accounts)
+                .map_err(|error| RepositoryError::InvalidData(error.to_string()))?;
+        }
         if transaction.kind == TransactionKind::Refund
             && let Some(parent) = transaction.original_transaction_id
         {
@@ -105,8 +115,44 @@ impl SqliteLedgerRepository {
             )
             .map_err(map_insert_error)?;
         }
+        tx.execute(
+            "DELETE FROM transaction_fx_snapshots WHERE transaction_id = ?1",
+            [transaction.id.as_uuid().to_string()],
+        )
+        .map_err(storage_error)?;
+        if let Some(snapshot) = &transaction.fx_snapshot {
+            if snapshot
+                .provider
+                .as_ref()
+                .is_some_and(|value| value.trim().is_empty() || value.chars().any(char::is_control))
+                || snapshot.provider_sources.len() > 128
+                || snapshot
+                    .provider_sources
+                    .iter()
+                    .any(|value| !valid_fx_provider_source(value))
+            {
+                return Err(RepositoryError::InvalidData(
+                    "invalid FX provider source".into(),
+                ));
+            }
+            let source = match snapshot.source {
+                ledger_domain::FxSnapshotSource::Reference => "reference",
+                ledger_domain::FxSnapshotSource::Manual => "manual",
+            };
+            let sources = serde_json::to_string(&snapshot.provider_sources)
+                .map_err(|error| RepositoryError::InvalidData(error.to_string()))?;
+            tx.execute("INSERT INTO transaction_fx_snapshots(transaction_id,base_currency_code,quote_currency_code,rate,effective_date,source_kind,provider,provider_sources) VALUES(?1,'CNY',?2,?3,?4,?5,?6,?7)",params![transaction.id.as_uuid().to_string(),snapshot.quote_currency.code(),snapshot.rate,snapshot.effective_date.format("%Y-%m-%d").to_string(),source,snapshot.provider,sources]).map_err(map_insert_error)?;
+        }
         tx.execute("INSERT INTO audit_events(id,occurred_at_utc_micros,action,transaction_id) VALUES(?1,?2,?3,?4)",params![Uuid::new_v4().to_string(),SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_micros() as i64,if insert {"created"} else {"updated"},transaction.id.as_uuid().to_string()]).map_err(storage_error)?;
         tx.execute("INSERT INTO transaction_metadata(transaction_id,updated_at_utc_micros,edit_version) VALUES(?1,?2,0) ON CONFLICT(transaction_id) DO UPDATE SET updated_at_utc_micros=excluded.updated_at_utc_micros,edit_version=edit_version+1",params![transaction.id.as_uuid().to_string(),SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_micros() as i64]).map_err(storage_error)?;
         Ok(())
     }
+}
+
+pub(super) fn valid_fx_provider_source(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"_-".contains(&byte))
 }

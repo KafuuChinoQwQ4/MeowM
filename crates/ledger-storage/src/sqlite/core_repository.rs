@@ -114,6 +114,56 @@ impl LedgerRepository for SqliteLedgerRepository {
             .map_err(storage_error)?
             .collect::<Result<Vec<_>, _>>()
             .map_err(storage_error)?;
+        let fx_row: Option<(String, String, String, String, String, Option<String>, String)> = self.connection.query_row(
+            "SELECT base_currency_code,quote_currency_code,rate,effective_date,source_kind,provider,provider_sources FROM transaction_fx_snapshots WHERE transaction_id=?1",
+            [id.as_uuid().to_string()],
+            |row| Ok((row.get(0)?,row.get(1)?,row.get(2)?,row.get(3)?,row.get(4)?,row.get(5)?,row.get(6)?)),
+        ).optional().map_err(storage_error)?;
+        if let Some((base, quote, rate, date, source, provider, sources)) = fx_row {
+            if base != "CNY" {
+                return Err(RepositoryError::InvalidData("invalid FX base".into()));
+            }
+            let quote_currency = transaction
+                .postings
+                .iter()
+                .find(|posting| posting.delta.currency().code() == quote)
+                .map(|posting| posting.delta.currency().clone())
+                .ok_or_else(|| {
+                    RepositoryError::InvalidData("FX quote does not match postings".into())
+                })?;
+            let source = match source.as_str() {
+                "reference" => ledger_domain::FxSnapshotSource::Reference,
+                "manual" => ledger_domain::FxSnapshotSource::Manual,
+                _ => return Err(RepositoryError::InvalidData("invalid FX source".into())),
+            };
+            transaction.fx_snapshot = Some(ledger_domain::TransactionFxSnapshot {
+                quote_currency,
+                rate,
+                effective_date: chrono::NaiveDate::parse_from_str(&date, "%Y-%m-%d")
+                    .map_err(|error| RepositoryError::InvalidData(error.to_string()))?,
+                source,
+                provider,
+                provider_sources: serde_json::from_str(&sources)
+                    .map_err(|error| RepositoryError::InvalidData(error.to_string()))?,
+            });
+            let snapshot = transaction.fx_snapshot.as_ref().expect("assigned above");
+            if snapshot
+                .provider
+                .as_ref()
+                .is_some_and(|value| value.trim().is_empty() || value.chars().any(char::is_control))
+                || snapshot.provider_sources.len() > 128
+                || snapshot
+                    .provider_sources
+                    .iter()
+                    .any(|value| !super::transaction_write::valid_fx_provider_source(value))
+            {
+                return Err(RepositoryError::InvalidData(
+                    "invalid FX provider source".into(),
+                ));
+            }
+            ledger_domain::validate_transaction_shape(&transaction, &self.list_accounts()?)
+                .map_err(|error| RepositoryError::InvalidData(error.to_string()))?;
+        }
         Ok(Some(transaction))
     }
 
