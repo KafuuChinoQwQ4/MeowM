@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Entry } from '../../api/ledger';
 import { Pager } from '../../components/Pager';
 import { kindNames } from '../../shared/labels';
-import { money } from '../../shared/format';
+import { formatCurrency } from '../../shared/format';
 import { usePageSize } from '../../shared/usePageSize';
 
 function categoryIcon(category: string | null | undefined, income: boolean) {
@@ -74,7 +74,8 @@ export function RecordsPage({
                     </p>
                   </div>
                   <span className={'entry-amount ' + (income ? 'income-text' : '')}>
-                    {income ? '+' : '−'} ¥{money(entry.amount.replace(/^-/, ''))}
+                    {income ? '+' : '−'}{' '}
+                    {formatCurrency(entry.amount.replace(/^-/, ''), entry.currency_code ?? 'CNY')}
                   </span>
                 </li>
               );

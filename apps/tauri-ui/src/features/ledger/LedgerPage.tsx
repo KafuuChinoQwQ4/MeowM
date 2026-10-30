@@ -1,5 +1,5 @@
 import type { DayView } from '../../api/ledger';
-import { money } from '../../shared/format';
+import { formatCurrency, money } from '../../shared/format';
 export function LedgerPage({
   day,
   allAccounts = false,
@@ -37,11 +37,13 @@ export function LedgerPage({
           <div className="balance-info">
             <span className="balance-label">日末余额</span>
             <strong className="balance-value">
-              {day.balance === null ? '尚未设置' : `¥ ${money(day.balance)}`}
+              {day.balance === null
+                ? '尚未设置'
+                : formatCurrency(day.balance, day.currency_code ?? 'CNY')}
             </strong>
             <p className="balance-hint">
               {day.reference
-                ? `基于 ${day.reference.date} 的参考余额 ¥ ${money(day.reference.amount)}`
+                ? `基于 ${day.reference.date} 的参考余额 ${formatCurrency(day.reference.amount, day.currency_code ?? 'CNY')}`
                 : '设置参考余额后，即可查看每日结余。'}
             </p>
           </div>

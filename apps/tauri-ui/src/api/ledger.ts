@@ -4,6 +4,7 @@ export interface Entry {
   id: string;
   kind: string;
   amount: string;
+  currency_code: string;
   note: string;
   time: string;
   category_name?: string | null;
@@ -14,6 +15,7 @@ export interface Reference {
 }
 export interface DayView {
   date: string;
+  currency_code?: string | null;
   income: string;
   expense: string;
   net: string;

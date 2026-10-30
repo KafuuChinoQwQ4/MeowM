@@ -35,7 +35,12 @@ export function PendingFilters({
       />
       <SelectField
         label="平台"
-        options={[['', '全部平台'], ...accounts.map((a) => [a.id, a.name] as [string, string])]}
+        options={[
+          ['', '全部平台'],
+          ...accounts
+            .filter((account) => (account.currency_code ?? 'CNY') === 'CNY')
+            .map((a) => [a.id, `${a.name}（${a.currency_code ?? 'CNY'}）`] as [string, string]),
+        ]}
         value={query.account_id ?? ''}
         onChange={(e) => update('account_id', e.target.value)}
       />

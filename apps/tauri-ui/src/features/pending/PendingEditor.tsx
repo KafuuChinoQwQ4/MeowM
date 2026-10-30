@@ -5,7 +5,7 @@ import { useResource } from '../../shared/useResource';
 import { useFormAction } from '../../components/Dialog';
 import { Field, SelectField, FormError } from '../../components/Fields';
 import { kindNames } from '../../shared/labels';
-import { validDate, validAmount, money } from '../../shared/format';
+import { currencyExponent, validDate, validAmount, money } from '../../shared/format';
 export function PendingEditor({
   entry,
   accounts,
@@ -17,6 +17,7 @@ export function PendingEditor({
   accountId: string;
   onSaved: () => void;
 }) {
+  const cnyAccounts = accounts.filter((account) => (account.currency_code ?? 'CNY') === 'CNY');
   const occurred = new Date(entry.occurred_at);
   const matchedOriginal = entry.refund_matches?.find(
     (match) => match.confidence === 'exact' && match.status === 'confirmed',
@@ -26,7 +27,9 @@ export function PendingEditor({
   const [draft, setDraft] = useState<PendingEdit>({
     id: entry.id,
     expected_version: entry.edit_version,
-    account_id: entry.account_id ?? accountId,
+    account_id: cnyAccounts.some((account) => account.id === entry.account_id)
+      ? entry.account_id!
+      : (cnyAccounts[0]?.id ?? accountId),
     date: `${occurred.getFullYear()}-${String(occurred.getMonth() + 1).padStart(2, '0')}-${String(occurred.getDate()).padStart(2, '0')}`,
     amount: entry.amount ?? '',
     kind: entry.kind,
@@ -64,8 +67,11 @@ export function PendingEditor({
     }));
   }
   function save(confirm: boolean) {
-    if (!validAmount(draft.amount.trim()) || !validDate(draft.date)) {
-      action.setError('请输入有效正金额和日期');
+    const currencyCode =
+      cnyAccounts.find((account) => account.id === draft.account_id)?.currency_code ?? 'CNY';
+    const exponent = currencyExponent(currencyCode);
+    if (!validAmount(draft.amount.trim(), false, exponent) || !validDate(draft.date)) {
+      action.setError(`请输入有效正金额和日期；最多保留 ${exponent} 位小数。`);
       return;
     }
     const edit = {
@@ -125,7 +131,9 @@ export function PendingEditor({
       <fieldset disabled={action.busy}>
         <SelectField
           label="记入平台"
-          options={accounts.map((a) => [a.id, a.name])}
+          options={cnyAccounts.map(
+            (a) => [a.id, `${a.name}（${a.currency_code ?? 'CNY'}）`] as [string, string],
+          )}
           value={draft.account_id}
           onChange={(e) => update('account_id', e.target.value)}
         />
@@ -155,7 +163,9 @@ export function PendingEditor({
               value={draft.destination_id ?? ''}
               options={[
                 ['', '请选择转入平台'],
-                ...accounts.map((a) => [a.id, a.name] as [string, string]),
+                ...cnyAccounts.map(
+                  (a) => [a.id, `${a.name}（${a.currency_code ?? 'CNY'}）`] as [string, string],
+                ),
               ]}
               onChange={(e) => update('destination_id', e.target.value)}
             />

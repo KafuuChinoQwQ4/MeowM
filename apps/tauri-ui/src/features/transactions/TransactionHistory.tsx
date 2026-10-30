@@ -1,7 +1,7 @@
 import type { Account } from '../../api/accounts';
 import type { CategoryOption } from '../../api/entries';
 import type { TransactionDetail } from '../../api/transactions';
-import { money } from '../../shared/format';
+import { formatCurrency } from '../../shared/format';
 import { useDialog } from '../../components/Dialog';
 export function TransactionHistory({
   detail,
@@ -27,8 +27,20 @@ export function TransactionHistory({
   return (
     <>
       <p>
-        {tx.date} · {tx.status} · {tx.kind} · ¥ {money(tx.amount)}
+        {tx.date} · {tx.status} · {tx.kind} · {formatCurrency(tx.amount, tx.currency_code ?? 'CNY')}
       </p>
+      {tx.currency_code && tx.currency_code !== 'CNY' && tx.report_amount_cny && (
+        <p>
+          报表金额：¥ {formatCurrency(tx.report_amount_cny, 'CNY').replace(/^¥\s*/u, '')}
+          {tx.fx_snapshot && (
+            <>
+              {' '}
+              · {tx.fx_snapshot.source === 'reference' ? '本地参考汇率' : '手动汇率'} 1 CNY ={' '}
+              {tx.fx_snapshot.rate} {tx.currency_code} · {tx.fx_snapshot.effective_date}
+            </>
+          )}
+        </p>
+      )}
       <p>账户：{accounts.find((a) => a.id === tx.account_id)?.name ?? tx.account_id}</p>
       <p>
         分类：{categories.find((c) => c.id === tx.category_id)?.name ?? '未分类'} · 商户：

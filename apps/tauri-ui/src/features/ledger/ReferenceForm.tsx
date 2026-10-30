@@ -3,7 +3,7 @@ import type { DayView } from '../../api/ledger';
 import { ledgerApi } from '../../api/ledger';
 import { useDialog, useFormAction } from '../../components/Dialog';
 import { Field, FormError } from '../../components/Fields';
-import { validAmount } from '../../shared/format';
+import { currencyExponent, validAmount } from '../../shared/format';
 export function ReferenceForm({
   accountId,
   date,
@@ -18,6 +18,8 @@ export function ReferenceForm({
   onSaved: () => void;
 }) {
   const [amount, setAmount] = useState(day.reference?.date === date ? day.reference.amount : '');
+  const currencyCode = day.currency_code ?? 'CNY';
+  const exponent = currencyExponent(currencyCode);
   const action = useFormAction(onSaved);
   const { close } = useDialog();
   return (
@@ -25,8 +27,8 @@ export function ReferenceForm({
       className="sheet-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!clear && !validAmount(amount.trim(), true)) {
-          action.setError('请输入有效余额，最多保留两位小数。');
+        if (!clear && !validAmount(amount.trim(), true, exponent)) {
+          action.setError(`请输入有效余额，最多保留 ${exponent} 位小数。`);
           return;
         }
         void action.run(() =>
@@ -49,7 +51,7 @@ export function ReferenceForm({
         ) : (
           <>
             <Field
-              label="当日日末余额（元）"
+              label={`当日日末余额（${currencyCode === 'CNY' ? '元' : currencyCode}）`}
               required
               autoFocus
               value={amount}

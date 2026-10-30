@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { accountsApi, type Account } from '../../api/accounts';
+import { accountsApi, CURRENCIES, type Account } from '../../api/accounts';
 import { SelectField, FormError } from '../../components/Fields';
 import { useFormAction } from '../../components/Dialog';
 import { platformCategories } from '../../shared/labels';
@@ -14,6 +14,7 @@ export function AccountForm({
 }) {
   const [name, setName] = useState(account?.name ?? '');
   const [category, setCategory] = useState(account?.category ?? 'wallet');
+  const [currency, setCurrency] = useState(account?.currency_code ?? 'CNY');
   let createdId: string | undefined;
   const action = useFormAction(() => onSaved(createdId));
   return (
@@ -27,7 +28,7 @@ export function AccountForm({
         }
         void action.run(async () => {
           if (account) await accountsApi.update(account.id, name.trim(), category);
-          else createdId = (await accountsApi.create(name.trim(), category)).id;
+          else createdId = (await accountsApi.create(name.trim(), category, currency)).id;
         });
       }}
     >
@@ -50,7 +51,20 @@ export function AccountForm({
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         />
-        <p className="field-hint">当前按人民币记账；分类不代表已接入行情或平台同步。</p>
+        <SelectField
+          label="账户币种"
+          options={CURRENCIES.map(
+            ([code, label]) => [code, `${label}（${code}）`] as [string, string],
+          )}
+          value={currency}
+          disabled={!!account}
+          onChange={(e) => setCurrency(e.target.value)}
+        />
+        <p className="field-hint">
+          {account
+            ? '账户币种创建后不可修改。'
+            : '币种创建后不可修改；平台分类不代表已接入行情或平台同步。'}
+        </p>
       </fieldset>
       <FormError message={action.error} />
       <button className="button button-primary submit-button" disabled={action.busy}>

@@ -1,26 +1,58 @@
 // Mock only the native IPC boundary. Browser tests exercise the real React UI.
-export async function installWorkflowIpc(page) {
-  await page.addInitScript(() => {
-    let accounts = [
-      { id: 'wallet', name: '钱包', category: 'wallet' },
-      { id: 'bank', name: '银行', category: 'bank' },
+export async function installWorkflowIpc(page, seed = {}) {
+  await page.addInitScript((seedData) => {
+    let accounts = seedData.accounts ?? [
+      {
+        id: 'wallet',
+        name: '钱包',
+        category: 'wallet',
+        currency_code: 'CNY',
+        currency_exponent: 2,
+      },
+      { id: 'bank', name: '银行', category: 'bank', currency_code: 'CNY', currency_exponent: 2 },
     ];
     let reference = null;
-    let pending = [];
+    let pending = seedData.pending ?? [];
     let reversed = false;
     window.workflowCalls = [];
+    window.savedTransactions = [];
     window.__TAURI_INTERNALS__ = {
       invoke: async (command, args) => {
         if (command === 'privacy_status')
           return { locked: false, lock_enabled: false, hide_amounts: false, auto_lock_minutes: 5 };
         window.workflowCalls.push({ command, args });
+        if (command === 'recurring_state')
+          return { templates: [], reminders: [], generated_count: 0, has_more: false };
+        if (command === 'list_budgets' || command === 'budget_reminders') return [];
+        if (command === 'report_summary')
+          return {
+            income: '20.00',
+            expense: '5.00',
+            net: '15.00',
+            transaction_count: 1,
+            categories: [],
+            merchants: [],
+            merchant_total: 0,
+            trend: [],
+            balances: [
+              { account_id: 'wallet', name: '人民币账户', amount: '100.00', currency_code: 'CNY' },
+              { account_id: 'usd', name: '美元账户', amount: '20.00', currency_code: 'USD' },
+            ],
+          };
         if (command === 'list_accounts') return accounts.map((a) => ({ ...a }));
         if (command === 'create_account') {
           if (window.holdSave)
             await new Promise((resolve) => {
               window.releaseSave = resolve;
             });
-          const account = { id: 'created', name: args.name, category: args.category };
+          const currencyCode = args.currencyCode ?? 'CNY';
+          const account = {
+            id: 'created',
+            name: args.name,
+            category: args.category,
+            currency_code: currencyCode,
+            currency_exponent: ['JPY', 'KRW'].includes(currencyCode) ? 0 : 2,
+          };
           accounts.push(account);
           return { ...account };
         }
@@ -37,13 +69,23 @@ export async function installWorkflowIpc(page) {
           }
           return {
             date: args.date,
+            currency_code:
+              accounts.find((account) => account.id === args.accountId)?.currency_code ?? null,
             income: '0.00',
             expense: reversed ? '0.00' : '10.00',
             net: reversed ? '0.00' : '-10.00',
             balance: reference?.amount ?? (args.accountId === 'bank' ? '200.00' : '90.00'),
             reference,
             entries: [
-              { id: 'tx-1', kind: 'expense', amount: '-10.00', note: '原消费', time: '12:00' },
+              {
+                id: 'tx-1',
+                kind: 'expense',
+                amount: '-10.00',
+                currency_code:
+                  accounts.find((account) => account.id === args.accountId)?.currency_code ?? 'CNY',
+                note: '原消费',
+                time: '12:00',
+              },
             ],
           };
         }
@@ -127,26 +169,51 @@ export async function installWorkflowIpc(page) {
           return args.ids;
         }
         if (command === 'list_categories') return [];
-        if (command === 'transaction_detail')
+        if (command === 'preview_foreign_transaction') {
+          if (window.forceManualRate && !args.manualFxRate)
+            throw new Error('缺少汇率，请输入手动汇率');
           return {
-            id: args.id,
-            kind: args.id === 'reverse-1' ? 'adjustment' : 'expense',
-            status: 'confirmed',
-            amount: '10.00',
-            date: '2026-10-14',
-            account_id: 'wallet',
-            destination_id: null,
-            category_id: null,
-            merchant: '商户',
-            description: '',
-            original_transaction_id: null,
-            edit_version: 0,
-            reversal_id: args.id === 'tx-1' && reversed ? 'reverse-1' : null,
-            reversal_of: args.id === 'reverse-1' ? 'tx-1' : null,
-            linked_ids: reversed ? [args.id === 'tx-1' ? 'reverse-1' : 'tx-1'] : [],
-            sources: [],
-            history: [[reversed ? 'reversed' : 'created', 1760445000000000]],
+            amount: args.amount,
+            currency_code: args.quoteCurrency,
+            report_amount_cny: args.manualFxRate ? '8.23' : '9.80',
+            rate: args.manualFxRate ?? '7.10',
+            source: args.manualFxRate ? 'manual' : 'reference',
+            effective_date: args.manualFxRate ? args.date : '2026-10-29',
+            fx_snapshot: {
+              rate: args.manualFxRate ?? '7.10',
+              effective_date: args.manualFxRate ? args.date : '2026-10-29',
+              source: args.manualFxRate ? 'manual' : 'reference',
+              provider: args.manualFxRate ? null : 'test',
+              provider_sources: args.manualFxRate ? [] : ['fixture'],
+            },
           };
+        }
+        if (command === 'write_transaction') {
+          window.savedTransactions.push(args.request);
+          return `saved-${window.savedTransactions.length}`;
+        }
+        if (command === 'transaction_detail')
+          return (
+            seedData.transaction ?? {
+              id: args.id,
+              kind: args.id === 'reverse-1' ? 'adjustment' : 'expense',
+              status: 'confirmed',
+              amount: '10.00',
+              date: '2026-10-14',
+              account_id: 'wallet',
+              destination_id: null,
+              category_id: null,
+              merchant: '商户',
+              description: '',
+              original_transaction_id: null,
+              edit_version: 0,
+              reversal_id: args.id === 'tx-1' && reversed ? 'reverse-1' : null,
+              reversal_of: args.id === 'reverse-1' ? 'tx-1' : null,
+              linked_ids: reversed ? [args.id === 'tx-1' ? 'reverse-1' : 'tx-1'] : [],
+              sources: [],
+              history: [[reversed ? 'reversed' : 'created', 1760445000000000]],
+            }
+          );
         if (command === 'reverse_transaction') {
           reversed = true;
           return 'reverse-1';
@@ -154,5 +221,5 @@ export async function installWorkflowIpc(page) {
         throw new Error(`Unexpected IPC command: ${command}`);
       },
     };
-  });
+  }, seed);
 }

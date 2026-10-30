@@ -49,6 +49,7 @@ export function AccountsPage({
             <div className="platform-info">
               <PlatformBadge name={account.name} category={account.category} />
               <span>{platformCategories[account.category] ?? '其他'}</span>
+              <span className="field-hint">{account.currency_code ?? 'CNY'}</span>
             </div>
             <div className="platform-row-actions">
               <button className="text-button" onClick={() => onEdit(account)}>

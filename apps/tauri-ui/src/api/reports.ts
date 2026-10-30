@@ -17,7 +17,7 @@ export interface Report {
   merchants: { name: string; income: string; expense: string }[];
   merchant_total: number;
   trend: { month: string; income: string; expense: string }[];
-  balances: { account_id: string; name: string; amount: string | null }[];
+  balances: { account_id: string; name: string; amount: string | null; currency_code: string }[];
 }
 export const reportsApi = {
   summary: (query: ReportQuery) => invoke<Report>('report_summary', { query }),

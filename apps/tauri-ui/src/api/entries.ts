@@ -19,6 +19,15 @@ export interface RefundMatch {
   reason: string;
   merchant: string | null;
   amount: string | null;
+  currency_code?: string | null;
+  report_amount_cny?: string | null;
+  fx_snapshot?: {
+    rate: string;
+    effective_date: string;
+    source: string;
+    provider?: string | null;
+    provider_sources: string[];
+  } | null;
   occurred_at: string;
   account_id: string;
   status: 'pending' | 'confirmed';

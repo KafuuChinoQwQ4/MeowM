@@ -52,7 +52,7 @@ export function Toolbar({
               {!!accounts.length && <option value={ALL_ACCOUNTS}>总和</option>}
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name}
+                  {a.name}（{a.currency_code ?? 'CNY'}）
                 </option>
               ))}
             </select>

@@ -59,7 +59,12 @@ export function ReportFilters({
       <SelectField
         label="报表平台"
         value={value.account}
-        options={[['', '全部平台'], ...accounts.map((a) => [a.id, a.name] as [string, string])]}
+        options={[
+          ['', '全部平台'],
+          ...accounts.map(
+            (a) => [a.id, `${a.name}（${a.currency_code ?? 'CNY'}）`] as [string, string],
+          ),
+        ]}
         onChange={(e) => set('account', e.target.value)}
       />
       <SelectField

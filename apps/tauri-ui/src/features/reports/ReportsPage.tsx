@@ -6,7 +6,7 @@ import { reportsApi } from '../../api/reports';
 import { LoadState } from '../../components/LoadState';
 import { Pager } from '../../components/Pager';
 import { monthRange, recentYearRange } from '../../shared/calendar';
-import { money, today, validDate } from '../../shared/format';
+import { formatCurrency, money, today, validDate } from '../../shared/format';
 import { useResource } from '../../shared/useResource';
 import { BudgetCard } from '../budgets/BudgetCard';
 import { BudgetReminders } from '../budgets/BudgetReminders';
@@ -136,7 +136,11 @@ export function ReportsPage({ accounts, revision }: { accounts: Account[]; revis
             {data.balances.map((b) => (
               <div className="analytics-row" key={b.account_id}>
                 <span>{b.name}</span>
-                <strong>{b.amount === null ? '未设置参考余额' : `¥${money(b.amount)}`}</strong>
+                <strong>
+                  {b.amount === null
+                    ? '未设置参考余额'
+                    : formatCurrency(b.amount, b.currency_code ?? 'CNY')}
+                </strong>
               </div>
             ))}
           </section>

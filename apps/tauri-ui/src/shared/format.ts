@@ -5,10 +5,23 @@ export function setAmountsHidden(hidden: boolean): void {
 export function displayAmount(value: string): string {
   return amountsHidden ? '••••' : value;
 }
-export function money(value: string): string {
+const currencyExponents: Record<string, number> = { JPY: 0, KRW: 0 };
+export function currencyExponent(code: string): number {
+  return currencyExponents[code] ?? 2;
+}
+export function money(value: string, exponent = 2): string {
   if (amountsHidden) return '••••';
   const [integer, decimal = ''] = value.split('.');
-  return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}.${decimal.padEnd(2, '0')}`;
+  const fraction = exponent ? `.${decimal.slice(0, exponent).padEnd(exponent, '0')}` : '';
+  return `${integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${fraction}`;
+}
+export function formatCurrency(
+  value: string,
+  code = 'CNY',
+  exponent = currencyExponent(code),
+): string {
+  const amount = money(value, exponent);
+  return code === 'CNY' ? `¥ ${amount}` : `${code} ${amount}`;
 }
 export function today(): string {
   const d = new Date();
@@ -24,9 +37,10 @@ export function validDate(value: string): boolean {
   const date = new Date(`${value}T12:00:00Z`);
   return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
-export function validAmount(value: string, reference = false): boolean {
+export function validAmount(value: string, reference = false, exponent = 2): boolean {
+  const fraction = exponent ? `(?:\\.\\d{1,${exponent}})?` : '';
   return (
-    (reference ? /^-?\d+(\.\d{1,2})?$/ : /^\d+(\.\d{1,2})?$/).test(value) &&
+    new RegExp(`^${reference ? '-?' : ''}\\d+${fraction}$`).test(value) &&
     (reference || /[1-9]/.test(value))
   );
 }

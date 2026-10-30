@@ -4,6 +4,15 @@ export interface TransactionDto {
   kind: string;
   status: 'pending' | 'confirmed' | 'ignored';
   amount: string;
+  currency_code: string;
+  report_amount_cny?: string | null;
+  fx_snapshot?: {
+    rate: string;
+    effective_date: string;
+    source: string;
+    provider?: string | null;
+    provider_sources: string[];
+  } | null;
   date: string;
   time?: string;
   account_id: string;
@@ -41,6 +50,15 @@ interface RawTransactionDetail extends Omit<TransactionDto, 'to_account_id'> {
   }[];
   history: [string, number][];
 }
+export interface ForeignPreview {
+  amount: string;
+  currency_code: string;
+  report_amount_cny: string;
+  rate: string;
+  source: 'reference' | 'manual';
+  effective_date: string;
+  fx_snapshot: NonNullable<TransactionDto['fx_snapshot']>;
+}
 export interface TransactionWrite {
   id?: string;
   expected_version: number;
@@ -57,8 +75,16 @@ export interface TransactionWrite {
   merchant?: string;
   description?: string;
   original_transaction_id?: string | null;
+  manual_fx_rate?: string;
 }
 export const transactionsApi = {
+  previewForeign: (amount: string, quoteCurrency: string, date: string, manualFxRate?: string) =>
+    invoke<ForeignPreview>('preview_foreign_transaction', {
+      amount,
+      quoteCurrency,
+      date,
+      manualFxRate: manualFxRate || null,
+    }),
   detail: async (id: string): Promise<TransactionDetail> => {
     const raw = await invoke<RawTransactionDetail>('transaction_detail', { id });
     return {
@@ -96,6 +122,7 @@ export const transactionsApi = {
         transaction_number: payload.transaction_number?.trim() || null,
         merchant_order_id: payload.merchant_order_id?.trim() || null,
         time: payload.time || null,
+        manual_fx_rate: payload.manual_fx_rate || null,
       },
     }),
   reverse: (id: string, reason: string) => invoke<string>('reverse_transaction', { id, reason }),
