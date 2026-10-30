@@ -45,6 +45,7 @@ fn entry(
         category_id: None,
         original_transaction_id: None,
         report_amount_cny: Some(money(delta.abs())),
+        fx_snapshot: None,
         merchant: Some("商户".into()),
         description: None,
     };

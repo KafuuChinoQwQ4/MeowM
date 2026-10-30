@@ -1,9 +1,26 @@
 //! Transactions, postings, transaction kinds, and status.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use uuid::Uuid;
 
-use crate::{AccountId, CategoryId, Money};
+use crate::{AccountId, CategoryId, CurrencyCode, Money};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FxSnapshotSource {
+    Reference,
+    Manual,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TransactionFxSnapshot {
+    pub quote_currency: CurrencyCode,
+    /// Foreign currency units per CNY.
+    pub rate: String,
+    pub effective_date: NaiveDate,
+    pub source: FxSnapshotSource,
+    pub provider: Option<String>,
+    pub provider_sources: Vec<String>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct TransactionId(Uuid);
@@ -75,6 +92,7 @@ pub struct Transaction {
     pub category_id: Option<CategoryId>,
     pub original_transaction_id: Option<TransactionId>,
     pub report_amount_cny: Option<Money>,
+    pub fx_snapshot: Option<TransactionFxSnapshot>,
     /// Optional normalized merchant/counterparty text used by classification rules.
     pub merchant: Option<String>,
     /// Optional normalized description or memo used by classification rules.

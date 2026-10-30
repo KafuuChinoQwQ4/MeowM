@@ -157,6 +157,7 @@ fn add(
         category_id,
         original_transaction_id: None,
         report_amount_cny: Some(Money::new(amount, c)),
+        fx_snapshot: None,
         merchant: Some(merchant.into()),
         description: Some("午餐".into()),
     })
@@ -200,6 +201,7 @@ fn amount_filters_find_internal_and_cross_platform_transfers_without_report_amou
                     category_id: None,
                     original_transaction_id: None,
                     report_amount_cny: None,
+                    fx_snapshot: None,
                     merchant: None,
                     description: Some("平台划转".into()),
                 })
@@ -239,6 +241,7 @@ fn amount_filters_find_internal_and_cross_platform_transfers_without_report_amou
         category_id: None,
         original_transaction_id: None,
         report_amount_cny: None,
+        fx_snapshot: None,
         merchant: None,
         description: None,
     })

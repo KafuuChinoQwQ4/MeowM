@@ -145,6 +145,7 @@ fn schema_twelve_upgrade_preserves_accounts_and_transactions() {
         category_id: None,
         original_transaction_id: None,
         report_amount_cny: Some(Money::new(1250, account.currency.clone())),
+        fx_snapshot: None,
         merchant: Some("旧商户".into()),
         description: None,
     };

@@ -88,6 +88,7 @@ pub fn capture_notification(
                 category_id: None,
                 original_transaction_id: None,
                 report_amount_cny: candidate.amount_minor.map(|n| Money::new(n, currency)),
+                fx_snapshot: None,
                 merchant: candidate.merchant,
                 description: Some(
                     if code == "pending" {

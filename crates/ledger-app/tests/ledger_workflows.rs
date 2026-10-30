@@ -171,6 +171,7 @@ fn expense_for(account_id: AccountId, minor_units: i64, occurred_at: Timestamp) 
             minor_units,
             CurrencyCode::new("CNY", 2).unwrap(),
         )),
+        fx_snapshot: None,
         merchant: None,
         description: None,
     }
@@ -433,6 +434,7 @@ fn transfer_changes_both_account_balances_without_changing_total_funds() {
         category_id: None,
         original_transaction_id: None,
         report_amount_cny: None,
+        fx_snapshot: None,
         merchant: None,
         description: None,
     };

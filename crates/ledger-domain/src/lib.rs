@@ -2,6 +2,7 @@
 
 pub mod account;
 pub mod category;
+pub mod exchange_rate;
 pub mod features;
 pub mod money;
 pub mod recurring;
@@ -11,11 +12,17 @@ pub mod validation;
 
 pub use account::{Account, AccountId, AccountKind};
 pub use category::{Category, CategoryId, RuleId};
+pub use exchange_rate::{
+    CurrencyDefinition, convert_foreign_minor_to_cny_minor, supported_currencies,
+};
 pub use features::*;
 pub use money::{CurrencyCode, Money};
 pub use recurring::*;
 pub use source::{SourceEvidence, SourceKind};
-pub use transaction::{Posting, Transaction, TransactionId, TransactionKind, TransactionStatus};
+pub use transaction::{
+    FxSnapshotSource, Posting, Transaction, TransactionFxSnapshot, TransactionId, TransactionKind,
+    TransactionStatus,
+};
 pub use validation::{ReportEffect, report_effect, validate_transaction_shape};
 
 use std::fmt;
@@ -24,6 +31,8 @@ use std::fmt;
 pub enum DomainError {
     InvalidCurrencyCode,
     InvalidCurrencyExponent,
+    InvalidExchangeRate,
+    InvalidFxAmount,
     CurrencyMismatch,
     ArithmeticOverflow,
     MissingPosting,
@@ -33,6 +42,7 @@ pub enum DomainError {
     InvalidPostingDirection,
     NegativeReportAmount,
     SelfReferentialRefund,
+    InvalidFxSnapshot,
 }
 
 impl fmt::Display for DomainError {
@@ -44,6 +54,8 @@ impl fmt::Display for DomainError {
             Self::InvalidCurrencyExponent => {
                 f.write_str("currency exponent must be between 0 and 9")
             }
+            Self::InvalidExchangeRate => f.write_str("exchange rate must be a positive decimal"),
+            Self::InvalidFxAmount => f.write_str("foreign amount must be positive"),
             Self::CurrencyMismatch => f.write_str("money currencies do not match"),
             Self::ArithmeticOverflow => f.write_str("money arithmetic overflowed"),
             Self::MissingPosting => f.write_str("confirmed transaction must have a posting"),
@@ -61,6 +73,7 @@ impl fmt::Display for DomainError {
             Self::SelfReferentialRefund => {
                 f.write_str("refund cannot reference itself as its original transaction")
             }
+            Self::InvalidFxSnapshot => f.write_str("transaction FX snapshot is invalid"),
         }
     }
 }

@@ -186,6 +186,7 @@ fn transaction(
         category_id: None,
         original_transaction_id: None,
         report_amount_cny: Some(Money::new(amount.abs(), currency)),
+        fx_snapshot: None,
         merchant: None,
         description: None,
     }

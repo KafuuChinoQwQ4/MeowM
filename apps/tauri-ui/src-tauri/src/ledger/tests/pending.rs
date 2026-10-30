@@ -578,6 +578,7 @@ fn preview_matches_manual_records_even_beyond_first_neighbor_page() {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(money(1230)),
+            fx_snapshot: None,
             merchant: Some("商户".into()),
             description: Some("manual lunch".into()),
         })

@@ -144,6 +144,7 @@ pub(super) fn transaction_from_row(
                 .transpose()
                 .map_err(to_sql_conversion_error)?,
             report_amount_cny: None,
+            fx_snapshot: None,
             merchant,
             description,
         },

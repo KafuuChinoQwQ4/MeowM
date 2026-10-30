@@ -58,6 +58,7 @@ fn tx(
         category_id: category,
         original_transaction_id: None,
         report_amount_cny: Some(Money::new(amount, account.currency.clone())),
+        fx_snapshot: None,
         merchant: Some("面包店".into()),
         description: None,
     }

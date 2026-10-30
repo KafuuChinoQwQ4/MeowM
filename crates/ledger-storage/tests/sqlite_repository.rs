@@ -43,6 +43,7 @@ fn expense(account_id: AccountId, id: TransactionId, status: TransactionStatus) 
         category_id: None,
         original_transaction_id: None,
         report_amount_cny: Some(Money::new(1250, cny)),
+        fx_snapshot: None,
         merchant: None,
         description: None,
     }

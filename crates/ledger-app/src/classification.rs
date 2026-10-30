@@ -318,6 +318,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(Money::new(100, currency)),
+            fx_snapshot: None,
             merchant: merchant.map(str::to_owned),
             description: description.map(str::to_owned),
         }

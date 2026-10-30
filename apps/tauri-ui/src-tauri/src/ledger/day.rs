@@ -61,6 +61,7 @@ impl Ledger {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(money(amount)),
+            fx_snapshot: None,
             merchant: None,
             description: if note.trim().is_empty() {
                 None

@@ -1,6 +1,9 @@
 //! Validation of transaction and posting invariants.
 
-use crate::{Account, AccountKind, DomainError, Transaction, TransactionKind};
+use crate::{
+    Account, AccountKind, DomainError, FxSnapshotSource, Transaction, TransactionKind,
+    convert_foreign_minor_to_cny_minor,
+};
 
 /// The contribution a confirmed transaction makes to aggregate reports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,6 +49,76 @@ pub fn validate_transaction_shape(
             Ok(account)
         })
         .collect::<Result<Vec<_>, DomainError>>()?;
+
+    if transaction.kind == TransactionKind::Transfer && transaction.fx_snapshot.is_some() {
+        return Err(DomainError::InvalidFxSnapshot);
+    }
+    let foreign_postings = transaction
+        .postings
+        .iter()
+        .filter(|posting| posting.delta.currency().code() != "CNY")
+        .collect::<Vec<_>>();
+    if foreign_postings.is_empty() {
+        if transaction.fx_snapshot.is_some() {
+            return Err(DomainError::InvalidFxSnapshot);
+        }
+    } else if transaction.kind != TransactionKind::Transfer {
+        let snapshot = transaction
+            .fx_snapshot
+            .as_ref()
+            .ok_or(DomainError::InvalidFxSnapshot)?;
+        if foreign_postings.len() != transaction.postings.len()
+            || foreign_postings
+                .iter()
+                .any(|posting| posting.delta.currency() != &snapshot.quote_currency)
+            || snapshot.quote_currency.code() == "CNY"
+        {
+            return Err(DomainError::InvalidFxSnapshot);
+        }
+        match snapshot.source {
+            FxSnapshotSource::Reference
+                if snapshot
+                    .provider
+                    .as_ref()
+                    .is_none_or(|provider| provider.trim().is_empty())
+                    || snapshot.provider_sources.is_empty()
+                    || snapshot
+                        .provider_sources
+                        .iter()
+                        .any(|provider| provider.trim().is_empty()) =>
+            {
+                return Err(DomainError::InvalidFxSnapshot);
+            }
+            FxSnapshotSource::Manual
+                if snapshot.provider.is_some() || !snapshot.provider_sources.is_empty() =>
+            {
+                return Err(DomainError::InvalidFxSnapshot);
+            }
+            _ => {}
+        }
+        let amount = transaction
+            .report_amount_cny
+            .as_ref()
+            .ok_or(DomainError::InvalidFxSnapshot)?;
+        if amount.currency().code() != "CNY" || amount.minor_units() <= 0 {
+            return Err(DomainError::InvalidFxSnapshot);
+        }
+        let foreign_minor = foreign_postings.iter().try_fold(0_i64, |total, posting| {
+            let magnitude = i64::try_from(posting.delta.minor_units().unsigned_abs())
+                .map_err(|_| DomainError::ArithmeticOverflow)?;
+            total
+                .checked_add(magnitude)
+                .ok_or(DomainError::ArithmeticOverflow)
+        })?;
+        let expected = convert_foreign_minor_to_cny_minor(
+            foreign_minor,
+            snapshot.quote_currency.minor_unit_exponent(),
+            &snapshot.rate,
+        )?;
+        if expected != amount.minor_units() {
+            return Err(DomainError::InvalidFxSnapshot);
+        }
+    }
 
     for (posting, account) in transaction.postings.iter().zip(&posting_accounts) {
         if !is_direction_valid(transaction.kind, account.kind, posting.delta.minor_units()) {
@@ -200,6 +273,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(report_amount(minor_units)),
+            fx_snapshot: None,
             merchant: None,
             description: None,
         }
@@ -224,6 +298,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: None,
+            fx_snapshot: None,
             merchant: None,
             description: None,
         }
@@ -285,6 +360,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: None,
+            fx_snapshot: None,
             merchant: None,
             description: None,
         };
@@ -310,6 +386,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: None,
+            fx_snapshot: None,
             merchant: None,
             description: None,
         };
@@ -341,6 +418,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(report_amount(8_000)),
+            fx_snapshot: None,
             merchant: None,
             description: None,
         };
@@ -371,6 +449,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: None,
+            fx_snapshot: None,
             merchant: None,
             description: None,
         };
@@ -390,6 +469,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(report_amount(1_200)),
+            fx_snapshot: None,
             merchant: None,
             description: None,
         };
@@ -408,6 +488,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(report_amount(1_200)),
+            fx_snapshot: None,
             merchant: None,
             description: None,
         };
@@ -445,6 +526,7 @@ mod tests {
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(report_amount(1_000)),
+            fx_snapshot: None,
             merchant: None,
             description: None,
         };
@@ -546,5 +628,69 @@ mod tests {
         refund.report_amount_cny = Some(report_amount(i64::MIN));
         assert!(validate_transaction_shape(&refund, std::slice::from_ref(&wallet)).is_err());
         assert_eq!(report_effect(&refund), None);
+    }
+
+    #[test]
+    fn foreign_expense_requires_matching_quote_cny_report_and_valid_evidence() {
+        use crate::{FxSnapshotSource, TransactionFxSnapshot};
+        let wallet = asset_account("wallet", "USD");
+        let mut expense = confirmed_expense(wallet.clone(), 10_000);
+        expense.report_amount_cny = Some(report_amount(1_404));
+        expense.fx_snapshot = Some(TransactionFxSnapshot {
+            quote_currency: currency("USD"),
+            rate: "7.1234".to_owned(),
+            effective_date: chrono::NaiveDate::from_ymd_opt(2026, 10, 30).unwrap(),
+            source: FxSnapshotSource::Reference,
+            provider: Some("ECB".to_owned()),
+            provider_sources: vec!["ECB".to_owned()],
+        });
+        assert_eq!(
+            validate_transaction_shape(&expense, std::slice::from_ref(&wallet)),
+            Ok(())
+        );
+
+        expense.report_amount_cny = Some(report_amount(1_405));
+        assert!(validate_transaction_shape(&expense, std::slice::from_ref(&wallet)).is_err());
+        expense.report_amount_cny = Some(report_amount(1_404));
+        expense.fx_snapshot.as_mut().unwrap().rate = "0".to_owned();
+        assert!(validate_transaction_shape(&expense, std::slice::from_ref(&wallet)).is_err());
+        expense.fx_snapshot.as_mut().unwrap().rate = "7.1234".to_owned();
+
+        expense.fx_snapshot.as_mut().unwrap().quote_currency = currency("EUR");
+        assert!(validate_transaction_shape(&expense, std::slice::from_ref(&wallet)).is_err());
+        expense.fx_snapshot.as_mut().unwrap().quote_currency = currency("USD");
+        expense.report_amount_cny = Some(Money::new(1_404, currency("USD")));
+        assert!(validate_transaction_shape(&expense, std::slice::from_ref(&wallet)).is_err());
+        expense.report_amount_cny = Some(report_amount(1_404));
+        expense
+            .fx_snapshot
+            .as_mut()
+            .unwrap()
+            .provider_sources
+            .clear();
+        assert!(validate_transaction_shape(&expense, std::slice::from_ref(&wallet)).is_err());
+        expense.fx_snapshot = None;
+        assert!(validate_transaction_shape(&expense, &[wallet]).is_err());
+    }
+
+    #[test]
+    fn transfers_reject_fx_snapshot_but_same_currency_transfer_without_one_passes() {
+        use crate::{FxSnapshotSource, TransactionFxSnapshot};
+        let cash = asset_account("cash", "CNY");
+        let bank = asset_account("bank", "CNY");
+        let mut transfer = confirmed_transfer(cash.clone(), bank.clone(), 500);
+        assert_eq!(
+            validate_transaction_shape(&transfer, &[cash.clone(), bank.clone()]),
+            Ok(())
+        );
+        transfer.fx_snapshot = Some(TransactionFxSnapshot {
+            quote_currency: currency("USD"),
+            rate: "7".to_owned(),
+            effective_date: chrono::NaiveDate::from_ymd_opt(2026, 10, 30).unwrap(),
+            source: FxSnapshotSource::Manual,
+            provider: None,
+            provider_sources: vec![],
+        });
+        assert!(validate_transaction_shape(&transfer, &[cash, bank]).is_err());
     }
 }

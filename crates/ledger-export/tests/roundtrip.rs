@@ -23,6 +23,7 @@ fn exports_exact_money_refunds_and_reversals_and_defaults_to_confirmed() {
         category_id: None,
         original_transaction_id: None,
         report_amount_cny: Some(money(9007199254740993)),
+        fx_snapshot: None,
         merchant: Some(" =1+1".into()),
         description: Some("含逗号,换行\n和\"引号\"".into()),
     };

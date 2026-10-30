@@ -52,6 +52,7 @@ impl SqliteLedgerRepository {
                             t.amount_cny_minor,
                             account.currency.clone(),
                         )),
+                        fx_snapshot: None,
                         merchant: t.merchant.clone(),
                         description: t.description.clone(),
                     };

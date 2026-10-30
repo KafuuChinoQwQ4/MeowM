@@ -39,6 +39,7 @@ fn seed() -> (
             category_id: None,
             original_transaction_id: None,
             report_amount_cny: Some(Money::new(n, account.currency.clone())),
+            fx_snapshot: None,
             merchant: Some(format!("merchant-{n}")),
             description: None,
         };
