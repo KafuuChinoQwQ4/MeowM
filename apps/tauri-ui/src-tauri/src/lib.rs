@@ -1,6 +1,7 @@
 mod analytics;
 mod data_files;
 mod data_management;
+mod exchange_rates;
 mod ledger;
 mod notifications;
 mod privacy_commands;
@@ -202,11 +203,25 @@ pub fn run() {
             let path = app.path().app_data_dir()?.join("ledger.sqlite3");
             let ledger = Ledger::open(&path).map_err(std::io::Error::other)?;
             app.manage(LedgerState(Mutex::new(ledger)));
+            #[cfg(not(target_os = "android"))]
+            std::thread::spawn(move || {
+                if let Ok(repo) = ledger_storage::sqlite::SqliteLedgerRepository::open(&path) {
+                    let _ = exchange_rates::service::sync(
+                        &repo,
+                        &exchange_rates::provider::HttpRateProvider::default(),
+                        chrono::Utc::now(),
+                        false,
+                    );
+                }
+            });
             #[cfg(target_os = "android")]
             screen_capture::attach(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            exchange_rates::commands::exchange_rates_history,
+            exchange_rates::commands::exchange_rates_sync_state,
+            exchange_rates::commands::exchange_rates_refresh,
             screen_capture::screen_capture_state,
             screen_capture::save_screen_capture_source,
             screen_capture::screen_capture_status,

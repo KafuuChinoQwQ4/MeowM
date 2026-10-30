@@ -12,6 +12,8 @@ class MainActivity : TauriActivity() {
     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
+    ExchangeRateWorkScheduler.ensureScheduled(this)
+    ExchangeRateWorkScheduler.enqueueStartupSync(this)
     val content = findViewById<View>(android.R.id.content)
     ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
       val bars = insets.getInsets(

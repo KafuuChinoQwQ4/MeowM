@@ -16,6 +16,12 @@ pub struct ExchangeRateObservation {
     pub fetched_at_utc: DateTime<Utc>,
 }
 
+impl ExchangeRateObservation {
+    pub fn validate(&self) -> Result<(), RepositoryError> {
+        validate_observation(self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExchangeRateSyncState {
     pub last_attempt_utc: Option<DateTime<Utc>>,
@@ -46,7 +52,14 @@ impl SqliteLedgerRepository {
                     "INSERT INTO exchange_rates
                      (effective_date, base_currency_code, quote_currency_code, rate, provider, provider_sources, fetched_at_utc_micros)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-                     ON CONFLICT(effective_date, base_currency_code, quote_currency_code) DO NOTHING",
+                     ON CONFLICT(effective_date, base_currency_code, quote_currency_code) DO UPDATE SET
+                       rate = excluded.rate,
+                       provider = excluded.provider,
+                       provider_sources = excluded.provider_sources,
+                       fetched_at_utc_micros = excluded.fetched_at_utc_micros
+                     WHERE excluded.fetched_at_utc_micros > exchange_rates.fetched_at_utc_micros
+                       AND (excluded.rate != exchange_rates.rate OR excluded.provider != exchange_rates.provider
+                            OR excluded.provider_sources != exchange_rates.provider_sources)",
                     rusqlite::params![
                         observation.effective_date.format("%Y-%m-%d").to_string(),
                         observation.base_currency,
@@ -196,7 +209,7 @@ fn validate_observation(observation: &ExchangeRateObservation) -> Result<(), Rep
         || !is_supported_quote(&observation.quote_currency)
         || observation.provider != "frankfurter"
         || !is_positive_decimal(&observation.rate)
-        || observation.provider_sources.len() > 32
+        || observation.provider_sources.len() > 128
         || observation
             .provider_sources
             .iter()

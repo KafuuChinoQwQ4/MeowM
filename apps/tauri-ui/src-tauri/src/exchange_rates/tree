@@ -1,0 +1,11 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `commands.rs` — 本机汇率历史、同步状态和手动刷新的 Tauri 命令。
+- `jni.rs` — Android WorkManager 通过有界 JNI 调用共享 Rust 汇率同步服务。
+- `mod.rs` — 汇率服务模块、命令与跨平台边界入口。
+- `provider.rs` — Frankfurter 有界 HTTPS 请求、精确数字和来源对象校验。
+- `service.rs` — 每日回填、幂等更新、失败状态和当天重试逻辑。
+- `tests.rs` — 汇率 HTTP 请求、真实结构解析、同步区间与离线保留回归。
+- `tree` — 本目录直接文件的说明索引。

@@ -1,4 +1,17 @@
 // Only date labels cross IPC. Rust resolves the device's local timezone to UTC.
+export function recentDaysRange(anchorDate: string, count: number): [string, string] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(anchorDate) || !Number.isInteger(count) || count < 1)
+    return ['', ''];
+  const anchor = new Date(`${anchorDate}T00:00:00Z`);
+  if (!Number.isFinite(anchor.getTime()) || anchor.toISOString().slice(0, 10) !== anchorDate)
+    return ['', ''];
+  const from = new Date(anchor);
+  from.setUTCDate(from.getUTCDate() - count + 1);
+  const until = new Date(anchor);
+  until.setUTCDate(until.getUTCDate() + 1);
+  return [from.toISOString().slice(0, 10), until.toISOString().slice(0, 10)];
+}
+
 export function monthRange(month: string): [string, string] {
   if (!/^\d{4}-\d{2}$/.test(month)) return ['', ''];
   const [year, number] = month.split('-').map(Number);

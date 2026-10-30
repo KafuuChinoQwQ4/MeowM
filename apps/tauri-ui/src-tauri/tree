@@ -2,7 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `Cargo.toml` — Tauri frontend or Rust application configuration: Cargo.toml.
+- `Cargo.toml` — Tauri 原生层依赖，包含有界 HTTPS 汇率客户端和精确 JSON 数字解析。
 - `build.rs` — Tauri frontend or Rust application configuration: build.rs.
 - `tauri.conf.json` — Tauri frontend or Rust application configuration: tauri.conf.json.
 - `tree` — 本目录直接文件的说明索引。

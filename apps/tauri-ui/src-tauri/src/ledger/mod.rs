@@ -75,6 +75,9 @@ impl Ledger {
     pub(crate) fn repo(&self) -> Result<SqliteLedgerRepository> {
         SqliteLedgerRepository::open(&self.path).map_err(|e| e.to_string())
     }
+    pub(crate) fn database_path(&self) -> &Path {
+        &self.path
+    }
 }
 
 fn ensure_default_categories(ledger: &Ledger) -> Result<()> {

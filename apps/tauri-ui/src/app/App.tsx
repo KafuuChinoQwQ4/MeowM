@@ -16,6 +16,7 @@ import { PendingPage } from '../features/pending/PendingPage';
 import { PendingEditor } from '../features/pending/PendingEditor';
 import { ImportPanel } from '../features/import/ImportPanel';
 import { ReportsPage } from '../features/reports/ReportsPage';
+import { ExchangeRatesPage } from '../features/exchangeRates/ExchangeRatesPage';
 import { BudgetsPage } from '../features/budgets/BudgetsPage';
 import { NotificationsPage } from '../features/notifications/NotificationsPage';
 import { RecurringPage } from '../features/recurring/RecurringPage';
@@ -199,6 +200,7 @@ function UnlockedApp({
                   />
                 )}
                 {view === 'reports' && <ReportsPage accounts={accounts} revision={revision} />}
+                {view === 'exchange' && <ExchangeRatesPage />}
                 {view === 'budgets' && (
                   <BudgetsPage accounts={accounts} revision={revision} onChanged={refresh} />
                 )}

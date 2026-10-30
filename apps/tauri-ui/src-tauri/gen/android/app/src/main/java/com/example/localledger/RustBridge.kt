@@ -7,6 +7,7 @@ import java.io.File
 object RustBridge {
     init { System.loadLibrary("ledger_tauri_ui") }
     @JvmStatic external fun nativeCapture(path: String, event: String): String
+    @JvmStatic external fun nativeSyncExchangeRates(path: String): String
     @JvmStatic external fun nativeScreenCapture(session: String, event: String): String
     @JvmStatic external fun nativeScreenAllowed(session: String, packageName: String): Boolean
     @JvmStatic external fun nativeScreenStop(session: String)

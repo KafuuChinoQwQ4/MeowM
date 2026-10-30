@@ -8,6 +8,7 @@ export async function navigate(page, view) {
     sources: ['settings', 'sources'],
     security: ['settings', 'security'],
     reports: ['finance', 'reports'],
+    exchange: ['finance', 'exchange'],
     budgets: ['finance', 'budgets'],
     recurring: ['finance', 'recurring'],
     search: ['finance', 'search'],

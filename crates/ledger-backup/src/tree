@@ -2,7 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `archive.rs` — Versioned portable backup container.
+- `archive.rs` — 版本化便携备份容器及 schema 13 汇率历史兼容性。
 - `crypto.rs` — Key derivation and authenticated encryption boundary.
 - `lib.rs` — Backup archive, crypto, and restore module declarations.
 - `restore.rs` — Backup validation and atomic restore workflow.

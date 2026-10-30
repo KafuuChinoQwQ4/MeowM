@@ -56,6 +56,24 @@ fn observations_are_idempotent_exact_and_filtered_by_half_open_dates() {
 }
 
 #[test]
+fn a_later_provider_revision_corrects_the_latest_daily_observation() {
+    let repo = SqliteLedgerRepository::in_memory().unwrap();
+    let original = observation("2026-10-30", "USD", "7.12");
+    repo.upsert_exchange_rates(&[original.clone()]).unwrap();
+    let mut corrected = original;
+    corrected.rate = "7.13".into();
+    corrected.fetched_at_utc = utc("2026-10-30T18:00:00Z");
+
+    assert_eq!(repo.upsert_exchange_rates(&[corrected]).unwrap(), 1);
+    let rows = repo
+        .exchange_rates("USD", date("2026-10-30"), date("2026-10-31"))
+        .unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].rate, "7.13");
+    assert_eq!(rows[0].fetched_at_utc, utc("2026-10-30T18:00:00Z"));
+}
+
+#[test]
 fn invalid_currency_and_rate_values_are_rejected_before_writing() {
     let repo = SqliteLedgerRepository::in_memory().unwrap();
     assert!(
