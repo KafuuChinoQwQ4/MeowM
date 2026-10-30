@@ -338,5 +338,6 @@
   "crates/ledger-import/src/pdf.rs": "内存 PDF 加密读取及带坐标的中文文字提取，不保留原文。",
   "crates/ledger-import/tests/pdf_parsers.rs": "中行 PDF 密码、分页、余额连续、普通划转及无流水号查重回归测试。",
   "crates/ledger-import/tests/fixtures/boc.pdf": "合成中行表格 PDF，覆盖分页、换行、退款和余额。",
-  "crates/ledger-import/tests/fixtures/boc-encrypted.pdf": "合成加密中行 PDF，使用仅供测试的密码。"
+  "crates/ledger-import/tests/fixtures/boc-encrypted.pdf": "合成加密中行 PDF，使用仅供测试的密码。",
+  "docs/superpowers/specs/2026-10-30-daily-exchange-rates-design.md": "设计说明每日汇率数据源、本地缓存、Android 后台同步与汇率曲线。"
 }
