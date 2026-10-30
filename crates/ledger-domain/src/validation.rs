@@ -62,7 +62,9 @@ pub fn validate_transaction_shape(
         if transaction.fx_snapshot.is_some() {
             return Err(DomainError::InvalidFxSnapshot);
         }
-    } else if transaction.kind != TransactionKind::Transfer {
+    } else if transaction.kind != TransactionKind::Transfer
+        && (transaction.status.is_effective() || transaction.fx_snapshot.is_some())
+    {
         let snapshot = transaction
             .fx_snapshot
             .as_ref()
@@ -671,6 +673,24 @@ mod tests {
         assert!(validate_transaction_shape(&expense, std::slice::from_ref(&wallet)).is_err());
         expense.fx_snapshot = None;
         assert!(validate_transaction_shape(&expense, &[wallet]).is_err());
+    }
+
+    #[test]
+    fn foreign_pending_expense_can_wait_for_confirmation_fx_snapshot() {
+        let wallet = asset_account("wallet", "USD");
+        let mut expense = confirmed_expense(wallet.clone(), 10_000);
+        expense.status = TransactionStatus::Pending;
+        expense.report_amount_cny = None;
+        assert_eq!(
+            validate_transaction_shape(&expense, std::slice::from_ref(&wallet)),
+            Ok(())
+        );
+
+        expense.status = TransactionStatus::Confirmed;
+        assert_eq!(
+            validate_transaction_shape(&expense, &[wallet]),
+            Err(crate::DomainError::InvalidFxSnapshot)
+        );
     }
 
     #[test]
