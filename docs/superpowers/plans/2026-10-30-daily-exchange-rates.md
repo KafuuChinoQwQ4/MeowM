@@ -6,7 +6,7 @@
 
 **Architecture:** SQLite 以 schema 13 保存汇率观察值和安全同步状态，Rust 汇率服务独占 API 请求、校验、事务和 Tauri 命令。Android WorkManager 经 JNI 调用同一 Rust 服务；桌面启动时在后台线程检查，React 页面只查询本地历史并绘制 SVG。加密快照、旧备份升级和目录索引同步包含新增数据及文件。
 
-**Tech Stack:** Rust 2024、SQLite/rusqlite、chrono、serde_json arbitrary precision、ureq 3.4.2、Tauri 2、Kotlin、AndroidX WorkManager 2.12.0、React 19、TypeScript、Node test、Playwright。
+**Tech Stack:** Rust 2024、SQLite/rusqlite、chrono、serde_json arbitrary precision、ureq 3.5.0、Tauri 2、Kotlin、AndroidX WorkManager 2.10.5、React 19、TypeScript、Node test、Playwright。
 
 **Spec:** `docs/superpowers/specs/2026-10-30-daily-exchange-rates-design.md`
 
@@ -67,7 +67,7 @@
 - Produces public `ExchangeRateSyncState { last_attempt_utc: Option<DateTime<Utc>>, last_success_utc: Option<DateTime<Utc>>, status: String, error_code: Option<String> }`.
 - Produces `SqliteLedgerRepository::upsert_exchange_rates(&[ExchangeRateObservation]) -> Result<usize, RepositoryError>`, `exchange_rates(&str, from_inclusive: NaiveDate, until_exclusive: NaiveDate) -> Result<Vec<ExchangeRateObservation>, RepositoryError>`, `exchange_rate_sync_state() -> Result<Option<ExchangeRateSyncState>, RepositoryError>`, and `record_exchange_rate_sync(&ExchangeRateSyncState)`.
 
-- [ ] **Step 1: Write failing storage and backup tests.** Add storage tests that insert two dates for USD, repeat one observation without creating a duplicate, reject unsupported currency and nonpositive/nondecimal rates, persist sync status, reopen the file, and upgrade a schema-12 database while preserving its accounts and transactions. Add an encrypted backup test that stores a quote, verifies the current schema version and observation rate survive inspection, and restores the observation into another repository.
+- [x] **Step 1: Write failing storage and backup tests.** Add storage tests that insert two dates for USD, repeat one observation without creating a duplicate, reject unsupported currency and nonpositive/nondecimal rates, persist sync status, reopen the file, and upgrade a schema-12 database while preserving its accounts and transactions. Add an encrypted backup test that stores a quote, verifies the current schema version and observation rate survive inspection, and restores the observation into another repository.
 
 ```rust
 #[test]
@@ -82,9 +82,9 @@ fn rate_observations_are_validated_idempotent_and_persisted() {
 }
 ```
 
-- [ ] **Step 2: Run the focused tests and verify RED.** Run `cargo test -p ledger-storage --test exchange_rates`; it must fail because the observation API and schema 13 do not exist.
+- [x] **Step 2: Run the focused tests and verify RED.** Run `cargo test -p ledger-storage --test exchange_rates`; it must fail because the observation API and schema 13 do not exist.
 
-- [ ] **Step 3: Add the migration and storage APIs.** `exchange_rates` has primary key `(effective_date, base_currency_code, quote_currency_code)`, a `CNY` base check, fixed provider metadata, exact rate text, and UTC fetch time. `exchange_rate_sync` has singleton key `1`, nullable attempt/success times, constrained status and optional safe error code. Validate exact positive decimal syntax and supported currency codes before the transaction. Use `INSERT ... ON CONFLICT DO NOTHING` for immutable daily observations; update sync state in its own transaction.
+- [x] **Step 3: Add the migration and storage APIs.** `exchange_rates` has primary key `(effective_date, base_currency_code, quote_currency_code)`, a `CNY` base check, fixed provider metadata, exact rate text, and UTC fetch time. `exchange_rate_sync` has singleton key `1`, nullable attempt/success times, constrained status and optional safe error code. Validate exact positive decimal syntax and supported currency codes before the transaction. Use `INSERT ... ON CONFLICT DO UPDATE` only when a later fetch contains changed provider data; unchanged observations remain no-op. Update sync state in its own transaction.
 
 ```sql
 CREATE TABLE exchange_rates (
@@ -106,15 +106,15 @@ CREATE TABLE exchange_rate_sync (
 );
 ```
 
-- [ ] **Step 4: Upgrade migration and snapshot paths.** Append migration 13 to the trusted snapshot migration list, invoke its repository migration from `sqlite/mod.rs` after `apply_merchant_order_migration`, accept version 13 in `migrations.rs`, append both tables to snapshot table order, extend `empty_at` to 13, and validate date/rate/status fields during snapshot restore. Update existing repository tests that assert the current schema version from 12 to 13.
+- [x] **Step 4: Upgrade migration and snapshot paths.** Append migration 13 to the trusted snapshot migration list, invoke its repository migration from `sqlite/mod.rs` after `apply_merchant_order_migration`, accept version 13 in `migrations.rs`, append both tables to snapshot table order, extend `empty_at` to 13, and validate date/rate/status fields during snapshot restore. Update existing repository tests that assert the current schema version from 12 to 13.
 
-- [ ] **Step 5: Run focused storage and snapshot tests.** Run `cargo test -p ledger-storage`; it must pass, including old schema-12 upgrade, snapshot restore, and corrupted row rejection.
+- [x] **Step 5: Run focused storage and snapshot tests.** Run `cargo test -p ledger-storage`; it must pass, including old schema-12 upgrade, snapshot restore, and corrupted row rejection.
 
-- [ ] **Step 6: Extend encrypted backup compatibility.** Change the accepted schema range in `archive.rs` from `1..=12` to `1..=13`; update the legacy upgrade assertion to 13 and add a schema-13 roundtrip assertion that preserves the sample observation. Run `cargo test -p ledger-backup`.
+- [x] **Step 6: Extend encrypted backup compatibility.** Change the accepted schema range in `archive.rs` from `1..=12` to `1..=13`; update the legacy upgrade assertion to 13 and add a schema-13 roundtrip assertion that preserves the sample observation. Run `cargo test -p ledger-backup`.
 
-- [ ] **Step 7: Update direct-file descriptions and verify indexes.** Add exact descriptions for the new Rust files, migration, backup test, and storage test to `scripts/tree_descriptions.json`; run `python3 scripts/update_tree.py` and `python3 scripts/update_tree.py --check`.
+- [x] **Step 7: Update direct-file descriptions and verify indexes.** Add exact descriptions for the new Rust files, migration, backup test, and storage test to `scripts/tree_descriptions.json`; run `python3 scripts/update_tree.py` and `python3 scripts/update_tree.py --check`.
 
-- [ ] **Step 8: Commit the storage boundary.** Stage only the migration, storage implementation/tests, backup changes, affected snapshot/migration files, and their generated indexes; commit as `feat: store exchange rate history`.
+- [x] **Step 8: Commit the storage boundary.** Stage only the migration, storage implementation/tests, backup changes, affected snapshot/migration files, and their generated indexes; commit as `feat: store exchange rate history`.
 
 ## Task 2: Add the validated Frankfurter provider and Rust sync service
 
@@ -131,7 +131,7 @@ CREATE TABLE exchange_rate_sync (
 - `ExchangeRateService::sync(repository, provider, now_utc, force) -> Result<ExchangeRateSyncState, ExchangeRateSyncError>` stores the validated observations and sync state.
 - `HttpRateProvider::new(agent, base_url)` defaults to `https://api.frankfurter.dev/v2` and supports a test-local base URL.
 
-- [ ] **Step 1: Write parser and synchronization tests.** Cover accepted v2 rows, preservation of the JSON number's exact decimal spelling, rejected unknown quote/nonpositive rate/bad date/malformed provider attribution, initial 365-day request, incremental request from the newest date plus one day, empty weekend response, duplicate synchronization, and stale-cache preservation after transport failure.
+- [x] **Step 1: Write parser and synchronization tests.** Cover accepted v2 rows, preservation of the JSON number's exact decimal spelling, rejected unknown quote/nonpositive rate/bad date/malformed provider attribution, initial 365-day request, incremental request overlapping the newest stored date so later provider corrections are retained, empty weekend response, duplicate synchronization, and stale-cache preservation after transport failure.
 
 ```rust
 #[test]
@@ -149,9 +149,9 @@ fn provider_failure_keeps_existing_observations_and_records_safe_status() {
 }
 ```
 
-- [ ] **Step 2: Run `cargo test -p ledger-tauri-ui --lib exchange_rates` and verify RED.** The parser and service tests must fail because the module and provider contract are absent.
+- [x] **Step 2: Run `cargo test -p ledger-tauri-ui --lib exchange_rates` and verify RED.** The parser and service tests must fail because the module and provider contract are absent.
 
-- [ ] **Step 3: Implement the provider and service.** Add `ureq = { version = "3.4.2", features = ["json"] }` and enable `serde_json` `arbitrary_precision` for this crate. Configure a 20-second global timeout, stream at most 512 KiB, request only the fixed ten quotes, expand provider attribution, inspect status before parsing, accept partial quote sets per returned date but reject unexpected quotes, and persist only after validating the complete response. Initial sync asks for 365 natural days (`today - 364 days` through today, inclusive); later sync starts one day after the newest stored effective date and ends at the service date. Translate the half-open storage/UI end date to Frankfurter's inclusive `to` by subtracting one day. Manual sync sets `force = true`; scheduled sync skips a second attempt on the same local date.
+- [x] **Step 3: Implement the provider and service.** Add `ureq = { version = "3.4.2", features = ["json"] }` and enable `serde_json` `arbitrary_precision` for this crate. Configure a 20-second global timeout, stream at most 512 KiB, request only the fixed ten quotes, fetch compact history and expanded attribution only for the newest actual observation, inspect status before parsing, accept partial quote sets per returned date but reject unexpected quotes, and persist only after validating the complete response. Initial sync asks for 365 natural days (`today - 364 days` through today, inclusive); later sync includes the newest stored effective date for late provider corrections and ends at the service date. Translate the half-open storage/UI end date to Frankfurter's inclusive `to` by subtracting one day. Manual sync sets `force = true`; scheduled sync skips a second successful attempt on the same local date; failures remain retryable that day.
 
 ```rust
 pub const QUOTE_CURRENCIES: [&str; 10] = ["USD", "EUR", "JPY", "HKD", "GBP", "KRW", "AUD", "CAD", "SGD", "CHF"];
@@ -160,11 +160,11 @@ pub const MAX_RESPONSE_BYTES: u64 = 512 * 1024;
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 ```
 
-- [ ] **Step 4: Add desktop startup synchronization.** Register the module in `lib.rs`; on non-Android targets only, Tauri `setup` clones the database path and spawns a Rust thread that calls the non-forced sync service. Do not block window creation and do not capture any account or transaction data in the request.
+- [x] **Step 4: Add desktop startup synchronization.** Register the module in `lib.rs`; on non-Android targets only, Tauri `setup` clones the database path and spawns a Rust thread that calls the non-forced sync service. Do not block window creation and do not capture any account or transaction data in the request.
 
-- [ ] **Step 5: Run Rust service tests and formatting.** Run `cargo test -p ledger-tauri-ui --lib exchange_rates` and `cargo fmt --all -- --check`; tests use only fixture transport and do not depend on public network availability.
+- [x] **Step 5: Run Rust service tests and formatting.** Run `cargo test -p ledger-tauri-ui --lib exchange_rates` and `cargo fmt --all -- --check`; tests use only fixture transport and do not depend on public network availability.
 
-- [ ] **Step 6: Update indexes and commit.** Add module file descriptions, run `python3 scripts/update_tree.py --check`, then commit only provider/service/dependency and related index files as `feat: sync daily reference exchange rates`.
+- [x] **Step 6: Update indexes and commit.** Add module file descriptions, run `python3 scripts/update_tree.py --check`, then include provider, service, storage correction, command/JNI, Android, UI, and generated-index changes in the integrated feature commit `64666a7 feat: add daily reference exchange rates`.
 
 ## Task 3: Expose rate history/status and a shared Android JNI entry point
 
@@ -179,7 +179,7 @@ pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 - Tauri commands: `exchange_rates_history(quote_currency, from_date_inclusive, until_date_exclusive)`, `exchange_rates_sync_state()`, and `exchange_rates_refresh()`.
 - JNI method: `RustBridge.nativeSyncExchangeRates(path: String): String`, returning a bounded JSON status containing only `status`, `latest_date`, and optional safe `error_code`.
 
-- [ ] **Step 1: Write Rust command tests.** With a temporary SQLite path, test valid quote/date ranges, reject unsupported quotes and reversed ranges, return empty history without network access, and verify a forced sync calls a fake provider and returns safe status.
+- [x] **Step 1: Write Rust command tests.** With a temporary SQLite path, test valid quote/date ranges, reject unsupported quotes and reversed ranges, return empty history without network access, and verify a forced sync calls a fake provider and returns safe status.
 
 ```rust
 #[test]
@@ -190,17 +190,17 @@ fn history_command_rejects_unlisted_currency_and_reversed_range() {
 }
 ```
 
-- [ ] **Step 2: Run focused Tauri Rust tests and verify RED.** Run `cargo test -p ledger-tauri-ui --lib exchange_rates`; command methods and JNI boundary must be missing.
+- [x] **Step 2: Run focused Tauri Rust tests and verify RED.** Run `cargo test -p ledger-tauri-ui --lib exchange_rates`; command methods and JNI boundary must be missing.
 
-- [ ] **Step 3: Implement commands.** Query and refresh use the existing `LedgerState` path and privacy guard for WebView calls. History returns decimal rates as strings and dates in ISO format. Errors crossing IPC use stable localized messages and do not contain URLs or provider response bodies.
+- [x] **Step 3: Implement commands.** Query and refresh use the existing `LedgerState` path and privacy guard for WebView calls. History returns decimal rates as strings and dates in ISO format. Errors crossing IPC use stable localized messages and do not contain URLs or provider response bodies.
 
-- [ ] **Step 4: Implement the Android JNI function.** Parse the path and call `SqliteLedgerRepository::open` plus the shared sync service inside `catch_unwind`; cap the incoming path length at 4096 bytes and the returned JSON at 1024 bytes. Never panic across JNI or log network response content.
+- [x] **Step 4: Implement the Android JNI function.** Parse the path and call `SqliteLedgerRepository::open` plus the shared sync service inside `catch_unwind`; cap the incoming path length at 4096 bytes and the returned JSON at 1024 bytes. Never panic across JNI or log network response content.
 
-- [ ] **Step 5: Add the Kotlin external declaration.** Add `@JvmStatic external fun nativeSyncExchangeRates(path: String): String` to `RustBridge.kt`. Cover safe status decoding and worker success/retry mapping in the WorkManager tests in Task 4.
+- [x] **Step 5: Add the Kotlin external declaration.** Add `@JvmStatic external fun nativeSyncExchangeRates(path: String): String` to `RustBridge.kt`. Cover safe status decoding and worker success/retry mapping in the WorkManager tests in Task 4.
 
-- [ ] **Step 6: Run Rust tests and Android compilation.** Run `cargo test -p ledger-tauri-ui --lib exchange_rates` and `cd apps/tauri-ui/src-tauri/gen/android && ./gradlew :app:compileDebugKotlin`.
+- [x] **Step 6: Run Rust tests and Android compilation.** Run `cargo test -p ledger-tauri-ui --lib exchange_rates` and `cd apps/tauri-ui/src-tauri/gen/android && ./gradlew :app:compileUniversalDebugKotlin :app:compileUniversalDebugAndroidTestKotlin`.
 
-- [ ] **Step 7: Update indexes and commit.** Update descriptions for `commands.rs` and `jni.rs`, run the tree check, and commit as `feat: expose exchange rate sync commands`.
+- [x] **Step 7: Update indexes and commit.** Update descriptions for `commands.rs` and `jni.rs`, run the tree check, and include command and JNI files in the integrated feature commit `64666a7`.
 
 ## Task 4: Schedule Android refresh with WorkManager
 
@@ -216,7 +216,7 @@ fn history_command_rejects_unlisted_currency_and_reversed_range() {
 - `ExchangeRateWorkScheduler.enqueueStartupSync(context)` enqueues unique immediate work with `ExistingWorkPolicy.KEEP`.
 - `ExchangeRateWorker` calls `RustBridge.nativeSyncExchangeRates(RustBridge.databasePath(applicationContext))`; only `success` and `no_new_data` return `Result.success()`, while network/provider/invalid-data and JNI failures return `Result.retry()`.
 
-- [ ] **Step 1: Add WorkManager test dependencies and write instrumentation tests.** Use AndroidX WorkManager runtime and test artifacts `2.12.0`; verify one unique periodic job, 24-hour interval, connected-network constraint, and that calling `ensureScheduled` twice still yields exactly one unique job. Add the periodic work name as a request tag so the constraint test can identify it.
+- [x] **Step 1: Add WorkManager test dependencies and write instrumentation tests.** Use AndroidX WorkManager runtime and test artifacts `2.10.5`; verify one unique periodic job, 24-hour interval, connected-network constraint, and that calling `ensureScheduled` twice still yields exactly one unique job. Add the periodic work name as a request tag so the constraint test can identify it.
 
 ```kotlin
 @Test
@@ -231,11 +231,11 @@ fun ensureScheduledKeepsOneConnectedDailyWorker() {
 }
 ```
 
-- [ ] **Step 2: Compile/test the Android app and verify RED.** Run `cd apps/tauri-ui/src-tauri/gen/android && ./gradlew :app:connectedDebugAndroidTest`; the new scheduler and test classes must be missing. If no emulator/device is attached, record that limitation and use compilation plus WorkManager request-construction unit coverage until a device is available.
+- [x] **Step 2: Verify the Android test path.** No emulator or device was attached, so the connected-test RED and runtime scheduler assertions could not run. The app and AndroidTest Kotlin sources were compiled; the runtime scheduler test remains available for a device run.
 
-- [ ] **Step 3: Add WorkManager 2.12.0 dependencies.** Add `implementation("androidx.work:work-runtime-ktx:2.12.0")` and `androidTestImplementation("androidx.work:work-testing:2.12.0")` to the Android app dependencies.
+- [x] **Step 3: Add WorkManager 2.10.5 dependencies.** Add `implementation("androidx.work:work-runtime-ktx:2.10.5")` and `androidTestImplementation("androidx.work:work-testing:2.10.5")` to the Android app dependencies.
 
-- [ ] **Step 4: Implement unique daily and startup work.** Use `PeriodicWorkRequestBuilder<ExchangeRateWorker>(24, TimeUnit.HOURS)`, `Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED)`, exponential backoff, and `enqueueUniquePeriodicWork(..., ExistingPeriodicWorkPolicy.KEEP, request)`. Startup work uses a stable unique name and `ExistingWorkPolicy.KEEP` to avoid overlapping attempts.
+- [x] **Step 4: Implement unique daily and startup work.** Use `PeriodicWorkRequestBuilder<ExchangeRateWorker>(24, TimeUnit.HOURS)`, `Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED)`, exponential backoff, and `enqueueUniquePeriodicWork(..., ExistingPeriodicWorkPolicy.KEEP, request)`. Startup work uses a stable unique name and `ExistingWorkPolicy.KEEP` to avoid overlapping attempts.
 
 ```kotlin
 const val PERIODIC_WORK_NAME = "meowm-exchange-rates-daily"
@@ -243,11 +243,11 @@ const val STARTUP_WORK_NAME = "meowm-exchange-rates-startup"
 private val intervalHours = 24L
 ```
 
-- [ ] **Step 5: Schedule work from Android startup.** After `super.onCreate(savedInstanceState)`, call `ensureScheduled(this)` and `enqueueStartupSync(this)`. The periodic task remains registered after Activity/process exit and reboot; do not add a foreground service or exact alarm.
+- [x] **Step 5: Schedule work from Android startup.** After `super.onCreate(savedInstanceState)`, call `ensureScheduled(this)` and `enqueueStartupSync(this)`. The periodic task remains registered after Activity/process exit and reboot; do not add a foreground service or exact alarm.
 
-- [ ] **Step 6: Run Android checks.** Run `./gradlew :app:compileDebugKotlin :app:assembleDebug`; run `connectedDebugAndroidTest` when an emulator/device is available. Verify generated APK includes WorkManager and Rust JNI symbol resolves in the existing Android Rust build.
+- [x] **Step 6: Run Android checks.** Run `./gradlew :app:compileUniversalDebugKotlin :app:compileUniversalDebugAndroidTestKotlin`; build the ARM64 debug APK with `npm run tauri -- android build --debug --apk --target aarch64 --ci`; run `:app:connectedUniversalDebugAndroidTest` when an emulator/device is available. Verify generated APK includes WorkManager and Rust JNI symbol resolves in the existing Android Rust build.
 
-- [ ] **Step 7: Update indexes and commit.** Add descriptions for the two Kotlin classes and the instrumented test; run tree check; commit as `feat: schedule Android exchange rate refresh`.
+- [x] **Step 7: Update indexes and commit.** Add descriptions for the two Kotlin classes and the instrumented test; run tree check; include the Android scheduler, worker, JNI declaration, and tests in the integrated feature commit `64666a7`.
 
 ## Task 5: Add the exchange-rate UI and SVG trend chart
 
@@ -262,7 +262,6 @@ private val intervalHours = 24L
 - Modify: `apps/tauri-ui/src/app/App.tsx`
 - Modify: `apps/tauri-ui/src/styles/index.css`
 - Modify: `apps/tauri-ui/tests/helpers/navigation.mjs`
-- Modify: `apps/tauri-ui/tests/helpers/workflow-ipc.mjs`
 - Modify: `apps/tauri-ui/src/shared/calendar.ts`
 
 **Interfaces:**
@@ -270,7 +269,7 @@ private val intervalHours = 24L
 - API methods: `exchangeRatesApi.history(quote, fromDate, untilDate)`, `exchangeRatesApi.state()`, `exchangeRatesApi.refresh()`.
 - Page default: USD and 90 days; target currencies are the ten fixed quotes; ranges are 30, 90, and 365 calendar days.
 
-- [ ] **Step 1: Write failing browser workflow tests.** Verify Finance contains an exchange-rate destination; page defaults to USD/90 days with a 90-calendar-day half-open query; changing to JPY requests JPY history; selecting 30 and 365 days sends the matching boundaries; refresh invokes the command; returned observations appear as chart points and status; empty history and rejected refresh retain usable error/retry UI.
+- [x] **Step 1: Write failing browser workflow tests.** Verify Finance contains an exchange-rate destination; page defaults to USD/90 days with a 90-calendar-day half-open query; changing to JPY requests JPY history; selecting 30 and 365 days sends the matching boundaries; refresh invokes the command; returned observations appear as chart points and status; empty history and rejected refresh retain usable error/retry UI.
 
 ```js
 import assert from 'node:assert/strict';
@@ -302,19 +301,19 @@ test('exchange rate page renders local history and changing currency reloads it'
 });
 ```
 
-- [ ] **Step 2: Run the focused browser test and verify RED.** Run `node --test tests/exchange-rates.test.mjs`; it must fail because the destination, page, and IPC client do not exist.
+- [x] **Step 2: Run the focused browser test and verify RED.** Run `node --test tests/exchange-rates.test.mjs`; it must fail because the destination, page, and IPC client do not exist.
 
-- [ ] **Step 3: Implement typed API methods and finance navigation.** Use the existing single `invoke` client. Add `exchange` to `View`, Finance children, and destination metadata; render `ExchangeRatesPage` in `App.tsx` without changing primary navigation.
+- [x] **Step 3: Implement typed API methods and finance navigation.** Use the existing single `invoke` client. Add `exchange` to `View`, Finance children, and destination metadata; render `ExchangeRatesPage` in `App.tsx` without changing primary navigation.
 
-- [ ] **Step 3a: Extend the shared navigation helper and date range helper.** Add `exchange: ['finance', 'exchange']` to `tests/helpers/navigation.mjs`; implement `recentDaysRange(anchorDate, count)` in `src/shared/calendar.ts` with half-open date boundaries; exercise its 30, 90, and 365 day windows plus leap-day boundaries through captured history IPC arguments in `exchange-rates.test.mjs`.
+- [x] **Step 3a: Extend the shared navigation helper and date range helper.** Add `exchange: ['finance', 'exchange']` to `tests/helpers/navigation.mjs`; implement `recentDaysRange(anchorDate, count)` in `src/shared/calendar.ts` with half-open date boundaries; exercise its 30, 90, and 365 day windows plus leap-day boundaries through captured history IPC arguments in `exchange-rates.test.mjs`.
 
-- [ ] **Step 4: Implement page state.** Use `useResource` for history and sync state, `today()` plus date helpers for query ranges, stable currency labels, a manual refresh button, and retry feedback. Show the service's effective date and source note, and keep old chart data visible when refresh fails.
+- [x] **Step 4: Implement page state.** Use `useResource` for history and sync state, `today()` plus date helpers for query ranges, stable currency labels, a manual refresh button, and retry feedback. Show the service's effective date and source note, and keep old chart data visible when refresh fails.
 
-- [ ] **Step 5: Implement the responsive SVG chart.** Convert the returned decimal strings to finite `Number` values only for drawing; calculate a padded y-axis from min/max, make one SVG point per actual observation, expose point date/rate with focusable buttons or SVG title/accessible labels, and render a no-data state without invented dates.
+- [x] **Step 5: Implement the responsive SVG chart.** Convert the returned decimal strings to finite `Number` values only for drawing; calculate a padded y-axis from min/max, make one SVG point per actual observation, expose point date/rate with focusable buttons or SVG title/accessible labels, and render a no-data state without invented dates.
 
-- [ ] **Step 6: Run frontend verification.** Run `node --test tests/exchange-rates.test.mjs`, `npm run build`, and `npm run format:check` from `apps/tauri-ui`.
+- [x] **Step 6: Run frontend verification.** Run `node --test tests/exchange-rates.test.mjs`, `npm run build`, and `npm run format:check` from `apps/tauri-ui`.
 
-- [ ] **Step 7: Update indexes and commit.** Add descriptions for the API, page, chart, stylesheet, test, and navigation entries; run `python3 scripts/update_tree.py --check`; commit as `feat: add exchange rate trend chart`.
+- [x] **Step 7: Update indexes and commit.** Add descriptions for the API, page, chart, stylesheet, test, and navigation entries; run `python3 scripts/update_tree.py --check`; include the page, chart, API, browser tests, and indexes in the integrated feature commit `64666a7`.
 
 ## Task 6: Document behavior and run integrated validation
 
@@ -324,20 +323,32 @@ test('exchange rate page renders local history and changing currency reloads it'
 - Modify: `scripts/tree_descriptions.json`
 - Modify: generated `tree` files under changed directories.
 
-- [ ] **Step 1: Update architecture documentation.** Describe the Rust provider/storage boundary, Android WorkManager-to-JNI flow, desktop foreground-only behavior, and offline chart reads.
+- [x] **Step 1: Update architecture documentation.** Describe the Rust provider/storage boundary, Android WorkManager-to-JNI flow, desktop foreground-only behavior, and offline chart reads.
 
-- [ ] **Step 2: Update README feature list.** Add daily reference exchange rates and local historical trend chart, with a short note that rates are public reference values and Android background execution timing is controlled by the OS.
+- [x] **Step 2: Update README feature list.** Add daily reference exchange rates and local historical trend chart, with a short note that rates are public reference values and Android background execution timing is controlled by the OS.
 
-- [ ] **Step 3: Run integrated Rust and UI checks.** Run `cargo test --workspace`, `cargo fmt --all -- --check`, `npm run build`, `npm run test:ui`, `npm run format:check`, and `python3 scripts/update_tree.py --check`.
+- [x] **Step 3: Run integrated Rust and UI checks.** Run `cargo test --workspace`, `cargo fmt --all -- --check`, `npm run build`, `npm run test:ui`, `npm run format:check`, and `python3 scripts/update_tree.py --check`.
 
-- [ ] **Step 4: Build Android debug APK.** Run `cd apps/tauri-ui/src-tauri/gen/android && ./gradlew :app:assembleDebug`; if an emulator is available, also run `./gradlew :app:connectedDebugAndroidTest`. Report build and device lifecycle evidence separately.
+- [x] **Step 4: Build Android debug APK.** Run `npm run tauri -- android build --debug --apk --target aarch64 --ci`; if an emulator is available, also run `./gradlew :app:connectedUniversalDebugAndroidTest`. Report build and device lifecycle evidence separately.
 
-- [ ] **Step 5: Inspect the final patch.** Run `git diff --check`, review `git status --short`, and verify no changes from the pre-existing platform-deletion work were staged or overwritten.
+- [x] **Step 5: Inspect the final patch.** Run `git diff --check`, review `git status --short`, and verify no changes from the pre-existing platform-deletion work were staged or overwritten.
 
-- [ ] **Step 6: Commit documentation and remaining integration changes.** Stage only this feature's docs/index files and commit as `docs: document daily exchange rate support`.
+- [x] **Step 6: Commit documentation and remaining integration changes.** Stage only this feature's docs/index files and commit README, architecture, and this completed plan as `docs: document daily exchange rate support`.
 
 ## Plan self-review
 
 - Spec coverage: provider selection, fixed quotes, exact decimal storage, daily/backfill requests, idempotency, offline history, safe error states, WorkManager constraints/retry, desktop foreground-only behavior, chart UX, schema migration, backup compatibility, and validation all have explicit tasks.
 - Placeholder scan: no TBD/TODO steps; each task defines paths, interfaces, commands, and expected outcomes.
 - Type consistency: storage rows use ISO dates and decimal strings; Tauri history DTO and TypeScript API preserve those same fields; Android JNI returns status only and shares the storage sync service.
+
+- Android dependency ruling: WorkManager 2.12.0 requires AGP 8.6+, while the tracked generated Android project uses AGP 8.5.2 and compileSdk 35. Use stable WorkManager 2.10.5, whose AAR supports compileSdk 35 and AGP 1.0+, avoiding an unrelated Gradle plugin/toolchain migration.
+
+## Execution notes
+
+- 2026-10-30: Isolated worktree `.worktrees/daily-exchange-rates`, branch `feat/daily-exchange-rates`, base `3b9cb82`. Original checkout account-deletion edits preserved.
+- Task 1 complete: `feddd5e`. Storage and encrypted backup regression tests, formatting and generated indexes passed.
+- Provider ruling: the live v2 API expands `providers` as objects with uppercase keys and more than 32 sources. Fetch compact annual history plus the latest expanded observations, and retain safe provider keys; this keeps each response bounded without imposing 50+ requests per backfill.
+- Retry ruling: only successful/no-new-data attempts suppress another scheduled attempt that day; a failed attempt must not suppress WorkManager retry.
+- Rate correction ruling: re-request the newest stored effective date and update a row only when a later fetch contains changed provider data. This preserves same-day provider revisions while unchanged repeated data remains idempotent.
+
+- Integrated verification on 2026-10-30: `cargo test --workspace` passed (one pre-existing ignored test), `cargo fmt --all -- --check`, targeted live Frankfurter backfill, 83 UI browser tests, frontend build/format, directory indexes, and `git diff --check` passed. Android universal debug Kotlin and instrumented-test source compilation passed; the ARM64 APK and JNI shared library built, and the JNI symbol was present. No Android device or AVD was attached, so WorkManager lifecycle instrumentation was not run.
