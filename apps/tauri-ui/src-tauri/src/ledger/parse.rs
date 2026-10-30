@@ -37,6 +37,42 @@ pub(crate) fn time(day: NaiveDate, closing: bool) -> Result<chrono::DateTime<Loc
         .single()
         .ok_or("该日期本地时间不可用".into())
 }
+pub(crate) fn parse_currency_amount(value: &str, signed: bool, exponent: u8) -> Result<i64> {
+    let value = value.trim();
+    let negative = value.starts_with('-');
+    let digits = if negative { &value[1..] } else { value };
+    let parts: Vec<_> = digits.split('.').collect();
+    if parts.len() > 2
+        || parts[0].is_empty()
+        || parts.iter().any(|p| !p.bytes().all(|b| b.is_ascii_digit()))
+        || parts
+            .get(1)
+            .is_some_and(|p| p.is_empty() || p.len() > usize::from(exponent))
+        || (negative && !signed)
+    {
+        return Err("金额精度与账户币种不符".into());
+    }
+    let scale = 10_i64.pow(u32::from(exponent));
+    let whole: i64 = parts[0].parse().map_err(|_| "金额过大")?;
+    let fraction = parts
+        .get(1)
+        .map(|p| {
+            p.parse::<i64>().map_err(|_| "金额无效").and_then(|n| {
+                n.checked_mul(10_i64.pow(u32::from(exponent) - p.len() as u32))
+                    .ok_or("金额过大")
+            })
+        })
+        .transpose()?
+        .unwrap_or(0);
+    let amount = whole
+        .checked_mul(scale)
+        .and_then(|v| v.checked_add(fraction))
+        .ok_or("金额过大")?;
+    if amount == 0 && !signed {
+        return Err("收支金额必须大于零".into());
+    }
+    Ok(if negative { -amount } else { amount })
+}
 pub(crate) fn parse_amount(value: &str, signed: bool) -> Result<i64> {
     let value = value.trim();
     let negative = value.starts_with('-');

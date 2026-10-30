@@ -69,6 +69,9 @@ impl Ledger {
         edit: &PendingEdit,
     ) -> Result<Transaction> {
         let account = self.account(&edit.account_id)?;
+        if tx.status == TransactionStatus::Pending && account.currency != cny() {
+            return Err("导入待确认仅支持人民币平台".into());
+        }
         if edit.merchant.chars().count() > 100 || edit.description.chars().count() > 200 {
             return Err("商户最多 100 字，备注最多 200 字".into());
         }
@@ -79,7 +82,8 @@ impl Ledger {
             "transfer" => TransactionKind::Transfer,
             _ => return Err("无效的候选类型".into()),
         };
-        let amount = parse_amount(&edit.amount, false)?;
+        let amount =
+            parse_currency_amount(&edit.amount, false, account.currency.minor_unit_exponent())?;
         let positive = matches!(tx.kind, TransactionKind::Income | TransactionKind::Refund);
         let sign = if positive == (account.kind == AccountKind::Asset) {
             1
@@ -92,29 +96,37 @@ impl Ledger {
         }
         tx.postings = vec![Posting {
             account_id: account.id,
-            delta: money(amount * sign),
+            delta: Money::new(amount * sign, account.currency.clone()),
         }];
         if tx.kind == TransactionKind::Transfer {
             let destination =
                 self.account(edit.destination_id.as_deref().ok_or("请选择转入平台")?)?;
-            if destination.currency.code() != "CNY" {
-                return Err("请选择人民币平台".into());
+            if destination.currency != account.currency {
+                return Err("转账平台币种必须相同".into());
             }
-            tx.postings[0].delta = money(if account.kind == AccountKind::Asset {
-                -amount
-            } else {
-                amount
-            });
+            tx.postings[0].delta = Money::new(
+                if account.kind == AccountKind::Asset {
+                    -amount
+                } else {
+                    amount
+                },
+                account.currency.clone(),
+            );
             tx.postings.push(Posting {
                 account_id: destination.id,
-                delta: money(if destination.kind == AccountKind::Asset {
-                    amount
-                } else {
-                    -amount
-                }),
+                delta: Money::new(
+                    if destination.kind == AccountKind::Asset {
+                        amount
+                    } else {
+                        -amount
+                    },
+                    destination.currency.clone(),
+                ),
             });
         }
-        tx.report_amount_cny = (tx.kind != TransactionKind::Transfer).then(|| money(amount));
+        tx.report_amount_cny = (tx.kind != TransactionKind::Transfer && account.currency == cny())
+            .then(|| money(amount));
+        tx.fx_snapshot = None;
         tx.merchant = (!edit.merchant.trim().is_empty()).then(|| edit.merchant.trim().into());
         tx.description =
             (!edit.description.trim().is_empty()).then(|| edit.description.trim().into());

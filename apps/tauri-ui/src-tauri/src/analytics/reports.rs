@@ -1,4 +1,6 @@
 use super::*;
+use ledger_app::LedgerRepository;
+use ledger_domain::Money;
 #[derive(Deserialize)]
 pub struct ReportInput {
     pub from_date: String,
@@ -45,6 +47,7 @@ pub struct BalanceView {
     pub account_id: String,
     pub name: String,
     pub amount: Option<String>,
+    pub currency_code: String,
 }
 impl Ledger {
     pub fn report(&self, input: ReportInput) -> Result<ReportView> {
@@ -74,6 +77,7 @@ impl Ledger {
                     .decimal_string(),
             })
             .collect();
+        let repo = self.repo()?;
         Ok(ReportView {
             income: money(report.summary.income_cny_minor).decimal_string(),
             expense: money(report.summary.expense_cny_minor).decimal_string(),
@@ -103,12 +107,21 @@ impl Ledger {
             balances: report
                 .balances
                 .into_iter()
-                .map(|b| BalanceView {
-                    account_id: b.account_id.as_uuid().to_string(),
-                    name: b.name,
-                    amount: b.amount_cny_minor.map(|v| money(v).decimal_string()),
+                .map(|b| {
+                    let account = repo
+                        .get_account(b.account_id)
+                        .map_err(|e| e.to_string())?
+                        .ok_or("平台不存在")?;
+                    Ok(BalanceView {
+                        account_id: b.account_id.as_uuid().to_string(),
+                        name: b.name,
+                        amount: b
+                            .amount_cny_minor
+                            .map(|v| Money::new(v, account.currency.clone()).decimal_string()),
+                        currency_code: account.currency.code().into(),
+                    })
                 })
-                .collect(),
+                .collect::<Result<Vec<_>>>()?,
         })
     }
 }

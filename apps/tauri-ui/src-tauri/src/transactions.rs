@@ -15,6 +15,46 @@ pub struct WriteTransaction {
     pub transaction_number: Option<String>,
     pub merchant_order_id: Option<String>,
     pub time: Option<String>,
+    pub manual_fx_rate: Option<String>,
+}
+#[derive(Serialize)]
+pub struct ForeignPreview {
+    pub amount: String,
+    pub currency_code: String,
+    pub report_amount_cny: String,
+    pub rate: String,
+    pub source: String,
+    pub effective_date: String,
+    pub fx_snapshot: FxSnapshotView,
+}
+impl Ledger {
+    pub fn preview_foreign_transaction(
+        &self,
+        amount: &str,
+        quote: &str,
+        date: &str,
+        manual_rate: Option<&str>,
+    ) -> Result<ForeignPreview> {
+        let definition = ledger_domain::supported_currencies()
+            .iter()
+            .find(|c| c.code == quote && c.code != "CNY")
+            .ok_or("不支持的外币")?;
+        let currency = ledger_domain::CurrencyCode::new(quote, definition.exponent)
+            .map_err(|e| e.to_string())?;
+        let minor = ledger::parse_currency_amount(amount, false, definition.exponent)?;
+        let (report, snapshot) =
+            self.convert_amount(minor, &currency, ledger::date(date)?, manual_rate)?;
+        let fx_snapshot = FxSnapshotView::from(snapshot.as_ref().ok_or("缺少汇率")?);
+        Ok(ForeignPreview {
+            amount: ledger_domain::Money::new(minor, currency).decimal_string(),
+            currency_code: quote.into(),
+            report_amount_cny: report.decimal_string(),
+            rate: fx_snapshot.rate.clone(),
+            source: fx_snapshot.source.clone(),
+            effective_date: fx_snapshot.effective_date.clone(),
+            fx_snapshot,
+        })
+    }
 }
 #[derive(Serialize)]
 pub struct Detail {
@@ -24,6 +64,9 @@ pub struct Detail {
     pub date: String,
     pub time: String,
     pub amount: String,
+    pub currency_code: String,
+    pub report_amount_cny: Option<String>,
+    pub fx_snapshot: Option<FxSnapshotView>,
     pub account_id: String,
     pub destination_id: Option<String>,
     pub merchant: String,
@@ -36,6 +79,29 @@ pub struct Detail {
     pub linked_ids: Vec<String>,
     pub sources: Vec<SourceDetail>,
     pub history: Vec<(String, i64)>,
+}
+#[derive(Serialize)]
+pub struct FxSnapshotView {
+    pub rate: String,
+    pub effective_date: String,
+    pub source: String,
+    pub provider: Option<String>,
+    pub provider_sources: Vec<String>,
+}
+impl From<&ledger_domain::TransactionFxSnapshot> for FxSnapshotView {
+    fn from(value: &ledger_domain::TransactionFxSnapshot) -> Self {
+        Self {
+            rate: value.rate.clone(),
+            effective_date: value.effective_date.to_string(),
+            source: match value.source {
+                ledger_domain::FxSnapshotSource::Reference => "reference",
+                ledger_domain::FxSnapshotSource::Manual => "manual",
+            }
+            .into(),
+            provider: value.provider.clone(),
+            provider_sources: value.provider_sources.clone(),
+        }
+    }
 }
 #[derive(Serialize)]
 pub struct SourceDetail {
@@ -77,11 +143,17 @@ impl Ledger {
                 .format("%H:%M:%S")
                 .to_string(),
             amount: t
-                .report_amount_cny
-                .as_ref()
-                .or_else(|| t.postings.first().map(|p| &p.delta))
-                .map(|m| m.decimal_string().trim_start_matches('-').to_string())
+                .postings
+                .first()
+                .map(|p| p.delta.decimal_string().trim_start_matches('-').to_string())
                 .unwrap_or_default(),
+            currency_code: t
+                .postings
+                .first()
+                .map(|p| p.delta.currency().code().to_string())
+                .unwrap_or_else(|| "CNY".into()),
+            report_amount_cny: t.report_amount_cny.as_ref().map(|m| m.decimal_string()),
+            fx_snapshot: t.fx_snapshot.as_ref().map(FxSnapshotView::from),
             account_id: t
                 .postings
                 .first()
@@ -162,20 +234,48 @@ impl Ledger {
                 )?)
                 .map_err(|e| e.to_string())?
                 .ok_or("转入平台不存在")?;
-            let amount = ledger::parse_amount(&e.amount, false)?;
+            let source = self.account(&e.account_id)?;
+            if source.currency != destination.currency {
+                return Err("转账平台币种必须相同".into());
+            }
+            let amount = ledger::parse_currency_amount(
+                &e.amount,
+                false,
+                destination.currency.minor_unit_exponent(),
+            )?;
             transaction.kind = TransactionKind::Transfer;
             transaction.report_amount_cny = None;
+            transaction.fx_snapshot = None;
             transaction.original_transaction_id = None;
             transaction.postings.push(Posting {
                 account_id: destination.id,
-                delta: ledger::money(if destination.kind == AccountKind::Asset {
-                    amount
-                } else {
-                    -amount
-                }),
+                delta: ledger_domain::Money::new(
+                    if destination.kind == AccountKind::Asset {
+                        amount
+                    } else {
+                        -amount
+                    },
+                    destination.currency.clone(),
+                ),
             });
         } else {
             transaction = self.apply_pending_edit(transaction, &e)?;
+        }
+        if transaction.kind != TransactionKind::Transfer {
+            let account = self.account(&e.account_id)?;
+            let amount = ledger::parse_currency_amount(
+                &e.amount,
+                false,
+                account.currency.minor_unit_exponent(),
+            )?;
+            let (report, snapshot) = self.convert_amount(
+                amount,
+                &account.currency,
+                ledger::date(&e.date)?,
+                request.manual_fx_rate.as_deref(),
+            )?;
+            transaction.report_amount_cny = Some(report);
+            transaction.fx_snapshot = snapshot;
         }
         if let Some(value) = request.time.as_deref().filter(|v| !v.is_empty()) {
             let clock = chrono::NaiveTime::parse_from_str(value, "%H:%M:%S")
@@ -186,6 +286,19 @@ impl Ledger {
                 .single()
                 .ok_or("该交易时间本地不可用")?
                 .with_timezone(&Utc);
+        }
+        if transaction.kind == TransactionKind::Refund {
+            if let Some(parent_id) = transaction.original_transaction_id {
+                let parent = repo
+                    .get_transaction(parent_id)
+                    .map_err(|e| e.to_string())?
+                    .ok_or("原消费不存在")?;
+                let parent_currency = parent.postings.first().map(|p| p.delta.currency());
+                let refund_currency = transaction.postings.first().map(|p| p.delta.currency());
+                if parent_currency != refund_currency {
+                    return Err("退款币种须与原消费一致".into());
+                }
+            }
         }
         let number = request
             .transaction_number
@@ -229,8 +342,15 @@ impl Ledger {
                     number.as_deref(),
                     transaction.occurred_at,
                     transaction.kind,
-                    ledger::parse_amount(&e.amount, false)?,
-                    &ledger_domain::CurrencyCode::new("CNY", 2).unwrap(),
+                    ledger::parse_currency_amount(
+                        &e.amount,
+                        false,
+                        transaction.postings[0]
+                            .delta
+                            .currency()
+                            .minor_unit_exponent(),
+                    )?,
+                    transaction.postings[0].delta.currency(),
                     transaction.merchant.as_deref(),
                     transaction.description.as_deref(),
                 ),

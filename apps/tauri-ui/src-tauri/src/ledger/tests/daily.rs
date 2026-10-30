@@ -147,3 +147,64 @@ fn invalid_command_input_never_writes() {
         Some("0.00")
     );
 }
+
+#[test]
+fn create_account_defaults_to_cny_and_preserves_foreign_currency() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("currency.sqlite3")).unwrap();
+    let cny = ledger
+        .create_platform_currency("人民币", "bank", None)
+        .unwrap();
+    let usd = ledger
+        .create_platform_currency("美元", "bank", Some("USD"))
+        .unwrap();
+    let jpy = ledger
+        .create_platform_currency("日元", "bank", Some("JPY"))
+        .unwrap();
+    assert_eq!(
+        (cny.currency_code.as_str(), cny.currency_exponent),
+        ("CNY", 2)
+    );
+    assert_eq!(
+        (usd.currency_code.as_str(), usd.currency_exponent),
+        ("USD", 2)
+    );
+    assert_eq!(
+        (jpy.currency_code.as_str(), jpy.currency_exponent),
+        ("JPY", 0)
+    );
+    assert!(
+        ledger
+            .create_platform_currency("无效", "bank", Some("XYZ"))
+            .is_err()
+    );
+    ledger.update_platform(&usd.id, "美元新名", "bank").unwrap();
+    let listed = ledger.accounts().unwrap();
+    let saved = listed.iter().find(|a| a.id == usd.id).unwrap();
+    assert_eq!(
+        (saved.currency_code.as_str(), saved.currency_exponent),
+        ("USD", 2)
+    );
+}
+
+#[test]
+fn foreign_day_entry_and_reference_use_account_precision() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("day-fx.sqlite3")).unwrap();
+    let jpy = ledger
+        .create_platform_currency("日元", "bank", Some("JPY"))
+        .unwrap();
+    assert!(
+        ledger
+            .save_entry(&jpy.id, "2026-10-14", "1.5", "", false)
+            .is_err()
+    );
+    ledger
+        .save_entry_with_rate(&jpy.id, "2026-10-14", "100", "", false, Some("200"))
+        .unwrap();
+    ledger.set_reference(&jpy.id, "2026-10-14", "1000").unwrap();
+    let day = ledger.day(&jpy.id, "2026-10-14").unwrap();
+    assert_eq!(day.expense, "0.50");
+    assert_eq!(day.entries[0].currency_code, "JPY");
+    assert_eq!(day.reference.unwrap().amount, "1000");
+}

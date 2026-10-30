@@ -22,6 +22,9 @@ pub struct PageEntry {
     pub kind: String,
     pub occurred_at: String,
     pub amount: Option<String>,
+    pub currency_code: Option<String>,
+    pub report_amount_cny: Option<String>,
+    pub fx_snapshot: Option<crate::transactions::FxSnapshotView>,
     pub merchant: Option<String>,
     pub description: Option<String>,
     pub edit_version: u32,
@@ -233,10 +236,18 @@ impl Ledger {
                         kind: kind_label(t.kind).into(),
                         occurred_at: t.occurred_at.to_rfc3339(),
                         amount: t
-                            .report_amount_cny
+                            .postings
+                            .first()
+                            .map(|p| p.delta.decimal_string().trim_start_matches('-').to_string()),
+                        currency_code: t
+                            .postings
+                            .first()
+                            .map(|p| p.delta.currency().code().to_string()),
+                        report_amount_cny: t.report_amount_cny.as_ref().map(|m| m.decimal_string()),
+                        fx_snapshot: t
+                            .fx_snapshot
                             .as_ref()
-                            .or_else(|| t.postings.first().map(|p| &p.delta))
-                            .map(|v| v.decimal_string().trim_start_matches('-').to_string()),
+                            .map(crate::transactions::FxSnapshotView::from),
                         merchant: t.merchant,
                         description: t.description,
                         edit_version: c.metadata.edit_version,

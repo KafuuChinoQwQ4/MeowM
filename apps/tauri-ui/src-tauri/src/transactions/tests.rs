@@ -20,6 +20,7 @@ fn request(account: &str, kind: &str, amount: &str) -> WriteTransaction {
         transaction_number: None,
         merchant_order_id: None,
         time: None,
+        manual_fx_rate: None,
     }
 }
 
@@ -356,4 +357,130 @@ fn reversal_updates_day_totals_and_rejects_new_refunds() {
     let mut refund = request(&account, "refund", "5.00");
     refund.edit.original_transaction_id = Some(id);
     assert!(ledger.write_transaction(refund).is_err());
+}
+
+#[test]
+fn sunday_foreign_expense_uses_friday_rate_and_manual_fallback() {
+    use ledger_storage::sqlite::ExchangeRateObservation;
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("fx.sqlite3")).unwrap();
+    let account = ledger
+        .create_platform_currency("美元", "bank", Some("USD"))
+        .unwrap();
+    let observation = |day: &str, rate: &str| ExchangeRateObservation {
+        effective_date: chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d").unwrap(),
+        base_currency: "CNY".into(),
+        quote_currency: "USD".into(),
+        rate: rate.into(),
+        provider: "frankfurter".into(),
+        provider_sources: vec!["ECB".into()],
+        fetched_at_utc: chrono::Utc::now(),
+    };
+    ledger
+        .repo()
+        .unwrap()
+        .upsert_exchange_rates(&[
+            observation("2026-10-09", "7"),
+            observation("2026-10-12", "8"),
+        ])
+        .unwrap();
+    let mut sunday = request(&account.id, "expense", "10.00");
+    sunday.edit.date = "2026-10-11".into();
+    let preview = ledger
+        .preview_foreign_transaction("10.00", "USD", "2026-10-11", None)
+        .unwrap();
+    assert_eq!(preview.report_amount_cny, "1.43");
+    assert_eq!(preview.fx_snapshot.effective_date, "2026-10-09");
+    let id = ledger.write_transaction(sunday).unwrap();
+    let detail = ledger.transaction_detail(&id).unwrap();
+    assert_eq!(detail.amount, "10.00");
+    assert_eq!(detail.currency_code, "USD");
+    assert_eq!(detail.report_amount_cny.as_deref(), Some("1.43"));
+    assert_eq!(detail.fx_snapshot.unwrap().effective_date, "2026-10-09");
+    let mut earlier = request(&account.id, "expense", "10.00");
+    earlier.edit.date = "2026-10-08".into();
+    assert!(
+        ledger
+            .write_transaction(request_with_date(&account.id, "2026-10-08"))
+            .is_err()
+    );
+    earlier.manual_fx_rate = Some("5".into());
+    let id = ledger.write_transaction(earlier).unwrap();
+    assert_eq!(
+        ledger
+            .transaction_detail(&id)
+            .unwrap()
+            .report_amount_cny
+            .as_deref(),
+        Some("2.00")
+    );
+}
+
+fn request_with_date(account: &str, day: &str) -> WriteTransaction {
+    let mut value = request(account, "expense", "10.00");
+    value.edit.date = day.into();
+    value
+}
+
+#[test]
+fn foreign_refund_requires_same_currency_as_expense() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("refund-fx.sqlite3")).unwrap();
+    let cny = ledger.accounts().unwrap()[0].id.clone();
+    let usd = ledger
+        .create_platform_currency("美元", "bank", Some("USD"))
+        .unwrap();
+    let original = ledger
+        .write_transaction(request(&cny, "expense", "10.00"))
+        .unwrap();
+    let mut refund = request(&usd.id, "refund", "5.00");
+    refund.edit.original_transaction_id = Some(original);
+    refund.manual_fx_rate = Some("7".into());
+    assert!(ledger.write_transaction(refund).is_err());
+}
+
+#[test]
+fn transfer_rejects_mixed_account_currencies() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("transfer-fx.sqlite3")).unwrap();
+    let cny = ledger.accounts().unwrap()[0].id.clone();
+    let usd = ledger
+        .create_platform_currency("美元", "bank", Some("USD"))
+        .unwrap();
+    let mut transfer = request(&cny, "transfer", "5.00");
+    transfer.destination_id = Some(usd.id);
+    assert!(ledger.write_transaction(transfer).is_err());
+}
+
+#[test]
+fn bill_preview_rejects_foreign_account() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("import-fx.sqlite3")).unwrap();
+    let usd = ledger
+        .create_platform_currency("美元", "bank", Some("USD"))
+        .unwrap();
+    let csv = "交易时间,交易对方,商品,收/支,金额(元),交易单号,商户单号\n2026-10-14 12:00:00,商户,测试,支出,1.00,1,2\n";
+    assert!(
+        ledger
+            .bill_preview_for_account("wechat", csv.as_bytes().to_vec(), Some(&usd.id))
+            .is_err()
+    );
+}
+
+#[test]
+fn transfer_between_foreign_accounts_keeps_original_currency() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("transfer-usd.sqlite3")).unwrap();
+    let source = ledger
+        .create_platform_currency("美元甲", "bank", Some("USD"))
+        .unwrap();
+    let target = ledger
+        .create_platform_currency("美元乙", "bank", Some("USD"))
+        .unwrap();
+    let mut transfer = request(&source.id, "transfer", "5.00");
+    transfer.destination_id = Some(target.id);
+    let id = ledger.write_transaction(transfer).unwrap();
+    let detail = ledger.transaction_detail(&id).unwrap();
+    assert_eq!(detail.currency_code, "USD");
+    assert!(detail.report_amount_cny.is_none());
 }

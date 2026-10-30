@@ -76,3 +76,30 @@ fn malformed_report_input_fails_without_panicking() {
         );
     }
 }
+
+#[test]
+fn foreign_balance_keeps_its_currency_in_report() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("report-fx.sqlite3")).unwrap();
+    let usd = ledger
+        .create_platform_currency("美元", "bank", Some("USD"))
+        .unwrap();
+    ledger.set_reference(&usd.id, "2026-10-13", "0").unwrap();
+    ledger
+        .save_entry_with_rate(&usd.id, "2026-10-14", "10.00", "", true, Some("5"))
+        .unwrap();
+    let report = ledger
+        .report(ReportInput {
+            from_date: "2026-10-01".into(),
+            until_date: "2026-11-01".into(),
+            account_id: Some(usd.id.clone()),
+            category_id: None,
+            merchant: None,
+            merchant_offset: 0,
+            merchant_limit: 20,
+        })
+        .unwrap();
+    assert_eq!(report.income, "2.00");
+    assert_eq!(report.balances[0].currency_code, "USD");
+    assert_eq!(report.balances[0].amount.as_deref(), Some("10.00"));
+}

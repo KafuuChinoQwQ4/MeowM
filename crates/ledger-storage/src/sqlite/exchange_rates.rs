@@ -107,6 +107,20 @@ impl SqliteLedgerRepository {
         rows.collect::<Result<Vec<_>, _>>().map_err(storage_error)
     }
 
+    pub fn exchange_rate_at_or_before(
+        &self,
+        quote_currency: &str,
+        date: NaiveDate,
+    ) -> Result<Option<ExchangeRateObservation>, RepositoryError> {
+        if !is_supported_quote(quote_currency) {
+            return Err(invalid_exchange_rate());
+        }
+        self.connection.query_row(
+            "SELECT effective_date, base_currency_code, quote_currency_code, rate, provider, provider_sources, fetched_at_utc_micros FROM exchange_rates WHERE base_currency_code='CNY' AND quote_currency_code=?1 AND effective_date<=?2 ORDER BY effective_date DESC LIMIT 1",
+            rusqlite::params![quote_currency, date.to_string()], map_observation,
+        ).optional().map_err(storage_error)
+    }
+
     pub fn newest_exchange_rate_date(&self) -> Result<Option<NaiveDate>, RepositoryError> {
         let latest = self
             .connection

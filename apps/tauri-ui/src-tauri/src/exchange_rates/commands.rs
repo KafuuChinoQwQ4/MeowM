@@ -98,6 +98,20 @@ pub(crate) fn exchange_rates_history(
     })
 }
 #[tauri::command]
+pub(crate) fn exchange_rate_for_date(
+    state: State<'_, LedgerState>,
+    quote_currency: String,
+    date: String,
+) -> Result<Option<HistoryRow>> {
+    access(state, |ledger| {
+        ledger
+            .repo()?
+            .exchange_rate_at_or_before(&quote_currency, crate::ledger::date(&date)?)
+            .map(|row| row.map(HistoryRow::from))
+            .map_err(|e| e.to_string())
+    })
+}
+#[tauri::command]
 pub(crate) fn exchange_rates_sync_state(state: State<'_, LedgerState>) -> Result<SyncStateView> {
     access(state, |ledger| SyncStateView::load(&ledger.repo()?))
 }

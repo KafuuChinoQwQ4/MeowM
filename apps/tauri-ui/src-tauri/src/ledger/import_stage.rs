@@ -30,6 +30,9 @@ impl Ledger {
             return Err("修订字段与候选行不匹配".into());
         }
         let account = self.account(account)?;
+        if account.currency != cny() {
+            return Err("账单导入仅支持人民币平台".into());
+        }
         let mut items = Vec::new();
         for id in ids {
             let (_, row, decision) = session

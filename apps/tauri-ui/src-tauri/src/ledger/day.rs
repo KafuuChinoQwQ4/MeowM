@@ -6,6 +6,7 @@ pub struct Entry {
     pub id: String,
     pub kind: String,
     pub amount: String,
+    pub currency_code: String,
     pub note: String,
     pub time: String,
     pub category_name: Option<String>,
@@ -18,6 +19,7 @@ pub struct Reference {
 #[derive(Serialize)]
 pub struct DayView {
     pub date: String,
+    pub currency_code: Option<String>,
     pub income: String,
     pub expense: String,
     pub net: String,
@@ -34,8 +36,21 @@ impl Ledger {
         note: &str,
         income: bool,
     ) -> Result<()> {
+        self.save_entry_with_rate(id, day, amount, note, income, None)
+    }
+    pub fn save_entry_with_rate(
+        &self,
+        id: &str,
+        day: &str,
+        amount: &str,
+        note: &str,
+        income: bool,
+        manual_fx_rate: Option<&str>,
+    ) -> Result<()> {
         let account = self.account(id)?;
-        let amount = parse_amount(amount, false)?;
+        let amount = parse_currency_amount(amount, false, account.currency.minor_unit_exponent())?;
+        let (report, snapshot) =
+            self.convert_amount(amount, &account.currency, date(day)?, manual_fx_rate)?;
         if note.chars().count() > 200 {
             return Err("备注最多 200 个字符".into());
         }
@@ -56,12 +71,12 @@ impl Ledger {
             status: TransactionStatus::Confirmed,
             postings: vec![Posting {
                 account_id: account.id,
-                delta: money(amount * sign),
+                delta: Money::new(amount * sign, account.currency.clone()),
             }],
             category_id: None,
             original_transaction_id: None,
-            report_amount_cny: Some(money(amount)),
-            fx_snapshot: None,
+            report_amount_cny: Some(report),
+            fx_snapshot: snapshot,
             merchant: None,
             description: if note.trim().is_empty() {
                 None
@@ -81,12 +96,16 @@ impl Ledger {
         Ok(())
     }
     pub fn set_reference(&self, id: &str, day: &str, amount: &str) -> Result<()> {
-        let id = self.account(id)?.id;
+        let account = self.account(id)?;
+        let id = account.id;
         let day = date(day)?;
         AccountService::new(self.repo()?)
             .set_day_closing_balance(
                 id,
-                money(parse_amount(amount, true)?),
+                Money::new(
+                    parse_currency_amount(amount, true, account.currency.minor_unit_exponent())?,
+                    account.currency,
+                ),
                 day,
                 *time(day, true)?.offset(),
             )
@@ -164,6 +183,7 @@ impl Ledger {
                 id: tx.id.as_uuid().to_string(),
                 kind: kind.into(),
                 amount: posting.delta.decimal_string(),
+                currency_code: posting.delta.currency().code().into(),
                 note: tx.description.unwrap_or_default(),
                 time: tx
                     .occurred_at
@@ -176,9 +196,11 @@ impl Ledger {
             });
         }
         let reference = account
+            .as_ref()
             .and_then(|account| {
                 account
                     .opening_balance
+                    .as_ref()
                     .zip(account.opening_balance_effective_at)
             })
             .map(|(amount, dt)| Reference {
@@ -187,6 +209,7 @@ impl Ledger {
             });
         Ok(DayView {
             date: day.to_string(),
+            currency_code: account.as_ref().map(|a| a.currency.code().into()),
             income: money(income).decimal_string(),
             expense: money(expense).decimal_string(),
             net: money(income.checked_sub(expense).ok_or("净变化过大")?).decimal_string(),

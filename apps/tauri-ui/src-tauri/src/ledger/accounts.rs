@@ -5,17 +5,16 @@ pub struct Account {
     pub id: String,
     pub name: String,
     pub category: String,
+    pub currency_code: String,
+    pub currency_exponent: u8,
 }
 impl Ledger {
-    pub(super) fn account(&self, id: &str) -> Result<DomainAccount> {
+    pub(crate) fn account(&self, id: &str) -> Result<DomainAccount> {
         let account = self
             .repo()?
             .get_account(account_id(id)?)
             .map_err(|e| e.to_string())?
             .ok_or("平台不存在")?;
-        if account.currency != cny() {
-            return Err("当前界面仅支持人民币平台".into());
-        }
         Ok(account)
     }
     pub fn accounts(&self) -> Result<Vec<Account>> {
@@ -39,6 +38,8 @@ impl Ledger {
                     id: a.id.as_uuid().to_string(),
                     name: a.display_name,
                     category,
+                    currency_code: a.currency.code().into(),
+                    currency_exponent: a.currency.minor_unit_exponent(),
                 })
             })
             .collect()
@@ -57,23 +58,40 @@ impl Ledger {
         Ok(())
     }
     pub fn create_platform(&self, name: &str, category: &str) -> Result<Account> {
+        self.create_platform_currency(name, category, None)
+    }
+    pub fn create_platform_currency(
+        &self,
+        name: &str,
+        category: &str,
+        currency_code: Option<&str>,
+    ) -> Result<Account> {
         let name = name.trim();
         Self::validate_platform(name, category)?;
+        let code = currency_code.unwrap_or("CNY");
+        let definition = ledger_domain::supported_currencies()
+            .iter()
+            .find(|c| c.code == code)
+            .ok_or("不支持的币种")?;
+        let currency =
+            CurrencyCode::new(definition.code, definition.exponent).map_err(|e| e.to_string())?;
         let id = AccountId::new();
         self.repo()?
-            .save_platform(id, name, category, true)
+            .save_platform(id, name, category, true, &currency)
             .map_err(|e| e.to_string())?;
         Ok(Account {
             id: id.as_uuid().to_string(),
             name: name.into(),
             category: category.into(),
+            currency_code: code.into(),
+            currency_exponent: definition.exponent,
         })
     }
     pub fn update_platform(&self, id: &str, name: &str, category: &str) -> Result<()> {
         let name = name.trim();
         Self::validate_platform(name, category)?;
         self.repo()?
-            .save_platform(account_id(id)?, name, category, false)
+            .save_platform(account_id(id)?, name, category, false, &cny())
             .map_err(|e| e.to_string())
     }
 }

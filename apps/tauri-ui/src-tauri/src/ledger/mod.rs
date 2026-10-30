@@ -21,7 +21,9 @@ use ledger_domain::{
     Posting, Transaction, TransactionId, TransactionKind, TransactionStatus,
 };
 use ledger_storage::sqlite::SqliteLedgerRepository;
-pub(crate) use parse::{account_id, date, kind_label, money, parse_amount, time, transaction_id};
+pub(crate) use parse::{
+    account_id, date, kind_label, money, parse_amount, parse_currency_amount, time, transaction_id,
+};
 use parse::{cny, parse_source, source_label};
 pub use pending::{CategoryOption, PendingEdit, ignore_pending, restore_pending};
 pub use query::{CommandError, EntryPage, PageQuery};
@@ -71,6 +73,48 @@ impl Ledger {
             .borrow_mut()
             .require_unlocked()
             .map_err(|e| e.to_string())
+    }
+    pub(crate) fn convert_amount(
+        &self,
+        amount: i64,
+        currency: &CurrencyCode,
+        day: NaiveDate,
+        manual_rate: Option<&str>,
+    ) -> Result<(Money, Option<ledger_domain::TransactionFxSnapshot>)> {
+        if currency.code() == "CNY" {
+            return Ok((money(amount), None));
+        }
+        let observation = self
+            .repo()?
+            .exchange_rate_at_or_before(currency.code(), day)
+            .map_err(|e| e.to_string())?;
+        let snapshot = if let Some(row) = observation {
+            ledger_domain::TransactionFxSnapshot {
+                quote_currency: currency.clone(),
+                rate: row.rate,
+                effective_date: row.effective_date,
+                source: ledger_domain::FxSnapshotSource::Reference,
+                provider: Some(row.provider),
+                provider_sources: row.provider_sources,
+            }
+        } else {
+            let rate = manual_rate.ok_or("该日期前无本地汇率，请填写手动汇率")?;
+            ledger_domain::TransactionFxSnapshot {
+                quote_currency: currency.clone(),
+                rate: rate.into(),
+                effective_date: day,
+                source: ledger_domain::FxSnapshotSource::Manual,
+                provider: None,
+                provider_sources: vec![],
+            }
+        };
+        let cny_amount = ledger_domain::convert_foreign_minor_to_cny_minor(
+            amount,
+            currency.minor_unit_exponent(),
+            &snapshot.rate,
+        )
+        .map_err(|e| e.to_string())?;
+        Ok((money(cny_amount), Some(snapshot)))
     }
     pub(crate) fn repo(&self) -> Result<SqliteLedgerRepository> {
         SqliteLedgerRepository::open(&self.path).map_err(|e| e.to_string())

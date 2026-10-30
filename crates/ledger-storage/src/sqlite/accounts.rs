@@ -19,11 +19,18 @@ impl SqliteLedgerRepository {
         name: &str,
         category: &str,
         create: bool,
+        currency: &CurrencyCode,
     ) -> Result<(), RepositoryError> {
         if !["wallet", "bank", "securities", "exchange", "cash", "other"].contains(&category) {
             return Err(RepositoryError::InvalidData(
                 "invalid platform category".into(),
             ));
+        }
+        if !ledger_domain::supported_currencies()
+            .iter()
+            .any(|c| c.code == currency.code() && c.exponent == currency.minor_unit_exponent())
+        {
+            return Err(RepositoryError::InvalidData("unsupported currency".into()));
         }
         let tx = self
             .connection
@@ -41,7 +48,7 @@ impl SqliteLedgerRepository {
             return Err(RepositoryError::InvalidData("平台名称已存在".into()));
         }
         if create {
-            tx.execute("INSERT INTO accounts(id,display_name,kind,currency_code,currency_exponent) VALUES (?1,?2,'asset','CNY',2)", params![id,name]).map_err(storage_error)?;
+            tx.execute("INSERT INTO accounts(id,display_name,kind,currency_code,currency_exponent) VALUES (?1,?2,'asset',?3,?4)", params![id,name,currency.code(),currency.minor_unit_exponent()]).map_err(storage_error)?;
         } else if tx
             .execute(
                 "UPDATE accounts SET display_name=?2 WHERE id=?1",

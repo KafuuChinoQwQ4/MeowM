@@ -92,6 +92,11 @@ impl Ledger {
         account: Option<&str>,
     ) -> Result<BillPreview> {
         use ledger_app::FeatureRepository;
+        if let Some(id) = account.filter(|id| !id.is_empty()) {
+            if self.account(id)?.currency != cny() {
+                return Err("账单导入仅支持人民币平台".into());
+            }
+        }
         let target = account
             .filter(|id| !id.is_empty())
             .map(account_id)

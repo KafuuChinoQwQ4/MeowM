@@ -35,8 +35,11 @@ fn create_account(
     state: State<'_, LedgerState>,
     name: String,
     category: String,
+    currency_code: Option<String>,
 ) -> Result<Account> {
-    access(state, |l| l.create_platform(&name, &category))
+    access(state, |l| {
+        l.create_platform_currency(&name, &category, currency_code.as_deref())
+    })
 }
 #[tauri::command]
 fn update_platform(
@@ -66,9 +69,17 @@ fn save_entry(
     amount: String,
     note: String,
     income: bool,
+    manual_fx_rate: Option<String>,
 ) -> Result<()> {
     access(state, |l| {
-        l.save_entry(&account_id, &date, &amount, &note, income)
+        l.save_entry_with_rate(
+            &account_id,
+            &date,
+            &amount,
+            &note,
+            income,
+            manual_fx_rate.as_deref(),
+        )
     })
 }
 #[tauri::command]
@@ -185,6 +196,23 @@ fn write_transaction(
     access(state, |l| l.write_transaction(request))
 }
 #[tauri::command]
+fn preview_foreign_transaction(
+    state: State<'_, LedgerState>,
+    amount: String,
+    quote_currency: String,
+    date: String,
+    manual_fx_rate: Option<String>,
+) -> Result<transactions::ForeignPreview> {
+    access(state, |ledger| {
+        ledger.preview_foreign_transaction(
+            &amount,
+            &quote_currency,
+            &date,
+            manual_fx_rate.as_deref(),
+        )
+    })
+}
+#[tauri::command]
 fn reverse_transaction(
     state: State<'_, LedgerState>,
     id: String,
@@ -220,6 +248,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             exchange_rates::commands::exchange_rates_history,
+            exchange_rates::commands::exchange_rate_for_date,
             exchange_rates::commands::exchange_rates_sync_state,
             exchange_rates::commands::exchange_rates_refresh,
             screen_capture::screen_capture_state,
@@ -286,6 +315,7 @@ pub fn run() {
             list_categories,
             transaction_detail,
             write_transaction,
+            preview_foreign_transaction,
             reverse_transaction,
             analytics::commands::report_summary,
             analytics::commands::list_budgets,
