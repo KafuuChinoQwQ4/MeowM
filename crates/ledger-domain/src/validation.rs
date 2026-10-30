@@ -58,6 +58,15 @@ pub fn validate_transaction_shape(
         .iter()
         .filter(|posting| posting.delta.currency().code() != "CNY")
         .collect::<Vec<_>>();
+    if transaction.kind != TransactionKind::Transfer
+        && !foreign_postings.is_empty()
+        && (foreign_postings.len() != transaction.postings.len()
+            || foreign_postings
+                .iter()
+                .any(|posting| posting.delta.currency() != foreign_postings[0].delta.currency()))
+    {
+        return Err(DomainError::InvalidFxSnapshot);
+    }
     if foreign_postings.is_empty() {
         if transaction.fx_snapshot.is_some() {
             return Err(DomainError::InvalidFxSnapshot);
@@ -69,10 +78,9 @@ pub fn validate_transaction_shape(
             .fx_snapshot
             .as_ref()
             .ok_or(DomainError::InvalidFxSnapshot)?;
-        if foreign_postings.len() != transaction.postings.len()
-            || foreign_postings
-                .iter()
-                .any(|posting| posting.delta.currency() != &snapshot.quote_currency)
+        if foreign_postings
+            .iter()
+            .any(|posting| posting.delta.currency() != &snapshot.quote_currency)
             || snapshot.quote_currency.code() == "CNY"
         {
             return Err(DomainError::InvalidFxSnapshot);
@@ -689,6 +697,28 @@ mod tests {
         expense.status = TransactionStatus::Confirmed;
         assert_eq!(
             validate_transaction_shape(&expense, &[wallet]),
+            Err(crate::DomainError::InvalidFxSnapshot)
+        );
+    }
+
+    #[test]
+    fn pending_foreign_transaction_rejects_mixed_posting_currencies_without_snapshot() {
+        let dollar_wallet = asset_account("dollar wallet", "USD");
+        let euro_wallet = asset_account("euro wallet", "EUR");
+        let mut expense = confirmed_expense(dollar_wallet.clone(), 10_000);
+        expense.status = TransactionStatus::Pending;
+        expense.report_amount_cny = None;
+        assert_eq!(
+            validate_transaction_shape(&expense, std::slice::from_ref(&dollar_wallet)),
+            Ok(())
+        );
+
+        expense.postings.push(Posting {
+            account_id: euro_wallet.id,
+            delta: Money::new(-100, euro_wallet.currency.clone()),
+        });
+        assert_eq!(
+            validate_transaction_shape(&expense, &[dollar_wallet, euro_wallet]),
             Err(crate::DomainError::InvalidFxSnapshot)
         );
     }
