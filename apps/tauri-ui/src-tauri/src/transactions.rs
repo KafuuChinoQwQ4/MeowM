@@ -268,14 +268,34 @@ impl Ledger {
                 false,
                 account.currency.minor_unit_exponent(),
             )?;
-            let (report, snapshot) = self.convert_amount(
-                amount,
-                &account.currency,
-                ledger::date(&e.date)?,
-                request.manual_fx_rate.as_deref(),
-            )?;
-            transaction.report_amount_cny = Some(report);
-            transaction.fx_snapshot = snapshot;
+            let unchanged_foreign = existing.as_ref().is_some_and(|prior| {
+                prior.fx_snapshot.is_some()
+                    && prior.report_amount_cny.is_some()
+                    && prior.kind == transaction.kind
+                    && prior.occurred_at.with_timezone(&chrono::Local).date_naive()
+                        == transaction
+                            .occurred_at
+                            .with_timezone(&chrono::Local)
+                            .date_naive()
+                    && prior.postings.first().is_some_and(|posting| {
+                        posting.delta.currency() == &account.currency
+                            && posting.delta.minor_units().unsigned_abs() == amount as u64
+                    })
+            });
+            if unchanged_foreign {
+                let prior = existing.as_ref().expect("checked above");
+                transaction.report_amount_cny = prior.report_amount_cny.clone();
+                transaction.fx_snapshot = prior.fx_snapshot.clone();
+            } else {
+                let (report, snapshot) = self.convert_amount(
+                    amount,
+                    &account.currency,
+                    ledger::date(&e.date)?,
+                    request.manual_fx_rate.as_deref(),
+                )?;
+                transaction.report_amount_cny = Some(report);
+                transaction.fx_snapshot = snapshot;
+            }
         }
         if let Some(value) = request.time.as_deref().filter(|v| !v.is_empty()) {
             let clock = chrono::NaiveTime::parse_from_str(value, "%H:%M:%S")

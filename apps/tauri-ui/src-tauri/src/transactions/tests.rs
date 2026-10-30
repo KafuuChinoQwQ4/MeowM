@@ -484,3 +484,165 @@ fn transfer_between_foreign_accounts_keeps_original_currency() {
     assert_eq!(detail.currency_code, "USD");
     assert!(detail.report_amount_cny.is_none());
 }
+
+#[test]
+fn metadata_edit_preserves_manual_snapshot_without_resubmitting_rate() {
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("edit-manual-fx.sqlite3")).unwrap();
+    let usd = ledger
+        .create_platform_currency("编辑美元", "bank", Some("USD"))
+        .unwrap();
+    let mut original = request(&usd.id, "expense", "10.00");
+    original.manual_fx_rate = Some("5".into());
+    let id = ledger.write_transaction(original).unwrap();
+    let before = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(ledger::transaction_id(&id).unwrap())
+        .unwrap()
+        .unwrap();
+    let mut edit = request(&usd.id, "expense", "10.00");
+    edit.edit.id = id.clone();
+    edit.edit.description = "只改备注".into();
+    ledger.write_transaction(edit).unwrap();
+    let after = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(ledger::transaction_id(&id).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(after.description.as_deref(), Some("只改备注"));
+    assert_eq!(after.report_amount_cny, before.report_amount_cny);
+    assert_eq!(after.fx_snapshot, before.fx_snapshot);
+}
+
+#[test]
+fn metadata_edit_keeps_reference_snapshot_after_rate_revision_but_amount_edit_revalues() {
+    use ledger_storage::sqlite::ExchangeRateObservation;
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("edit-reference-fx.sqlite3")).unwrap();
+    let usd = ledger
+        .create_platform_currency("汇率美元", "bank", Some("USD"))
+        .unwrap();
+    let observation = |rate: &str, fetched_at_utc| ExchangeRateObservation {
+        effective_date: chrono::NaiveDate::from_ymd_opt(2026, 10, 13).unwrap(),
+        base_currency: "CNY".into(),
+        quote_currency: "USD".into(),
+        rate: rate.into(),
+        provider: "frankfurter".into(),
+        provider_sources: vec!["ECB".into()],
+        fetched_at_utc,
+    };
+    let now = chrono::Utc::now();
+    ledger
+        .repo()
+        .unwrap()
+        .upsert_exchange_rates(&[observation("5", now)])
+        .unwrap();
+    let id = ledger
+        .write_transaction(request(&usd.id, "expense", "10.00"))
+        .unwrap();
+    let before = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(ledger::transaction_id(&id).unwrap())
+        .unwrap()
+        .unwrap();
+    ledger
+        .repo()
+        .unwrap()
+        .upsert_exchange_rates(&[observation("10", now + chrono::Duration::seconds(1))])
+        .unwrap();
+    let mut metadata = request(&usd.id, "expense", "10.00");
+    metadata.edit.id = id.clone();
+    metadata.edit.merchant = "新商户".into();
+    ledger.write_transaction(metadata).unwrap();
+    let unchanged = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(ledger::transaction_id(&id).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(unchanged.fx_snapshot, before.fx_snapshot);
+    assert_eq!(unchanged.report_amount_cny, before.report_amount_cny);
+    let mut amount = request(&usd.id, "expense", "20.00");
+    amount.edit.id = id.clone();
+    amount.edit.expected_version = 1;
+    ledger.write_transaction(amount).unwrap();
+    let changed = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(ledger::transaction_id(&id).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(changed.report_amount_cny.unwrap().decimal_string(), "2.00");
+    assert_eq!(changed.fx_snapshot.unwrap().rate, "10");
+}
+
+#[test]
+fn changing_date_or_account_currency_recalculates_foreign_snapshot() {
+    use ledger_storage::sqlite::ExchangeRateObservation;
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("edit-fx-identity.sqlite3")).unwrap();
+    let usd = ledger
+        .create_platform_currency("日期美元", "bank", Some("USD"))
+        .unwrap();
+    let jpy = ledger
+        .create_platform_currency("日期日元", "bank", Some("JPY"))
+        .unwrap();
+    let mut initial = request(&usd.id, "expense", "10.00");
+    initial.manual_fx_rate = Some("5".into());
+    let id = ledger.write_transaction(initial).unwrap();
+    ledger
+        .repo()
+        .unwrap()
+        .upsert_exchange_rates(&[ExchangeRateObservation {
+            effective_date: chrono::NaiveDate::from_ymd_opt(2026, 10, 15).unwrap(),
+            base_currency: "CNY".into(),
+            quote_currency: "USD".into(),
+            rate: "10".into(),
+            provider: "frankfurter".into(),
+            provider_sources: vec!["ECB".into()],
+            fetched_at_utc: chrono::Utc::now(),
+        }])
+        .unwrap();
+    let mut dated = request(&usd.id, "expense", "10.00");
+    dated.edit.id = id.clone();
+    dated.edit.date = "2026-10-15".into();
+    ledger.write_transaction(dated).unwrap();
+    let after_date = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(ledger::transaction_id(&id).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        after_date.report_amount_cny.unwrap().decimal_string(),
+        "1.00"
+    );
+    assert_eq!(
+        after_date.fx_snapshot.unwrap().source,
+        ledger_domain::FxSnapshotSource::Reference
+    );
+    let mut currency = request(&jpy.id, "expense", "100");
+    currency.edit.id = id.clone();
+    currency.edit.date = "2026-10-15".into();
+    currency.edit.expected_version = 1;
+    currency.manual_fx_rate = Some("200".into());
+    ledger.write_transaction(currency).unwrap();
+    let after_currency = ledger
+        .repo()
+        .unwrap()
+        .get_transaction(ledger::transaction_id(&id).unwrap())
+        .unwrap()
+        .unwrap();
+    assert_eq!(after_currency.postings[0].delta.currency().code(), "JPY");
+    assert_eq!(
+        after_currency.report_amount_cny.unwrap().decimal_string(),
+        "0.50"
+    );
+    assert_eq!(
+        after_currency.fx_snapshot.unwrap().source,
+        ledger_domain::FxSnapshotSource::Manual
+    );
+}
