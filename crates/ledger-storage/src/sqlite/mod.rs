@@ -1,9 +1,10 @@
-//! SQLite connection and repository module boundary. Schema and public API stay unchanged.
+//! SQLite connection, schema migrations, and repository module boundary.
 mod accounts;
 mod budgets;
 mod classification;
 mod core_repository;
 mod diagnostics;
+mod exchange_rates;
 mod feature_repository;
 mod imports;
 mod mapping;
@@ -16,6 +17,9 @@ mod reversals;
 mod search;
 mod search_rules;
 mod snapshots;
+pub use exchange_rates::{
+    ExchangeRateObservation, ExchangeRateSyncState, SUPPORTED_EXCHANGE_RATE_QUOTES,
+};
 pub use snapshots::LedgerSnapshot;
 mod transaction_write;
 mod validation;
@@ -69,6 +73,7 @@ impl SqliteLedgerRepository {
         repo.apply_screen_capture_migration()?;
         repo.apply_refund_reference_migration()?;
         repo.apply_merchant_order_migration()?;
+        repo.apply_exchange_rates_migration()?;
         repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
             account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
             category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))
