@@ -334,12 +334,7 @@ function UnlockedApp({
             />
           )}
           {modal.kind === 'pending' && (
-            <PendingEditor
-              entry={modal.entry}
-              accounts={accounts}
-              accountId={entryAccountId}
-              onSaved={refresh}
-            />
+            <PendingEditor entry={modal.entry} accounts={accounts} onSaved={refresh} />
           )}
           {modal.kind === 'import' && (
             <ImportPanel

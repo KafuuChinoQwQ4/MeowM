@@ -270,6 +270,67 @@ test('pending confirmation and report balances stay in their supported currencie
   }
 });
 
+test('pending editor blocks confirmation when no CNY account exists', async () => {
+  const page = await open({
+    accounts: [
+      {
+        id: 'usd',
+        name: '美元账户',
+        category: 'wallet',
+        currency_code: 'USD',
+        currency_exponent: 2,
+      },
+    ],
+    pending: [
+      {
+        id: 'pending-usd-context',
+        status: 'pending',
+        kind: 'expense',
+        occurred_at: '2026-10-14T12:00:00Z',
+        amount: '12.30',
+        currency_code: 'CNY',
+        merchant: '待确认商户',
+        description: '',
+        edit_version: 0,
+        reversal_of: null,
+        reversal_id: null,
+        account_id: 'usd',
+        destination_id: null,
+        category_id: null,
+        original_transaction_id: null,
+        refund_matches: [],
+        sources: ['bank'],
+        external_ids: [],
+      },
+    ],
+  });
+  try {
+    await navigate(page, 'pending');
+    await page.getByRole('button', { name: '编辑 / 确认', exact: true }).click();
+    const dialog = page.locator('dialog[open]');
+    assert.match(await dialog.textContent(), /先创建人民币平台/u);
+    assert.equal(
+      await dialog.getByRole('button', { name: '保存并确认', exact: true }).isDisabled(),
+      true,
+    );
+    await dialog
+      .locator('form')
+      .evaluate((form) =>
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })),
+      );
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) =>
+          ['confirm_pending', 'edit_pending'].includes(call.command),
+        ),
+      ),
+      false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
 test('daily balance and reference input use the account currency precision', async () => {
   const page = await open();
   try {

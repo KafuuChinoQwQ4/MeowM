@@ -9,15 +9,14 @@ import { currencyExponent, validDate, validAmount, money } from '../../shared/fo
 export function PendingEditor({
   entry,
   accounts,
-  accountId,
   onSaved,
 }: {
   entry: PageEntry;
   accounts: Account[];
-  accountId: string;
   onSaved: () => void;
 }) {
   const cnyAccounts = accounts.filter((account) => (account.currency_code ?? 'CNY') === 'CNY');
+  const missingCnyAccount = cnyAccounts.length === 0;
   const occurred = new Date(entry.occurred_at);
   const matchedOriginal = entry.refund_matches?.find(
     (match) => match.confidence === 'exact' && match.status === 'confirmed',
@@ -29,7 +28,7 @@ export function PendingEditor({
     expected_version: entry.edit_version,
     account_id: cnyAccounts.some((account) => account.id === entry.account_id)
       ? entry.account_id!
-      : (cnyAccounts[0]?.id ?? accountId),
+      : (cnyAccounts[0]?.id ?? ''),
     date: `${occurred.getFullYear()}-${String(occurred.getMonth() + 1).padStart(2, '0')}-${String(occurred.getDate()).padStart(2, '0')}`,
     amount: entry.amount ?? '',
     kind: entry.kind,
@@ -67,6 +66,10 @@ export function PendingEditor({
     }));
   }
   function save(confirm: boolean) {
+    if (!cnyAccounts.some((account) => account.id === draft.account_id)) {
+      action.setError('请选择人民币平台；待确认记录只能记入人民币账户。');
+      return;
+    }
     const currencyCode =
       cnyAccounts.find((account) => account.id === draft.account_id)?.currency_code ?? 'CNY';
     const exponent = currencyExponent(currencyCode);
@@ -128,12 +131,21 @@ export function PendingEditor({
         save(true);
       }}
     >
-      <fieldset disabled={action.busy}>
+      {missingCnyAccount && (
+        <p className="field-hint" role="status">
+          待确认记录只能记入人民币平台，请先创建人民币平台。
+        </p>
+      )}
+      <fieldset disabled={action.busy || missingCnyAccount}>
         <SelectField
           label="记入平台"
-          options={cnyAccounts.map(
-            (a) => [a.id, `${a.name}（${a.currency_code ?? 'CNY'}）`] as [string, string],
-          )}
+          options={
+            cnyAccounts.length
+              ? cnyAccounts.map(
+                  (a) => [a.id, `${a.name}（${a.currency_code ?? 'CNY'}）`] as [string, string],
+                )
+              : [['', '请先创建人民币平台']]
+          }
           value={draft.account_id}
           onChange={(e) => update('account_id', e.target.value)}
         />
@@ -309,12 +321,20 @@ export function PendingEditor({
             )}
           </>
         )}
-        <button type="button" className="button button-secondary" onClick={() => save(false)}>
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={action.busy || missingCnyAccount}
+          onClick={() => save(false)}
+        >
           仅保存修改
         </button>
       </fieldset>
       <FormError message={action.error} />
-      <button className="button button-primary submit-button" disabled={action.busy}>
+      <button
+        className="button button-primary submit-button"
+        disabled={action.busy || missingCnyAccount}
+      >
         保存并确认
       </button>
     </form>
