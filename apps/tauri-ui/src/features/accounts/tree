@@ -2,8 +2,8 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `AccountForm.tsx` — 平台创建、编辑及提交错误处理。
-- `AccountsPage.tsx` — 平台分类筛选、分页和进入账本。
+- `AccountForm.tsx` — 平台创建时选择固定币种、编辑平台信息及提交错误处理。
+- `AccountsPage.tsx` — 显示平台币种，支持分类筛选、分页和进入账本。
 - `PlatformNamePicker.tsx` — 支持别名筛选、品牌选择、键盘导航和自定义名称的平台输入控件。
 - `useAccounts.ts` — 平台列表加载与刷新。
 - `tree` — 本目录直接文件的说明索引。

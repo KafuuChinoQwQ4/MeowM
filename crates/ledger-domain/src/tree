@@ -4,11 +4,12 @@
 
 - `account.rs` — Account kinds, opening balances, and account invariants.
 - `category.rs` — Editable category and classification rule domain types.
+- `exchange_rate.rs` — Fixed currency directory and exact integer conversion from foreign minor units to CNY.
 - `features.rs` — 九项账本功能共用领域类型、分页及版本元数据契约。
 - `lib.rs` — Public domain APIs and errors, including transfer conservation failures.
-- `money.rs` — Currency codes and integer minor-unit money.
+- `money.rs` — Currency codes, fixed currency definitions and integer minor-unit money.
 - `recurring.rs` — 周期模板、频率、实例状态和提醒的领域模型。
 - `source.rs` — 来源证据、渠道交易单号、商户单号及退款原交易号。
-- `transaction.rs` — Transactions, postings, types, and lifecycle status.
+- `transaction.rs` — Transactions, original-currency postings, FX snapshots, types and lifecycle status.
 - `validation.rs` — 可选退款关联、分录约束与收支报表效应。
 - `tree` — 本目录直接文件的说明索引。

@@ -146,21 +146,26 @@ fn converts_foreign_minor_units_to_cny_without_float_rounding() {
 - [ ] **Step 6: Implement CNY-only confirmation filtering and dual-currency display.** Filter foreign accounts from bill/notification pending selectors, render list/detail amounts without the CNY symbol for foreign originals, show the CNY report amount separately, format report balances by each account currency, and format ledger reference balance/entry values using DayView currency metadata.
 - [ ] **Step 7: Run the focused UI verification and commit.** Run the focused account/transaction workflow tests, `npm run build`, `npm run format:check`, and `npm run test:ui`; commit `feat: add foreign-currency entry workflow`.
 
-## Task 5: Document, integrate, and verify on Android
+## Task 5: Add arbitrary currency conversion and finalize Android verification
 
 **Files:**
+- Modify: `apps/tauri-ui/src/api/exchangeRates.ts`, `src/features/exchangeRates/ExchangeRatesPage.tsx`, `src/features/exchangeRates/RateChart.tsx`, `src/styles/exchangeRates.css`, `tests/exchange-rates.test.mjs`.
+- Create: `apps/tauri-ui/src/shared/currencyConversion.ts` for exact cross-rate display and integer amount conversion.
 - Modify: `README.md`, `docs/architecture.md`, `scripts/tree_descriptions.json`, generated directory index files.
 - Test device: `YTROLNA69HIVSSYP` (Xiaomi 23078RKD5C, Android 16/API 36) when still attached.
 
-- [ ] **Step 1: Document the user-visible model.** Explain original-currency account balances, CNY report conversion, stored transaction-date FX snapshots, manual fallback, and unsupported cross-currency transfers in README and architecture docs.
-- [ ] **Step 2: Update generated indexes.** Add/adjust descriptions for new domain/storage/API/UI modules; run `python3 scripts/update_tree.py --check`.
-- [ ] **Step 3: Run complete relevant validation.** Run `cargo test --workspace`, `cargo fmt --all -- --check`, `npm run build`, `npm run test:ui`, `npm run format:check`, `python3 scripts/update_tree.py --check`, and `git diff --check`.
-- [ ] **Step 4: Build and install the latest Android debug APK.** Run `npm run tauri -- android build --debug --apk --target aarch64 --ci`; install with `adb install -r` to preserve user data; confirm package version and existing exchange-rate history.
-- [ ] **Step 5: Verify the device workflow.** Create a USD account, enter a USD expense using the locally cached quote, confirm the preview includes exact original and CNY amounts, save, leave and reopen the detail, and confirm the FX snapshot/source and USD account balance persist. Verify CNY existing account data remains visible and the daily WorkManager job remains enqueued after the Activity leaves foreground.
-- [ ] **Step 6: Inspect and commit documentation/index changes.** Review `git status --short`, ensure only feature files are staged, run `git diff --cached --check`, commit `docs: document multi-currency accounting`.
+- [x] **Step 1: Add pair and conversion workflow tests.** Verify source/target selectors, common-date history joining, USD-to-JPY integer rounding, chart accessibility, identity conversion and missing-history behavior.
+- [x] **Step 2: Implement exact pair helpers.** Join matching observation dates only; calculate displayed cross rates from decimal coefficients; convert source amounts to target minor units with `BigInt`, both currency exponents and half-up rounding.
+- [x] **Step 3: Implement the pair UI and compact points.** Add source/target selectors, amount/result display and pair-aware chart labels. Reduce SVG point radius while preserving keyboard selection and focus visibility.
+- [x] **Step 4: Document the user-visible model.** Explain original-currency account balances, CNY report conversion, stored transaction-date FX snapshots, manual fallback, arbitrary pair conversion, and unsupported cross-currency ledger transfers in README and architecture docs.
+- [x] **Step 5: Update generated indexes.** Add/adjust descriptions for new API/UI modules; run `python3 scripts/update_tree.py` and `python3 scripts/update_tree.py --check`.
+- [x] **Step 6: Run complete relevant validation.** Run `cargo test --workspace`, `cargo fmt --all -- --check`, `npm run build`, `npm run test:ui`, `npm run format:check`, `python3 scripts/update_tree.py --check`, and `git diff --check`.
+- [x] **Step 7: Build and install the latest Android debug APK.** Run `npm run tauri -- android build --debug --apk --target aarch64 --ci`; install with `adb install -r` to preserve user data; confirm package version and existing exchange-rate history.
+- [x] **Step 8: Verify on the device.** Convert USD to JPY from cached common-date rates, inspect the pair trend, confirm existing CNY data and rate history remain visible, and verify the daily WorkManager job remains enqueued after the Activity leaves foreground. The ledger database integrity and row counts were preserved after testing.
+- [ ] **Step 9: Inspect and commit the integrated change.** Review `git status --short`, ensure only feature files are included, run `git diff --cached --check`, and commit the final user-facing changes.
 
 ## Plan Self-Review
 
-- Spec coverage: currency creation and immutable currency, native-currency balance and formatting, precise dated exchange selection, manual fallback, CNY reports, same-currency transfers, refunds, CNY-only import/capture/recurring/budget behavior, schema 14, backup compatibility, UI preview, Android device workflow and error cases each map to Tasks 1–5.
+- Spec coverage: currency creation and immutable currency, native-currency balance and formatting, precise dated exchange selection, manual fallback, CNY reports, same-currency transfers, arbitrary pair conversion, refunds, CNY-only import/capture/recurring/budget behavior, schema 14, backup compatibility, UI preview, Android device workflow and error cases each map to Tasks 1–5.
 - Placeholder scan: no unresolved design markers; each task defines a concrete test, command, or implementation interface.
 - Type consistency: account and transaction DTO names, `TransactionFxSnapshot` fields, `manual_fx_rate`, and currency conversion signatures are consistent across tasks.

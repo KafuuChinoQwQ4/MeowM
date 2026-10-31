@@ -2,9 +2,9 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `RecordsPage.tsx` — 流水分页和详情入口。
-- `TransactionEditor.tsx` — 手动记账与编辑，规范商户时间、可选备注及双单号核对。
-- `TransactionHistory.tsx` — 交易来源、关联记录与审计历史。
+- `RecordsPage.tsx` — 按原币显示流水、支持分页和打开交易详情。
+- `TransactionEditor.tsx` — 外币精度输入、Rust 汇率预览和回退、同币种转账校验及交易影响确认。
+- `TransactionHistory.tsx` — 交易原币、CNY 报表金额、汇率快照、来源及审计历史。
 - `TransactionPanel.tsx` — 交易详情加载、编辑与撤销流程编排。
 - `impact.ts` — 使用整数分计算交易编辑前后的金额影响。
 - `tree` — 本目录直接文件的说明索引。

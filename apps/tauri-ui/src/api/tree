@@ -2,20 +2,20 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `accounts.ts` — 平台及参考余额的类型与 IPC 接口。
+- `accounts.ts` — 平台币种、精度、创建和参考余额的类型与 IPC 接口。
 - `budgets.ts` — 预算创建、编辑、停用及提醒的 IPC 契约。
 - `client.ts` — 唯一 Tauri invoke 入口。
 - `data.ts` — 备份、恢复预览和导出的类型化 IPC 客户端。
-- `entries.ts` — 含撤销状态的分页查询、分类及待确认操作的类型与 IPC 接口。
-- `exchangeRates.ts` — 本机汇率历史、同步状态和手动刷新的类型化 IPC 客户端。
+- `entries.ts` — 含外币与汇率字段的分页查询、分类及人民币待确认操作 IPC 接口。
+- `exchangeRates.ts` — 本机汇率 IPC 客户端，并以双方共同日期构造精确货币对历史。
 - `imports.ts` — 账单预览、加密 PDF 密码一次性传递、标准化预览复查及候选入箱接口。
-- `ledger.ts` — 每日汇总和流水的类型与 IPC 接口。
+- `ledger.ts` — 每日汇总、原币流水和账户币种的类型与 IPC 接口。
 - `notifications.ts` — Typed notification settings and Android permission IPC client.
 - `privacy.ts` — 隐私设置和数据清理的类型化 IPC 接口。
 - `reconciliation.ts` — 对账会话和操作的类型化 IPC 接口。
 - `recurring.ts` — 周期账单管理和到期提醒的类型化 IPC 接口。
-- `reports.ts` — 报表查询和字符串金额结果的 IPC 契约。
+- `reports.ts` — CNY 汇总、原币账户余额和字符串金额的报表 IPC 契约。
 - `screenCapture.ts` — Screen capture authorization and service status API.
 - `search.ts` — 搜索分类管理的类型化 IPC 接口。
-- `transactions.ts` — 交易详情、版本化编辑及撤销的类型与 IPC 接口。
+- `transactions.ts` — 交易原币和 CNY 报表值、汇率预览、版本化编辑及撤销的类型与 IPC 接口。
 - `tree` — 本目录直接文件的说明索引。

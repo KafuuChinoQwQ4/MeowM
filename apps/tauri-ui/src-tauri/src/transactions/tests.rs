@@ -77,6 +77,47 @@ fn manual_order_ids_and_optional_note_survive_restart_and_prevent_reimport() {
 }
 
 #[test]
+fn cached_foreign_rate_without_attribution_requires_manual_fallback() {
+    use ledger_storage::sqlite::ExchangeRateObservation;
+
+    let dir = tempfile::tempdir().unwrap();
+    let ledger = Ledger::open(&dir.path().join("unattributed-fx.sqlite3")).unwrap();
+    let usd = ledger
+        .create_platform_currency("无来源美元", "bank", Some("USD"))
+        .unwrap();
+    let date = chrono::NaiveDate::from_ymd_opt(2026, 10, 14).unwrap();
+    ledger
+        .repo()
+        .unwrap()
+        .upsert_exchange_rates(&[ExchangeRateObservation {
+            effective_date: date,
+            base_currency: "CNY".into(),
+            quote_currency: "USD".into(),
+            rate: "7.5".into(),
+            provider: "frankfurter".into(),
+            provider_sources: vec![],
+            fetched_at_utc: chrono::Utc::now(),
+        }])
+        .unwrap();
+
+    let unavailable = ledger.preview_foreign_transaction("10.00", "USD", "2026-10-14", None);
+    assert!(matches!(unavailable, Err(message) if message.contains("可用本地汇率")));
+
+    let manual = ledger
+        .preview_foreign_transaction("10.00", "USD", "2026-10-14", Some("7.5"))
+        .unwrap();
+    assert_eq!(manual.source, "manual");
+    assert_eq!(manual.report_amount_cny, "1.33");
+
+    let mut write = request(&usd.id, "expense", "10.00");
+    write.manual_fx_rate = Some("7.5".into());
+    let id = ledger.write_transaction(write).unwrap();
+    let detail = ledger.transaction_detail(&id).unwrap();
+    assert_eq!(detail.report_amount_cny.as_deref(), Some("1.33"));
+    assert_eq!(detail.fx_snapshot.unwrap().source, "manual");
+}
+
+#[test]
 fn manual_shop_matches_bill_product_without_note() {
     let dir = tempfile::tempdir().unwrap();
     let ledger = Ledger::open(&dir.path().join("manual-aux.sqlite")).unwrap();

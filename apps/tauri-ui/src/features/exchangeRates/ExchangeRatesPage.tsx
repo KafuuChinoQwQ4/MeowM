@@ -1,24 +1,14 @@
 import { useCallback, useState } from 'react';
+import { CURRENCIES } from '../../api/accounts';
 import { exchangeRatesApi, type ExchangeRateSyncState } from '../../api/exchangeRates';
 import { LoadState } from '../../components/LoadState';
+import { convertCurrencyAmount } from '../../shared/currencyConversion';
 import { recentDaysRange } from '../../shared/calendar';
 import { errorText } from '../../shared/errors';
-import { today } from '../../shared/format';
+import { currencyExponent, formatCurrency, today, validAmount } from '../../shared/format';
 import { useResource } from '../../shared/useResource';
 import { RateChart } from './RateChart';
 
-const currencies = [
-  ['USD', '美元'],
-  ['EUR', '欧元'],
-  ['JPY', '日元'],
-  ['HKD', '港币'],
-  ['GBP', '英镑'],
-  ['KRW', '韩元'],
-  ['AUD', '澳元'],
-  ['CAD', '加元'],
-  ['SGD', '新加坡元'],
-  ['CHF', '瑞士法郎'],
-];
 const statusLabels: Record<ExchangeRateSyncState['status'], string> = {
   never: '尚未同步',
   success: '更新成功',
@@ -30,7 +20,9 @@ const statusLabels: Record<ExchangeRateSyncState['status'], string> = {
 };
 
 export function ExchangeRatesPage() {
+  const [base, setBase] = useState('CNY');
   const [quote, setQuote] = useState('USD');
+  const [amount, setAmount] = useState('1');
   const [days, setDays] = useState(90);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -38,9 +30,13 @@ export function ExchangeRatesPage() {
   const [anchor, setAnchor] = useState(today);
   const [from, until] = recentDaysRange(anchor, days);
   const history = useResource(
-    useCallback(() => exchangeRatesApi.history(quote, from, until), [quote, from, until]),
+    useCallback(
+      () => exchangeRatesApi.pairHistory(base, quote, from, until),
+      [base, quote, from, until],
+    ),
   );
   const sync = useResource(useCallback(() => exchangeRatesApi.state(), []));
+  const amountValid = validAmount(amount, false, currencyExponent(base));
   async function refresh() {
     if (refreshing) return;
     setRefreshing(true);
@@ -63,11 +59,24 @@ export function ExchangeRatesPage() {
     }
   }
   const latest = history.data?.[history.data.length - 1];
+  const convertedAmount = amountValid
+    ? base === quote
+      ? convertCurrencyAmount(amount, base, quote, '1', '1')
+      : latest
+        ? convertCurrencyAmount(
+            amount,
+            base,
+            quote,
+            latest.base_reference_rate,
+            latest.quote_reference_rate,
+          )
+        : null
+    : null;
   return (
     <section className="exchange-rates-page" aria-labelledby="exchange-rates-title">
       <div className="exchange-rates-heading">
         <div>
-          <h2 id="exchange-rates-title">汇率趋势</h2>
+          <h2 id="exchange-rates-title">汇率趋势与换算</h2>
           <p className="muted">每日参考汇率 · 本地保存，离线可查看</p>
         </div>
         <button type="button" disabled={refreshing} onClick={() => void refresh()}>
@@ -76,9 +85,19 @@ export function ExchangeRatesPage() {
       </div>
       <div className="exchange-rates-controls">
         <label>
+          源币种
+          <select value={base} onChange={(event) => setBase(event.target.value)}>
+            {CURRENCIES.map(([code, label]) => (
+              <option key={code} value={code}>
+                {code} · {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
           目标币种
           <select value={quote} onChange={(event) => setQuote(event.target.value)}>
-            {currencies.map(([code, label]) => (
+            {CURRENCIES.map(([code, label]) => (
               <option key={code} value={code}>
                 {code} · {label}
               </option>
@@ -96,28 +115,58 @@ export function ExchangeRatesPage() {
           </select>
         </label>
       </div>
+      <div className="exchange-rate-converter">
+        <label>
+          换算金额
+          <input
+            inputMode="decimal"
+            maxLength={40}
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            aria-invalid={!amountValid}
+          />
+        </label>
+        <div className="exchange-rate-converted">
+          <span>换算结果</span>
+          <strong>{convertedAmount === null ? '—' : formatCurrency(convertedAmount, quote)}</strong>
+        </div>
+      </div>
+      {!amountValid && <p role="alert">请输入有效金额，最多 {currencyExponent(base)} 位小数。</p>}
+      {amountValid && base !== quote && !latest && history.data && (
+        <p className="muted">所选日期范围没有这组币种的共同汇率观察。</p>
+      )}
       <p className="exchange-rate-value">
         {latest ? (
           <>
-            1 CNY ={' '}
+            1 {base} ={' '}
             <strong>
               {latest.rate} {quote}
             </strong>
             <span>有效日期：{latest.effective_date}</span>
           </>
         ) : (
-          <>1 CNY 对应的 {quote} 数量</>
+          <>{base === quote ? '同币种换算比例为 1' : `1 ${base} 对应的 ${quote} 数量`}</>
         )}
       </p>
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
       <LoadState loading={history.loading} error={history.error} reload={history.reload} />
-      {history.data && <RateChart key={`${quote}-${days}`} rows={history.data} quote={quote} />}
+      {history.data &&
+        (base === quote ? (
+          <p className="empty-state">同一币种按 1:1 换算，无需汇率曲线。</p>
+        ) : (
+          <RateChart
+            key={`${base}-${quote}-${days}`}
+            rows={history.data}
+            base={base}
+            quote={quote}
+          />
+        ))}
       <div className="exchange-rate-source">
         <p>
-          数据源：Frankfurter 汇总参考数据
+          数据源：Frankfurter 汇总参考数据。交叉汇率由双方同日 CNY 参考价计算
           {latest?.provider_sources.length ? `（${latest.provider_sources.join('、')}）` : ''}
-          。参考汇率，非实时交易报价。
+          ；参考汇率，非实时交易报价。
         </p>
         <p>周末和节假日可能暂无新数据，曲线保留来源实际发布的日期。</p>
         <LoadState loading={sync.loading} error={sync.error} reload={sync.reload} />

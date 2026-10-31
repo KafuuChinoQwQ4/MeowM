@@ -1,8 +1,16 @@
 import { useState } from 'react';
-import type { ExchangeRateHistoryRow } from '../../api/exchangeRates';
+import type { ExchangeRatePairRow } from '../../api/exchangeRates';
 
-export function RateChart({ rows, quote }: { rows: ExchangeRateHistoryRow[]; quote: string }) {
-  const [selected, setSelected] = useState<ExchangeRateHistoryRow | null>(null);
+export function RateChart({
+  rows,
+  base,
+  quote,
+}: {
+  rows: ExchangeRatePairRow[];
+  base: string;
+  quote: string;
+}) {
+  const [selected, setSelected] = useState<ExchangeRatePairRow | null>(null);
   const points = rows
     .map((row) => ({ row, value: Number(row.rate), time: Date.parse(row.effective_date) }))
     .filter(
@@ -38,9 +46,11 @@ export function RateChart({ rows, quote }: { rows: ExchangeRateHistoryRow[]; quo
         className="rate-chart"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label={`CNY 至 ${quote} 参考汇率曲线`}
+        aria-label={`${base} 至 ${quote} 参考汇率曲线`}
       >
-        <title>每 1 CNY 对应的 {quote} 数量，按来源实际有效日期连接</title>
+        <title>
+          每 1 {base} 对应的 {quote} 数量，按双方共同有效日期连接
+        </title>
         {[low, (low + high) / 2, high].map((value) => (
           <g key={value} className="rate-chart-grid">
             <line x1={left} x2={width - right} y1={y(value)} y2={y(value)} />
@@ -59,10 +69,10 @@ export function RateChart({ rows, quote }: { rows: ExchangeRateHistoryRow[]; quo
             key={row.effective_date}
             cx={x(time)}
             cy={y(value)}
-            r="7"
+            r="3.5"
             tabIndex={0}
             role="button"
-            aria-label={`${row.effective_date}：1 CNY = ${row.rate} ${quote}`}
+            aria-label={`${row.effective_date}：1 ${base} = ${row.rate} ${quote}`}
             onClick={() => setSelected(row)}
             onFocus={() => setSelected(row)}
             onKeyDown={(event) => {
@@ -73,7 +83,7 @@ export function RateChart({ rows, quote }: { rows: ExchangeRateHistoryRow[]; quo
             }}
           >
             <title>
-              {row.effective_date}：1 CNY = {row.rate} {quote}
+              {row.effective_date}：1 {base} = {row.rate} {quote}
             </title>
           </circle>
         ))}
@@ -87,7 +97,7 @@ export function RateChart({ rows, quote }: { rows: ExchangeRateHistoryRow[]; quo
         )}
       </svg>
       <p className="rate-chart-selected" role="status">
-        {shown.effective_date} · 1 CNY ={' '}
+        {shown.effective_date} · 1 {base} ={' '}
         <strong>
           {shown.rate} {quote}
         </strong>

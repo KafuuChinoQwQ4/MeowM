@@ -15,4 +15,5 @@
 - `0011_refund_references.sql` — 保留可选退款原订单号的兼容数据库迁移。
 - `0012_merchant_orders.sql` — 保留既有来源证据并独立存储、索引商户单号。
 - `0013_exchange_rates.sql` — CNY 参考汇率历史和安全同步状态的 schema 13 迁移。
+- `0014_transaction_fx_snapshots.sql` — Schema 14 one-to-one FX snapshots for confirmed foreign-currency transactions.
 - `tree` — 本目录直接文件的说明索引。
