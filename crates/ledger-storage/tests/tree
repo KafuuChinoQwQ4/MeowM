@@ -3,6 +3,7 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `exchange_rates.rs` — 汇率精确写入、修订、币种校验、升级和重开回归测试。
+- `platform_deletion.rs` — 平台删除的元数据清理、关联保护、失败回滚及空平台快照恢复测试。
 - `privacy_lifecycle.rs` — 通知候选保留、删除回滚、引用阻断和本机设置清理测试。
 - `reconciliation_persistence.rs` — 旧库对账迁移、schema 13、失败回滚和多连接幂等测试。
 - `recurring_persistence.rs` — 周期数据迁移、并发幂等、时区、失败回滚及当前 schema 版本测试。
@@ -10,4 +11,5 @@
 - `snapshot_integrity.rs` — 大账本、回滚、对账和畸形快照验证。
 - `snapshot_restore.rs` — 敏感设置排除、重复恢复和 SQLite 快照测试。
 - `sqlite_repository.rs` — Integration tests for SQLite persistence, schema 13 upgrades, balances, import provenance, and rule lifecycle.
+- `transaction_fx.rs` — 外币交易汇率快照写入、查询、恢复和校验回归测试。
 - `tree` — 本目录直接文件的说明索引。

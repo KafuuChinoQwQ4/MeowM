@@ -7,6 +7,7 @@ import { LoadState } from '../components/LoadState';
 import { useAccounts } from '../features/accounts/useAccounts';
 import { AccountsPage } from '../features/accounts/AccountsPage';
 import { AccountForm } from '../features/accounts/AccountForm';
+import { DeleteAccountForm } from '../features/accounts/DeleteAccountForm';
 import { useDay } from '../features/ledger/useDay';
 import { LedgerPage } from '../features/ledger/LedgerPage';
 import { ReferenceForm } from '../features/ledger/ReferenceForm';
@@ -17,6 +18,8 @@ import { PendingEditor } from '../features/pending/PendingEditor';
 import { ImportPanel } from '../features/import/ImportPanel';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { ExchangeRatesPage } from '../features/exchangeRates/ExchangeRatesPage';
+import { PaymentConnectionsPage } from '../features/connections/PaymentConnectionsPage';
+import { MarketsPage } from '../features/markets/MarketsPage';
 import { BudgetsPage } from '../features/budgets/BudgetsPage';
 import { NotificationsPage } from '../features/notifications/NotificationsPage';
 import { RecurringPage } from '../features/recurring/RecurringPage';
@@ -35,6 +38,7 @@ import type { PrivacyStatus } from '../api/privacy';
 import { setAmountsHidden } from '../shared/format';
 type Modal =
   | { kind: 'account'; account?: Account }
+  | { kind: 'delete-account'; account: Account }
   | { kind: 'reference' | 'clear' | 'import' }
   | { kind: 'transaction'; id?: string }
   | { kind: 'pending'; entry: PageEntry };
@@ -104,6 +108,7 @@ function UnlockedApp({
   }
   const titles = {
     account: modal?.kind === 'account' && modal.account ? '编辑平台' : '新建平台',
+    'delete-account': '删除平台',
     reference: '设置参考余额',
     clear: '清除参考余额？',
     import: '导入账单',
@@ -184,6 +189,7 @@ function UnlockedApp({
                   <AccountsPage
                     accounts={accounts}
                     onEdit={(account) => setModal({ kind: 'account', account })}
+                    onDelete={(account) => setModal({ kind: 'delete-account', account })}
                     onEnter={(id) => {
                       setAccount(id);
                       selectView('ledger');
@@ -201,6 +207,8 @@ function UnlockedApp({
                 )}
                 {view === 'reports' && <ReportsPage accounts={accounts} revision={revision} />}
                 {view === 'exchange' && <ExchangeRatesPage />}
+                {view === 'markets' && <MarketsPage />}
+                {view === 'connections' && <PaymentConnectionsPage />}
                 {view === 'budgets' && (
                   <BudgetsPage accounts={accounts} revision={revision} onChanged={refresh} />
                 )}
@@ -310,6 +318,17 @@ function UnlockedApp({
               account={modal.account}
               onSaved={(id) => {
                 if (id) setAccount(id);
+                accountsState.reload();
+                refresh();
+              }}
+            />
+          )}
+          {modal.kind === 'delete-account' && (
+            <DeleteAccountForm
+              account={modal.account}
+              onDeleted={() => {
+                if (selected === modal.account.id) setAccount('');
+                setNotice(`已删除平台「${modal.account.name}」。`);
                 accountsState.reload();
                 refresh();
               }}

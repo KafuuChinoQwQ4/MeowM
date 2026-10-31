@@ -25,4 +25,5 @@ export const accountsApi = {
     invoke<Account>('create_account', { name, category, currencyCode }),
   update: (accountId: string, name: string, category: string) =>
     invoke<void>('update_platform', { accountId, name, category }),
+  delete: (accountId: string) => invoke<void>('delete_platform', { accountId }),
 };

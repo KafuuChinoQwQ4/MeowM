@@ -23,11 +23,31 @@ serde_json = { version = "1", features = ["arbitrary_precision"] }
 ureq = { version = "3.4.2", features = ["json"] }
 base64 = "0.22"
 zeroize = "1"
+keyring-core = "1.0.1"
+rsa = { version = "0.9.8", features = ["sha2"] }
+sha1 = "0.10"
+sha2 = "0.10"
+hmac = "0.12"
+flate2 = "1"
+url = "2"
 ledger-backup = { path = "../../../crates/ledger-backup" }
 ledger-export = { path = "../../../crates/ledger-export" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+android-native-keyring-store = "1.0.0"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-native-keyring-store = "1.1.0"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+apple-native-keyring-store = { version = "1.0.2", features = ["keychain"] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+apple-native-keyring-store = { version = "1.0.2", features = ["protected"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus-secret-service-keyring-store = { version = "1.0.1", features = ["rt-tokio-crypto-rust"] }
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }

@@ -54,7 +54,7 @@ impl Ledger {
             restore_preview: std::cell::RefCell::new(None),
             preview: std::cell::RefCell::new(None),
         };
-        if repo.list_accounts().map_err(|e| e.to_string())?.is_empty() {
+        if repo.needs_default_platforms().map_err(|e| e.to_string())? {
             for name in ["微信", "支付宝", "现金"] {
                 AccountService::new(ledger.repo()?)
                     .create_account(DomainAccount::new(name, AccountKind::Asset, cny()))

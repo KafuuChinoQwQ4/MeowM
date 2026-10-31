@@ -64,18 +64,25 @@ export function ExchangeRatesPage() {
   }
   const latest = history.data?.[history.data.length - 1];
   return (
-    <section className="exchange-rates-page" aria-labelledby="exchange-rates-title">
-      <div className="exchange-rates-heading">
+    <section className="analytics-page exchange-rates-page" aria-labelledby="exchange-rates-title">
+      <div className="analytics-row exchange-rates-heading">
         <div>
-          <h2 id="exchange-rates-title">汇率趋势</h2>
-          <p className="muted">每日参考汇率 · 本地保存，离线可查看</p>
+          <h2 id="exchange-rates-title">法币汇率</h2>
+          <p className="field-hint">
+            主要法定货币的每日参考汇率与历史走势，本地保存并支持离线查看。
+          </p>
         </div>
-        <button type="button" disabled={refreshing} onClick={() => void refresh()}>
+        <button
+          className="button button-primary"
+          type="button"
+          disabled={refreshing}
+          onClick={() => void refresh()}
+        >
           {refreshing ? '正在更新…' : '刷新汇率'}
         </button>
       </div>
-      <div className="exchange-rates-controls">
-        <label>
+      <div className="report-filters exchange-rates-controls">
+        <label className="form-field">
           目标币种
           <select value={quote} onChange={(event) => setQuote(event.target.value)}>
             {currencies.map(([code, label]) => (
@@ -85,7 +92,7 @@ export function ExchangeRatesPage() {
             ))}
           </select>
         </label>
-        <label>
+        <label className="form-field">
           时间范围
           <select value={days} onChange={(event) => setDays(Number(event.target.value))}>
             {[30, 90, 365].map((range) => (
@@ -96,44 +103,53 @@ export function ExchangeRatesPage() {
           </select>
         </label>
       </div>
-      <p className="exchange-rate-value">
+      <div className="exchange-rate-value">
         {latest ? (
           <>
-            1 CNY ={' '}
+            <span>最新参考汇率</span>
             <strong>
-              {latest.rate} {quote}
+              1 CNY = {latest.rate} {quote}
             </strong>
-            <span>有效日期：{latest.effective_date}</span>
+            <span>有效日期 {latest.effective_date}</span>
           </>
         ) : (
-          <>1 CNY 对应的 {quote} 数量</>
+          <>
+            <span>参考汇率</span>
+            <strong>1 CNY 对应的 {quote} 数量</strong>
+          </>
         )}
-      </p>
+      </div>
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
       <LoadState loading={history.loading} error={history.error} reload={history.reload} />
-      {history.data && <RateChart key={`${quote}-${days}`} rows={history.data} quote={quote} />}
-      <div className="exchange-rate-source">
-        <p>
+      {history.data && (
+        <section className="analytics-section exchange-rate-chart" aria-label="汇率趋势图">
+          <h3>历史走势</h3>
+          <RateChart key={`${quote}-${days}`} rows={history.data} quote={quote} />
+        </section>
+      )}
+      <section className="analytics-section exchange-rate-source" aria-label="汇率数据说明">
+        <h3>数据与同步</h3>
+        <p className="field-hint">
           数据源：Frankfurter 汇总参考数据
           {latest?.provider_sources.length ? `（${latest.provider_sources.join('、')}）` : ''}
           。参考汇率，非实时交易报价。
         </p>
-        <p>周末和节假日可能暂无新数据，曲线保留来源实际发布的日期。</p>
+        <p className="field-hint">周末和节假日可能暂无新数据，曲线保留来源实际发布的日期。</p>
         <LoadState loading={sync.loading} error={sync.error} reload={sync.reload} />
         {sync.data && (
-          <p>
+          <p className="field-hint">
             同步状态：{statusLabels[sync.data.status]}
             {sync.data.last_attempt_utc && (
               <> · 最近检查：{new Date(sync.data.last_attempt_utc).toLocaleString('zh-CN')}</>
             )}
           </p>
         )}
-        <p>
+        <p className="field-hint">
           Android
           关闭界面后会在联网时每日尝试更新，实际时间受系统省电策略影响；桌面版在应用启动和手动刷新时更新。
         </p>
-      </div>
+      </section>
     </section>
   );
 }

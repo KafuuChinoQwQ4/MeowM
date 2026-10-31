@@ -73,6 +73,61 @@ fn platform_management_persists_and_preserves_ledger() {
     assert_eq!(accounts.len(), 4);
 }
 #[test]
+fn platform_deletion_persists_and_preserves_other_platforms() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ledger.sqlite3");
+    let ledger = Ledger::open(&path).unwrap();
+    let platform = ledger.create_platform("临时钱包", "wallet").unwrap();
+    let other = ledger.accounts().unwrap()[0].id.clone();
+    ledger
+        .save_entry(&other, "2026-10-14", "12", "", true)
+        .unwrap();
+    ledger
+        .set_reference(&platform.id, "2026-10-14", "100")
+        .unwrap();
+    assert!(ledger.delete_platform("invalid").is_err());
+    assert!(
+        ledger
+            .delete_platform(&uuid::Uuid::nil().to_string())
+            .is_err()
+    );
+    assert!(ledger.delete_platform(&other).unwrap_err().contains("流水"));
+    ledger.delete_platform(&platform.id).unwrap();
+    assert!(ledger.delete_platform(&platform.id).is_err());
+    drop(ledger);
+    let ledger = Ledger::open(&path).unwrap();
+    assert_eq!(ledger.accounts().unwrap().len(), 3);
+    assert!(
+        !ledger
+            .accounts()
+            .unwrap()
+            .iter()
+            .any(|a| a.id == platform.id)
+    );
+    assert_eq!(ledger.day(&other, "2026-10-14").unwrap().income, "12.00");
+    ledger.create_platform("临时钱包", "wallet").unwrap();
+}
+
+#[test]
+fn deleting_all_platforms_does_not_reseed_platforms_or_categories_after_reopening() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("ledger.sqlite3");
+    let ledger = Ledger::open(&path).unwrap();
+    for category in ledger.classification_state().unwrap().categories {
+        ledger.delete_category(&category.id).unwrap();
+    }
+    for platform in ledger.accounts().unwrap() {
+        ledger.delete_platform(&platform.id).unwrap();
+    }
+    drop(ledger);
+    let ledger = Ledger::open(&path).unwrap();
+    assert!(ledger.accounts().unwrap().is_empty());
+    assert!(ledger.classification_state().unwrap().categories.is_empty());
+    ledger.create_platform("重新开始", "cash").unwrap();
+    assert_eq!(ledger.accounts().unwrap().len(), 1);
+}
+
+#[test]
 fn ipc_flow_preserves_daily_projection_and_data_after_reopen() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("ledger.sqlite3");

@@ -1,0 +1,120 @@
+.provider-connections-page {
+  display: grid;
+  gap: 16px;
+  padding: 12px 4px 32px;
+}
+.provider-connections-header h2 {
+  margin: 4px 0;
+  font-size: 1.3rem;
+}
+.provider-connections-header p,
+.provider-card-header p,
+.provider-connection-placeholder p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.provider-connections-list {
+  display: grid;
+  gap: 12px;
+}
+.provider-connection-card,
+.provider-connection-placeholder {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffefa;
+  box-shadow: 0 5px 18px rgba(33, 59, 57, 0.05);
+}
+.provider-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.provider-card-header h3,
+.provider-connection-placeholder h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.connection-state,
+.provider-connection-placeholder span {
+  flex: none;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f1f3f4;
+  color: #66717a;
+  font-size: 0.68rem;
+}
+.connection-state.configured {
+  background: #e8f5ef;
+  color: #267354;
+}
+.credential-saved {
+  margin: 12px 0 0;
+  color: #267354;
+  font-size: 0.75rem;
+}
+.provider-credential-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 0 12px;
+}
+.provider-connection-card textarea {
+  box-sizing: border-box;
+  min-height: 92px;
+}
+.provider-connection-card .credential-secret-multiline {
+  -webkit-text-security: disc;
+}
+.provider-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.provider-card-actions .button {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+.provider-card-actions .button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+.connection-result {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: #edf7f2;
+  color: #286b54;
+  font-size: 0.78rem;
+}
+.connection-result ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+.connection-result p {
+  margin: 0;
+}
+.provider-connection-placeholder {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+}
+.provider-connection-placeholder span {
+  display: inline-block;
+  margin-top: 12px;
+}
+@media (max-width: 480px) {
+  .provider-connection-card,
+  .provider-connection-placeholder {
+    padding: 13px;
+  }
+  .provider-card-actions .button {
+    flex: 1 1 42%;
+  }
+}

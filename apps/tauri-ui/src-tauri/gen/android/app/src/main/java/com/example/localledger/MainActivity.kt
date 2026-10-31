@@ -11,6 +11,8 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
     enableEdgeToEdge()
+    // Initialize the keyring context before Tauri starts its Rust setup callback.
+    RustBridge.nativeInitializeCredentialContext(applicationContext)
     super.onCreate(savedInstanceState)
     ExchangeRateWorkScheduler.ensureScheduled(this)
     ExchangeRateWorkScheduler.enqueueStartupSync(this)

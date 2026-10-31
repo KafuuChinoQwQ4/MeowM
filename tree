@@ -2,7 +2,7 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `.gitignore` — Generated Rust and Android build artifacts excluded from version control.
+- `.gitignore` — 本地工作树、项目文档、构建产物及私密数据的 Git 忽略规则。
 - `Cargo.lock` — Locked workspace dependency graph for reproducible Rust builds.
 - `Cargo.toml` — Cargo workspace membership and shared package metadata.
 - `README.md` — MeowM 功能概览、使用说明与开发构建入口。

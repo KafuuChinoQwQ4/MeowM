@@ -1,3 +1,0 @@
-adb devices
-adb -s DEVICE_SERIAL install -r /path/to/app-debug.apk
-adb -s DEVICE_SERIAL shell am start -n com.example.localledger/.MainActivity

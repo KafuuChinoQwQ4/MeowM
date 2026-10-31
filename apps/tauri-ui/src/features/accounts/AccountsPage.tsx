@@ -7,10 +7,12 @@ import { usePageSize } from '../../shared/usePageSize';
 export function AccountsPage({
   accounts,
   onEdit,
+  onDelete,
   onEnter,
 }: {
   accounts: Account[];
   onEdit: (account?: Account) => void;
+  onDelete: (account: Account) => void;
   onEnter: (id: string) => void;
 }) {
   const [filter, setFilter] = useState('');
@@ -57,6 +59,12 @@ export function AccountsPage({
               </button>
               <button className="text-button" onClick={() => onEnter(account.id)}>
                 进入
+              </button>
+              <button
+                className="text-button platform-delete-button"
+                onClick={() => onDelete(account)}
+              >
+                删除
               </button>
             </div>
           </div>

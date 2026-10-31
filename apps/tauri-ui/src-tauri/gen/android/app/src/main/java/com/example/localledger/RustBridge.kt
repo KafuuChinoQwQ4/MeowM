@@ -6,6 +6,7 @@ import java.io.File
 /** JNI only transports bounded events; the Rust core owns parsing/settings/storage. */
 object RustBridge {
     init { System.loadLibrary("ledger_tauri_ui") }
+    @JvmStatic external fun nativeInitializeCredentialContext(context: Context)
     @JvmStatic external fun nativeCapture(path: String, event: String): String
     @JvmStatic external fun nativeSyncExchangeRates(path: String): String
     @JvmStatic external fun nativeScreenCapture(session: String, event: String): String

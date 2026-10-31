@@ -11,14 +11,24 @@ export type View =
   | 'platforms'
   | 'reports'
   | 'exchange'
+  | 'markets'
   | 'budgets'
   | 'notifications'
+  | 'connections'
   | 'recurring'
   | 'search'
   | 'reconciliation'
   | 'data'
   | 'privacy';
-const primaryViews: View[] = ['ledger', 'records', 'pending', 'finance', 'settings'];
+const primaryViews: View[] = [
+  'ledger',
+  'records',
+  'pending',
+  'exchange',
+  'markets',
+  'finance',
+  'settings',
+];
 const destinations: Record<
   View,
   { title: string; description: string; parent?: View; children?: View[] }
@@ -29,7 +39,7 @@ const destinations: Record<
   finance: {
     title: '财务管理',
     description: '查看统计、管理预算，整理账单和流水。',
-    children: ['reports', 'budgets', 'recurring', 'search', 'reconciliation', 'exchange'],
+    children: ['reports', 'budgets', 'recurring', 'search', 'reconciliation'],
   },
   settings: {
     title: '设置',
@@ -40,7 +50,7 @@ const destinations: Record<
     title: '平台与采集',
     description: '管理记账平台和自动采集来源。',
     parent: 'settings',
-    children: ['platforms', 'notifications'],
+    children: ['platforms', 'notifications', 'connections'],
   },
   security: {
     title: '安全与数据',
@@ -48,10 +58,19 @@ const destinations: Record<
     parent: 'settings',
     children: ['privacy', 'data'],
   },
-  platforms: { title: '平台管理', description: '新增、编辑和选择记账平台', parent: 'sources' },
+  platforms: {
+    title: '平台管理',
+    description: '新增、编辑、删除和选择记账平台',
+    parent: 'sources',
+  },
   notifications: {
     title: '通知采集',
     description: '通知来源、采集权限与屏幕识别',
+    parent: 'sources',
+  },
+  connections: {
+    title: '支付 API',
+    description: '连接微信支付和支付宝商户账单 API。',
     parent: 'sources',
   },
   privacy: {
@@ -61,7 +80,8 @@ const destinations: Record<
   },
   data: { title: '备份与导出', description: '加密备份、恢复与筛选导出', parent: 'security' },
   reports: { title: '报表总览', description: '收支趋势、分类与商户统计', parent: 'finance' },
-  exchange: { title: '汇率趋势', description: '每日参考汇率与历史曲线', parent: 'finance' },
+  exchange: { title: '法币汇率', description: '查看法定货币每日参考汇率与历史走势' },
+  markets: { title: '交易所', description: '连接交易所账户和行情数据 API' },
   budgets: { title: '预算管理', description: '设置预算并查看使用进度', parent: 'finance' },
   recurring: { title: '周期账单', description: '管理重复账单与到期提醒', parent: 'finance' },
   search: { title: '搜索与分类', description: '搜索流水、整理分类和匹配规则', parent: 'finance' },

@@ -50,14 +50,29 @@ async function installRates(page, { empty = false, failure = false } = {}) {
   );
 }
 
+test('fiat exchange rates have a dedicated primary navigation destination', async () => {
+  const page = await newPage();
+  try {
+    await installRates(page);
+    await page.goto(url);
+    await navigate(page, 'exchange');
+    await page.getByRole('heading', { name: '法币汇率', exact: true }).waitFor();
+    await page.locator('#menu').click();
+    assert.equal(await page.locator('#nav-exchange').getAttribute('aria-current'), 'page');
+    await page.locator('#nav-finance').click();
+    assert.equal(await page.locator('.navigation-directory #nav-exchange').count(), 0);
+  } finally {
+    await page.close();
+  }
+});
+
 test('local rates render chart points and currency/range selectors query the selected data', async () => {
   const page = await newPage({ viewport: { width: 390, height: 844 } });
   try {
     await page.clock.install({ time: new Date('2024-03-01T12:00:00Z') });
     await installRates(page);
     await page.goto(url);
-    await navigate(page, 'finance');
-    await page.locator('#nav-exchange').click();
+    await navigate(page, 'exchange');
     await page.getByRole('img', { name: 'CNY 至 USD 参考汇率曲线' }).waitFor();
     assert.equal(await page.getByLabel('目标币种').inputValue(), 'USD');
     assert.equal(await page.getByLabel('时间范围').inputValue(), '90');
@@ -113,8 +128,7 @@ test('refresh failure preserves cached chart and offers retry', async () => {
   try {
     await installRates(page, { failure: true });
     await page.goto(url);
-    await navigate(page, 'finance');
-    await page.locator('#nav-exchange').click();
+    await navigate(page, 'exchange');
     await page.getByRole('img', { name: 'CNY 至 USD 参考汇率曲线' }).waitFor();
     await page.getByRole('button', { name: '刷新汇率', exact: true }).click();
     await page
@@ -137,8 +151,7 @@ test('empty local history provides an accessible sync action', async () => {
   try {
     await installRates(page, { empty: true });
     await page.goto(url);
-    await navigate(page, 'finance');
-    await page.locator('#nav-exchange').click();
+    await navigate(page, 'exchange');
     await page.getByText('所选范围暂无汇率数据').waitFor();
     assert.equal(await page.getByRole('button', { name: '刷新汇率', exact: true }).count(), 1);
     assert.equal(await page.locator('.rate-chart circle').count(), 0);

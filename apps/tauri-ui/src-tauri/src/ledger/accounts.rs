@@ -94,4 +94,15 @@ impl Ledger {
             .save_platform(account_id(id)?, name, category, false, &cny())
             .map_err(|e| e.to_string())
     }
+    pub fn delete_platform(&self, id: &str) -> Result<()> {
+        self.repo()?
+            .delete_platform(account_id(id)?)
+            .map_err(|error| match error {
+                ledger_app::RepositoryError::NotFound => "平台不存在或已删除".into(),
+                ledger_app::RepositoryError::InvalidData(message) => message,
+                other => other.to_string(),
+            })?;
+        self.clear_import_preview();
+        Ok(())
+    }
 }

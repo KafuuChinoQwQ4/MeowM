@@ -14,6 +14,9 @@ export async function installWorkflowIpc(page, seed = {}) {
     let reference = null;
     let pending = seedData.pending ?? [];
     let reversed = false;
+    const connectionStatus = new Map(
+      ['wechat_pay', 'alipay', 'binance', 'okx', 'ifind'].map((provider) => [provider, false]),
+    );
     window.workflowCalls = [];
     window.savedTransactions = [];
     window.__TAURI_INTERNALS__ = {
@@ -21,6 +24,59 @@ export async function installWorkflowIpc(page, seed = {}) {
         if (command === 'privacy_status')
           return { locked: false, lock_enabled: false, hide_amounts: false, auto_lock_minutes: 5 };
         window.workflowCalls.push({ command, args });
+        if (command === 'provider_connections')
+          return [...connectionStatus].map(([provider, configured]) => ({ provider, configured }));
+        if (command === 'save_provider_credentials') {
+          const provider = args.input.provider;
+          connectionStatus.set(provider, true);
+          return { provider, configured: true };
+        }
+        if (command === 'remove_provider_credentials') {
+          connectionStatus.set(args.provider, false);
+          return { provider: args.provider, configured: false };
+        }
+        if (command === 'connections_test') {
+          const provider = args.request.provider;
+          if (provider === 'wechat_pay' || provider === 'alipay')
+            return {
+              provider,
+              outcome: 'connected',
+              summary: {
+                kind: 'bill_read',
+                data: {
+                  bill_date: args.request.bill_date,
+                  downloaded_bytes: 1024,
+                  hash_verified: true,
+                },
+              },
+              error_code: null,
+            };
+          if (provider === 'ifind')
+            return {
+              provider,
+              outcome: 'connected',
+              summary: {
+                kind: 'ifind_quote',
+                data: {
+                  quote: {
+                    symbol: args.request.symbol,
+                    quote_time: '2026-10-30 15:00',
+                    last: '10.25',
+                  },
+                },
+              },
+              error_code: null,
+            };
+          return {
+            provider,
+            outcome: 'connected',
+            summary: {
+              kind: provider === 'binance' ? 'binance_balances' : 'okx_balances',
+              data: { balances: [{ asset: 'USDT', free: '12.5', locked: '0' }] },
+            },
+            error_code: null,
+          };
+        }
         if (command === 'recurring_state')
           return { templates: [], reminders: [], generated_count: 0, has_more: false };
         if (command === 'list_budgets' || command === 'budget_reminders') return [];
@@ -60,6 +116,10 @@ export async function installWorkflowIpc(page, seed = {}) {
           accounts = accounts.map((a) =>
             a.id === args.accountId ? { ...a, name: args.name, category: args.category } : a,
           );
+          return;
+        }
+        if (command === 'delete_platform') {
+          accounts = accounts.filter((a) => a.id !== args.accountId);
           return;
         }
         if (command === 'get_day') {

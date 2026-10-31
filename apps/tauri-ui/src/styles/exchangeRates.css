@@ -1,48 +1,60 @@
 .exchange-rates-page {
-  padding: 8px 0;
+  padding-bottom: 12px;
+  overflow-wrap: anywhere;
 }
 .exchange-rates-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  margin: 10px 0 0;
 }
 .exchange-rates-heading h2 {
-  margin-bottom: 6px;
+  margin: 0 0 4px;
+  font-size: 1.15rem;
 }
-.exchange-rates-heading p {
-  margin-top: 0;
+.exchange-rates-heading .field-hint {
+  margin: 0;
+}
+.exchange-rates-heading .button {
+  flex: none;
+  white-space: nowrap;
 }
 .exchange-rates-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin: 20px 0;
+  margin: 14px 0;
 }
-.exchange-rates-controls label {
-  display: grid;
-  gap: 6px;
-  min-width: 140px;
-  flex: 1;
+.exchange-rates-controls .form-field {
+  min-width: 0;
 }
 .exchange-rates-controls select {
+  min-width: 0;
   width: 100%;
 }
 .exchange-rate-value {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 1.15rem;
+  display: grid;
+  gap: 4px;
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #edf4ff;
 }
 .exchange-rate-value span {
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   color: var(--muted);
+}
+.exchange-rate-value strong {
+  font-size: clamp(0.95rem, 4vw, 1.15rem);
+  overflow-wrap: anywhere;
+}
+.exchange-rate-chart h3,
+.exchange-rate-source h3 {
+  margin-bottom: 10px;
 }
 .rate-chart-panel {
   max-width: 100%;
-  margin: 18px 0;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fffefa;
 }
 .rate-chart {
   display: block;
@@ -77,18 +89,24 @@
 .rate-chart-selected {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+  margin: 10px 0 4px;
+  font-size: 0.82rem;
 }
 .exchange-rate-source {
-  color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.65;
-  border-top: 1px solid var(--line);
-  margin-top: 20px;
-  padding-top: 12px;
   overflow-wrap: anywhere;
+}
+.exchange-rate-source .field-hint {
+  line-height: 1.6;
+  margin: 7px 0;
 }
 @media (max-width: 480px) {
   .rate-chart text {
     font-size: 19px;
+  }
+}
+@media (max-width: 360px) {
+  .exchange-rates-heading .button {
+    padding: 9px 10px;
+    font-size: 0.72rem;
   }
 }

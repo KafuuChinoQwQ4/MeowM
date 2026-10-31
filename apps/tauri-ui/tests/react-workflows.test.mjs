@@ -191,6 +191,93 @@ test('platform name suggestions filter aliases, select brands and keep custom na
   }
 });
 
+test('platform deletion confirms, updates the current selection and supports an empty list', async () => {
+  const page = await open();
+  try {
+    await navigate(page, 'platforms');
+    const wallet = page.locator('.platform-row').filter({ hasText: '钱包' });
+    await wallet.getByRole('button', { name: '删除', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '删除平台' });
+    await dialog.waitFor();
+    assert.match(await dialog.textContent(), /钱包/);
+    await dialog.getByRole('button', { name: '取消', exact: true }).click();
+    await dialog.waitFor({ state: 'hidden' });
+    assert.equal(await wallet.count(), 1);
+    await wallet.getByRole('button', { name: '删除', exact: true }).click();
+    await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+    await dialog.waitFor({ state: 'hidden' });
+    await wallet.waitFor({ state: 'detached' });
+    await navigate(page, 'ledger');
+    assert.equal(await page.getByLabel('当前平台').inputValue(), 'bank');
+    assert.deepEqual(await page.locator('#account option').allTextContents(), [
+      '总和',
+      '银行（CNY）',
+    ]);
+    await navigate(page, 'platforms');
+    await page.getByRole('button', { name: '删除', exact: true }).click();
+    await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+    await dialog.waitFor({ state: 'hidden' });
+    await page.getByText('暂无平台', { exact: true }).waitFor();
+    await navigate(page, 'ledger');
+    assert.match(await page.locator('.dock-context').textContent(), /先创建一个平台/);
+    await navigate(page, 'platforms');
+    await page.getByRole('button', { name: '＋ 新建平台' }).click();
+    await page.getByLabel('平台名称').fill('新钱包');
+    await page.getByRole('button', { name: '创建平台', exact: true }).click();
+    await page.locator('dialog').waitFor({ state: 'hidden' });
+    await page.locator('.platform-row').filter({ hasText: '新钱包' }).waitFor();
+  } finally {
+    await page.close();
+  }
+});
+
+test('platform deletion blocks repeat submission and keeps failures visible without removing the platform', async () => {
+  const page = await open();
+  try {
+    await page.evaluate(() => {
+      const invoke = window.__TAURI_INTERNALS__.invoke;
+      window.__TAURI_INTERNALS__.invoke = async (command, args) => {
+        if (command === 'delete_platform') {
+          await new Promise((resolve) => {
+            window.releaseDelete = resolve;
+          });
+          throw new Error('该平台有关联流水，无法删除。');
+        }
+        return invoke(command, args);
+      };
+    });
+    await navigate(page, 'platforms');
+    const wallet = page.locator('.platform-row').filter({ hasText: '钱包' });
+    await wallet.getByRole('button', { name: '删除', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: '删除平台' });
+    await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
+    await page.waitForFunction(() => typeof window.releaseDelete === 'function');
+    assert.equal(await dialog.getByRole('button', { name: '正在删除…' }).isDisabled(), true);
+    assert.equal(
+      await dialog.getByRole('button', { name: '取消', exact: true }).isDisabled(),
+      true,
+    );
+    assert.equal(
+      await dialog.getByRole('button', { name: '关闭', exact: true }).isDisabled(),
+      true,
+    );
+    await page.keyboard.press('Escape');
+    assert.equal(await dialog.isVisible(), true);
+    await page.evaluate(() => window.releaseDelete());
+    await dialog.getByRole('alert').waitFor();
+    assert.match(await dialog.getByRole('alert').textContent(), /关联流水/);
+    assert.equal(
+      await dialog.getByRole('button', { name: '确认删除', exact: true }).isEnabled(),
+      true,
+    );
+    await dialog.getByRole('button', { name: '取消', exact: true }).click();
+    await dialog.waitFor({ state: 'hidden' });
+    assert.equal(await wallet.count(), 1);
+  } finally {
+    await page.close();
+  }
+});
+
 test('brand colors preview live and follow platform creation, selection and renaming', async () => {
   const page = await open();
   try {

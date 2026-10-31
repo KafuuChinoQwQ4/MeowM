@@ -1,0 +1,11 @@
+# 本目录直接文件说明
+
+仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
+
+- `credential_store.rs` — Android 启动前上下文初始化、跨平台系统钥匙串接口及按提供方分组的凭据读写服务。
+- `credential_store_tests.rs` — 系统凭据存取隔离、多字段保存和断开连接失败回滚测试。
+- `credentials.rs` — 安全凭据 Tauri 命令、API 测试分发与 iFinD token 缓存生命周期。
+- `mod.rs` — 本机支付、交易所和行情 API 连接器模块。
+- `model.rs` — 连接状态、敏感凭据、只读结果 DTO 与安全错误码。
+- `tests.rs` — 提供方序列化、凭据字段及安全连接结果 DTO 测试。
+- `tree` — 本目录直接文件的说明索引。

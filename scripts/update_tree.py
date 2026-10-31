@@ -11,6 +11,25 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 RETIRED = {"apps/android", "apps/slint-ui"}
 DESCRIPTION_FILE = ROOT / "scripts" / "tree_descriptions.json"
+EXCLUDED_LOCAL_ROOTS = {"docs", ".worktrees"}
+EXCLUDED_PARTS = {
+    ".superpowers",
+    "target",
+    ".git",
+    "build",
+    ".gradle",
+    ".kotlin",
+    "node_modules",
+    "dist",
+    "jniLibs",
+    "schemas",
+    "gen",
+}
+
+
+def excluded(path: Path) -> bool:
+    parts = path.relative_to(ROOT).parts
+    return bool(parts and parts[0] in EXCLUDED_LOCAL_ROOTS) or bool(EXCLUDED_PARTS.intersection(parts))
 
 
 def main() -> int:
@@ -25,7 +44,7 @@ def main() -> int:
         if path.is_file()
         and path.name != "tree"
         and not any(path.relative_to(ROOT).as_posix() == old or path.relative_to(ROOT).as_posix().startswith(old + "/") for old in RETIRED)
-        and not {".superpowers", "target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
+        and not excluded(path)
     }
     missing = sorted(files - set(descriptions))
     stale = sorted(set(descriptions) - files)
@@ -41,7 +60,7 @@ def main() -> int:
         path for path in ROOT.rglob("*")
         if path.is_dir()
         and not any(path.relative_to(ROOT).as_posix() == old or path.relative_to(ROOT).as_posix().startswith(old + "/") for old in RETIRED)
-        and not {".superpowers", "target", ".git", "build", ".gradle", ".kotlin", "node_modules", "dist", "jniLibs", "schemas", "gen"}.intersection(path.relative_to(ROOT).parts)
+        and not excluded(path)
     )
     failures = []
     for directory in sorted(directories):

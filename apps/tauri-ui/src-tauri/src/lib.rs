@@ -1,4 +1,5 @@
 mod analytics;
+mod connectors;
 mod data_files;
 mod data_management;
 mod exchange_rates;
@@ -49,6 +50,10 @@ fn update_platform(
     category: String,
 ) -> Result<()> {
     access(state, |l| l.update_platform(&account_id, &name, &category))
+}
+#[tauri::command]
+fn delete_platform(state: State<'_, LedgerState>, account_id: String) -> Result<()> {
+    access(state, |l| l.delete_platform(&account_id))
 }
 #[tauri::command]
 fn get_day(
@@ -231,6 +236,7 @@ pub fn run() {
             let path = app.path().app_data_dir()?.join("ledger.sqlite3");
             let ledger = Ledger::open(&path).map_err(std::io::Error::other)?;
             app.manage(LedgerState(Mutex::new(ledger)));
+            app.manage(connectors::credentials::ConnectorState::initialize());
             #[cfg(not(target_os = "android"))]
             std::thread::spawn(move || {
                 if let Ok(repo) = ledger_storage::sqlite::SqliteLedgerRepository::open(&path) {
@@ -297,9 +303,14 @@ pub fn run() {
             data_management::export_data,
             data_files::save_data_file,
             data_files::open_backup_file,
+            connectors::credentials::provider_connections,
+            connectors::credentials::save_provider_credentials,
+            connectors::credentials::remove_provider_credentials,
+            connectors::credentials::connections_test,
             list_accounts,
             create_account,
             update_platform,
+            delete_platform,
             get_day,
             save_entry,
             set_reference,

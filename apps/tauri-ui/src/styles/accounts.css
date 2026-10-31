@@ -167,6 +167,18 @@
   display: flex;
   flex: none;
 }
+.platform-delete-button {
+  color: #9b312b;
+}
+.platform-delete-form p {
+  overflow-wrap: anywhere;
+}
+.platform-delete-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
 .empty-platforms {
   padding: 24px 0;
   text-align: center;

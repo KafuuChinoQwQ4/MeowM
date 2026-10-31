@@ -1,6 +1,79 @@
 use super::*;
 
 impl SqliteLedgerRepository {
+    /// An explicitly emptied ledger must stay empty, including after backup restoration.
+    pub fn needs_default_platforms(&self) -> Result<bool, RepositoryError> {
+        self.connection
+            .query_row(
+                "SELECT NOT EXISTS(SELECT 1 FROM accounts)
+                 AND NOT EXISTS(SELECT 1 FROM audit_events WHERE action='platform_deleted')",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)
+    }
+
+    /// Delete only unused platforms. The immediate transaction also protects against
+    /// background capture linking a record between validation and deletion.
+    pub fn delete_platform(&self, id: AccountId) -> Result<(), RepositoryError> {
+        let tx = rusqlite::Transaction::new_unchecked(
+            &self.connection,
+            rusqlite::TransactionBehavior::Immediate,
+        )
+        .map_err(storage_error)?;
+        let id = id.as_uuid().to_string();
+        let exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM accounts WHERE id=?1)",
+                [&id],
+                |row| row.get(0),
+            )
+            .map_err(storage_error)?;
+        if !exists {
+            return Err(RepositoryError::NotFound);
+        }
+        for (query, message) in [
+            (
+                "SELECT EXISTS(SELECT 1 FROM postings WHERE account_id=?1)",
+                "该平台有关联流水（含待确认或已忽略记录），无法删除。",
+            ),
+            (
+                "SELECT EXISTS(SELECT 1 FROM budgets WHERE account_id=?1)",
+                "该平台有关联预算，请先调整预算的平台范围。",
+            ),
+            (
+                "SELECT EXISTS(SELECT 1 FROM recurring_templates WHERE account_id=?1)",
+                "该平台有关联周期账单，请先将账单改到其他平台。",
+            ),
+            (
+                "SELECT EXISTS(SELECT 1 FROM reconciliation_sessions WHERE account_id=?1)",
+                "该平台有关联对账记录，无法删除。",
+            ),
+            (
+                "SELECT EXISTS(SELECT 1 FROM notification_settings WHERE account_id=?1)
+                 OR EXISTS(SELECT 1 FROM screen_settings WHERE account_id=?1)",
+                "该平台仍被采集设置使用，请先在「平台与采集」中更换或清除默认平台。",
+            ),
+        ] {
+            let referenced: bool = tx
+                .query_row(query, [&id], |row| row.get(0))
+                .map_err(storage_error)?;
+            if referenced {
+                return Err(RepositoryError::InvalidData(message.into()));
+            }
+        }
+        // platform_metadata is removed by the account foreign key's cascade.
+        tx.execute("DELETE FROM accounts WHERE id=?1", [&id])
+            .map_err(storage_error)?;
+        tx.execute(
+            "INSERT INTO audit_events(id,occurred_at_utc_micros,action)
+             VALUES(?1,?2,'platform_deleted')",
+            params![Uuid::new_v4().to_string(), Utc::now().timestamp_micros()],
+        )
+        .map_err(storage_error)?;
+        tx.commit().map_err(storage_error)
+    }
+
     pub fn platform_category(&self, id: AccountId) -> Result<Option<String>, RepositoryError> {
         self.connection
             .query_row(

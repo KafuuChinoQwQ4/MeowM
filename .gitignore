@@ -38,6 +38,7 @@ dist/
 *.sqlite-shm
 /backups/
 /private/
+/docs/
 微信支付账单*
 支付宝交易明细*
 支付宝账单*
