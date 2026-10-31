@@ -20,7 +20,7 @@ use ledger_domain::{
     Account as DomainAccount, AccountId, AccountKind, Category, CategoryId, CurrencyCode, Money,
     Posting, Transaction, TransactionId, TransactionKind, TransactionStatus,
 };
-use ledger_storage::sqlite::SqliteLedgerRepository;
+use ledger_storage::sqlite::{ExchangeRateObservation, SqliteLedgerRepository};
 pub(crate) use parse::{
     account_id, date, kind_label, money, parse_amount, parse_currency_amount, time, transaction_id,
 };
@@ -87,7 +87,8 @@ impl Ledger {
         let observation = self
             .repo()?
             .exchange_rate_at_or_before(currency.code(), day)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?
+            .filter(has_transaction_fx_evidence);
         let snapshot = if let Some(row) = observation {
             ledger_domain::TransactionFxSnapshot {
                 quote_currency: currency.clone(),
@@ -98,7 +99,7 @@ impl Ledger {
                 provider_sources: row.provider_sources,
             }
         } else {
-            let rate = manual_rate.ok_or("该日期前无本地汇率，请填写手动汇率")?;
+            let rate = manual_rate.ok_or("该日期前无可用本地汇率，请填写手动汇率")?;
             ledger_domain::TransactionFxSnapshot {
                 quote_currency: currency.clone(),
                 rate: rate.into(),
@@ -122,6 +123,20 @@ impl Ledger {
     pub(crate) fn database_path(&self) -> &Path {
         &self.path
     }
+}
+
+fn has_transaction_fx_evidence(observation: &ExchangeRateObservation) -> bool {
+    !observation.provider.trim().is_empty()
+        && !observation.provider.chars().any(char::is_control)
+        && !observation.provider_sources.is_empty()
+        && observation.provider_sources.len() <= 128
+        && observation.provider_sources.iter().all(|source| {
+            !source.is_empty()
+                && source.len() <= 64
+                && source
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+        })
 }
 
 fn ensure_default_categories(ledger: &Ledger) -> Result<()> {

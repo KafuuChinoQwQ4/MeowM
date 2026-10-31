@@ -8,7 +8,7 @@
 - `base.css` — 全局变量、字体、基本元素及按钮样式。
 - `data.css` — 备份、恢复与导出页面的响应式样式。
 - `dialog.css` — 弹窗、遮罩、分步骤账单导入样式及未完成转账行强调。
-- `exchangeRates.css` — 法币汇率页沿用分析页面控件、卡片和响应式 SVG 曲线样式。
+- `exchangeRates.css` — 汇率趋势页、币种选择器和响应式 SVG 曲线样式。
 - `fields.css` — 表单字段、错误和提交按钮样式。
 - `index.css` — 按职责组合界面样式，包含汇率曲线和 API 连接卡片样式。
 - `navigation.css` — 导航菜单、遮罩和返回按钮样式。

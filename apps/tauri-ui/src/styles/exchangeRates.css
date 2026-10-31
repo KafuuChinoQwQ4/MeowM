@@ -27,6 +27,30 @@
   min-width: 0;
   width: 100%;
 }
+.exchange-rate-converter {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  align-items: end;
+  gap: 16px;
+  margin: 16px 0;
+}
+.exchange-rate-converter label,
+.exchange-rate-converted {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.exchange-rate-converter input {
+  width: 100%;
+}
+.exchange-rate-converted strong {
+  overflow-wrap: anywhere;
+  font-size: 1.15rem;
+}
+.exchange-rate-converted span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
 .exchange-rate-value {
   display: grid;
   gap: 4px;
@@ -78,13 +102,13 @@
 .rate-chart circle {
   fill: var(--teal);
   stroke: var(--cream);
-  stroke-width: 2;
+  stroke-width: 1.5;
   cursor: pointer;
 }
 .rate-chart circle:focus {
   outline: none;
   stroke: var(--ink);
-  stroke-width: 4;
+  stroke-width: 2.5;
 }
 .rate-chart-selected {
   font-variant-numeric: tabular-nums;
@@ -100,6 +124,9 @@
   margin: 7px 0;
 }
 @media (max-width: 480px) {
+  .exchange-rate-converter {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .rate-chart text {
     font-size: 19px;
   }

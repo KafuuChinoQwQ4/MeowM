@@ -129,7 +129,7 @@
   "apps/tauri-ui/src/styles/accounts.css": "平台列表、分类和编辑入口样式。",
   "apps/tauri-ui/src/styles/pending.css": "待确认筛选、批量操作与重复详情样式。",
   "apps/tauri-ui/src/styles/states.css": "加载、空列表及辅助信息样式。",
-  "apps/tauri-ui/src-tauri/src/ledger/mod.rs": "账本上下文、SQLite 连接入口、空平台初始化判断及公开 DTO 导出。",
+  "apps/tauri-ui/src-tauri/src/ledger/mod.rs": "Ledger 本地 SQLite 路径、币种换算和来源完整性回退逻辑。",
   "apps/tauri-ui/src-tauri/src/ledger/accounts.rs": "平台创建、列表、分类、重命名和删除命令。",
   "apps/tauri-ui/src-tauri/src/ledger/day.rs": "每日收支、参考余额设置及清除命令。",
   "apps/tauri-ui/src-tauri/src/ledger/query.rs": "分页流水、来源订单号和只读退款匹配建议。",
@@ -332,11 +332,11 @@
   "apps/tauri-ui/src-tauri/src/exchange_rates/tests.rs": "汇率 HTTP 请求、真实结构解析、同步区间与离线保留回归。",
   "apps/tauri-ui/src-tauri/src/exchange_rates/commands.rs": "本机汇率历史、同步状态和手动刷新的 Tauri 命令。",
   "apps/tauri-ui/src-tauri/src/exchange_rates/jni.rs": "Android WorkManager 通过有界 JNI 调用共享 Rust 汇率同步服务。",
-  "apps/tauri-ui/src/api/exchangeRates.ts": "本机汇率历史、同步状态和手动刷新的类型化 IPC 客户端。",
-  "apps/tauri-ui/src/features/exchangeRates/ExchangeRatesPage.tsx": "独立法币汇率页，选择币种与日期范围并查看本地历史曲线和同步状态。",
-  "apps/tauri-ui/src/features/exchangeRates/RateChart.tsx": "依据实际有效日期绘制可访问的 SVG 汇率曲线。",
-  "apps/tauri-ui/src/styles/exchangeRates.css": "法币汇率页沿用分析页面控件、卡片和响应式 SVG 曲线样式。",
-  "apps/tauri-ui/tests/exchange-rates.test.mjs": "模拟本机 IPC 验证汇率历史、币种范围、曲线、空数据和刷新错误。",
+  "apps/tauri-ui/src/api/exchangeRates.ts": "本机汇率 IPC 客户端，并以双方共同日期构造精确货币对历史。",
+  "apps/tauri-ui/src/features/exchangeRates/ExchangeRatesPage.tsx": "任意源币目标币金额换算、历史曲线、日期范围与同步状态。",
+  "apps/tauri-ui/src/features/exchangeRates/RateChart.tsx": "按双方共同有效日期绘制可访问的 SVG 货币对曲线和紧凑数据点。",
+  "apps/tauri-ui/src/styles/exchangeRates.css": "汇率趋势页、币种选择器和响应式 SVG 曲线样式。",
+  "apps/tauri-ui/tests/exchange-rates.test.mjs": "验证任意货币对交叉汇率、整数换算、紧凑图点、空数据和刷新错误。",
   "apps/tauri-ui/src/api/connections.ts": "支付商家、交易所和 iFinD 连接凭据及只读测试结果的类型化 IPC 客户端。",
   "apps/tauri-ui/src/features/connections/PaymentConnectionsPage.tsx": "微信支付和支付宝商家凭据的保存、连接测试与断开设置页。",
   "apps/tauri-ui/src/features/connections/ProviderConnectionCard.tsx": "默认遮蔽密码和多行私钥输入、连接测试结果与安全错误提示共用卡片。",
@@ -362,5 +362,6 @@
   "apps/tauri-ui/src-tauri/src/connectors/markets/ifind.rs": "iFinD access token 内存缓存、过期刷新和实时行情读取。",
   "apps/tauri-ui/src-tauri/src/connectors/markets/tests.rs": "币安、欧易和 iFinD 签名、凭据缓存、行情解析与错误映射测试。",
   "apps/tauri-ui/src-tauri/src/connectors/testdata/provider_test_private.pem": "仅供连接器签名测试使用的合成私钥，不对应真实商户或账户。",
-  "apps/tauri-ui/src-tauri/src/connectors/testdata/provider_test_public.pem": "仅供连接器签名测试使用的合成公钥，不对应真实商户或账户。"
+  "apps/tauri-ui/src-tauri/src/connectors/testdata/provider_test_public.pem": "仅供连接器签名测试使用的合成公钥，不对应真实商户或账户。",
+  "apps/tauri-ui/src/shared/currencyConversion.ts": "使用十进制 BigInt 和币种精度进行交叉汇率及最小单位金额换算。"
 }
