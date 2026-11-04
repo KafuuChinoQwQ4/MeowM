@@ -103,16 +103,20 @@ export function TradingPanel({
   const [detailChecked, setDetailChecked] = useState(false);
   const [history, setHistory] = useState<OkxOrderSnapshot[] | null>(null);
   const [cancelTarget, setCancelTarget] = useState<CancelSelection | null>(null);
+  const [cancelNeedsRefresh, setCancelNeedsRefresh] = useState(false);
   const [cancelOutcome, setCancelOutcome] = useState<{
     result: OkxOrderActionResult;
     environment: OkxEnvironment;
   } | null>(null);
   const formRevision = useRef(0);
   const action = useAction();
+  const tradeWriteBlocked = !!unknownOrder || cancelNeedsRefresh;
   const configured = form.environment === 'demo' ? demoConfigured : liveConfigured;
   const contract = form.instType !== 'SPOT';
   const spotBase = context?.instrument.base_ccy ?? 'BTC';
-  const spotQuote = context?.instrument.quote_ccy ?? 'USDT';
+  const instrumentQuote = context?.instrument.quote_ccy ?? quoteCurrencyFromId(form.instId);
+  const spotQuote = instrumentQuote ?? 'USDT';
+  const priceUnit = instrumentQuote ?? (contract ? '价格币种未知' : 'USDT');
   const sizeUnit = contract
     ? '张'
     : form.orderType === 'market' && form.side === 'sell'
@@ -132,10 +136,10 @@ export function TradingPanel({
     positiveDecimal.test(form.size) &&
     (form.orderType === 'market' || positiveDecimal.test(form.price)) &&
     (!(!contract && form.orderType === 'market') || validSlippagePercent(form.slippage)) &&
-    !unknownOrder;
+    !tradeWriteBlocked;
 
   const updateForm = (patch: Partial<FormState>) => {
-    if (unknownOrder) return;
+    if (tradeWriteBlocked) return;
     formRevision.current += 1;
     setForm((current) => ({ ...current, ...patch }));
     setContext(null);
@@ -167,7 +171,10 @@ export function TradingPanel({
         selection.instType,
         selection.instId,
       );
-      if (action.active.current && formRevision.current === revision) setContext(fresh);
+      if (action.active.current && formRevision.current === revision) {
+        setContext(fresh);
+        setCancelNeedsRefresh(false);
+      }
     });
 
   const createDraft = (): OkxOrderDraft => ({
@@ -261,7 +268,26 @@ export function TradingPanel({
 
   const confirmCancel = async (selection: CancelSelection) => {
     const { order, environment, instType, instId, revision } = selection;
-    const result = await cryptoApi.cancelOrder(order.inst_id, order.ord_id, environment);
+    let result: OkxOrderActionResult;
+    try {
+      result = await cryptoApi.cancelOrder(order.inst_id, order.ord_id, environment);
+    } catch (cause) {
+      const raw = cause instanceof Error ? cause.message : String(cause);
+      const reconciliationId = raw.match(/order_cancel_requires_reconciliation:([0-9]{1,64})/)?.[1];
+      if (!reconciliationId) throw cause;
+      result = {
+        status: 'unknown',
+        order_id: reconciliationId,
+        client_order_id: null,
+        code: null,
+        message: null,
+        error_code: raw,
+      };
+      setCancelNeedsRefresh(true);
+      setCancelTarget(null);
+      setCancelOutcome({ result, environment });
+      return;
+    }
     setCancelOutcome({ result, environment });
     if (result.status === 'accepted' || result.status === 'unknown') {
       try {
@@ -282,7 +308,7 @@ export function TradingPanel({
             <select
               aria-label="交易环境"
               value={form.environment}
-              disabled={!!unknownOrder}
+              disabled={tradeWriteBlocked}
               onChange={(event) =>
                 updateForm({ environment: event.target.value as OkxEnvironment })
               }
@@ -296,7 +322,7 @@ export function TradingPanel({
             <select
               aria-label="产品类型"
               value={form.instType}
-              disabled={!configured || !!unknownOrder}
+              disabled={!configured || tradeWriteBlocked}
               onChange={(event) =>
                 updateForm({ instType: event.target.value as OkxInstrumentType })
               }
@@ -311,7 +337,7 @@ export function TradingPanel({
             <input
               aria-label="交易品种"
               value={form.instId}
-              disabled={!configured || !!unknownOrder}
+              disabled={!configured || tradeWriteBlocked}
               maxLength={80}
               spellCheck={false}
               onChange={(event) => updateForm({ instId: event.target.value.toUpperCase() })}
@@ -341,7 +367,7 @@ export function TradingPanel({
                     <select
                       aria-label="合约操作"
                       value={form.action}
-                      disabled={!!unknownOrder}
+                      disabled={tradeWriteBlocked}
                       onChange={(event) =>
                         updateForm({ action: event.target.value as OkxPositionAction })
                       }
@@ -357,7 +383,7 @@ export function TradingPanel({
                     <select
                       aria-label="保证金模式"
                       value={form.marginMode}
-                      disabled={!!unknownOrder}
+                      disabled={tradeWriteBlocked}
                       onChange={(event) =>
                         updateForm({ marginMode: event.target.value as 'cross' | 'isolated' })
                       }
@@ -376,7 +402,7 @@ export function TradingPanel({
                   <select
                     aria-label="交易方向"
                     value={form.side}
-                    disabled={!!unknownOrder}
+                    disabled={tradeWriteBlocked}
                     onChange={(event) => updateForm({ side: event.target.value as 'buy' | 'sell' })}
                   >
                     <option value="buy">买入</option>
@@ -389,7 +415,7 @@ export function TradingPanel({
                 <select
                   aria-label="订单类型"
                   value={form.orderType}
-                  disabled={!!unknownOrder}
+                  disabled={tradeWriteBlocked}
                   onChange={(event) =>
                     updateForm({ orderType: event.target.value as 'market' | 'limit' })
                   }
@@ -407,21 +433,21 @@ export function TradingPanel({
                   autoComplete="off"
                   spellCheck={false}
                   value={form.size}
-                  disabled={!!unknownOrder}
+                  disabled={tradeWriteBlocked}
                   onChange={(event) => updateForm({ size: event.target.value })}
                 />
               </label>
               {form.orderType === 'limit' && (
                 <label className="form-field">
-                  委托价格（{spotQuote}）
+                  委托价格（{priceUnit}）
                   <input
-                    aria-label="委托价格"
+                    aria-label={`委托价格（${priceUnit}）`}
                     type="text"
                     inputMode="decimal"
                     autoComplete="off"
                     spellCheck={false}
                     value={form.price}
-                    disabled={!!unknownOrder}
+                    disabled={tradeWriteBlocked}
                     onChange={(event) => updateForm({ price: event.target.value })}
                   />
                 </label>
@@ -435,7 +461,7 @@ export function TradingPanel({
                     inputMode="decimal"
                     autoComplete="off"
                     value={form.slippage}
-                    disabled={!!unknownOrder}
+                    disabled={tradeWriteBlocked}
                     onChange={(event) => updateForm({ slippage: event.target.value })}
                   />
                 </label>
@@ -477,6 +503,7 @@ export function TradingPanel({
             {context && (
               <TradeContextView
                 context={context}
+                allowCancel={!tradeWriteBlocked}
                 onCancel={(order) =>
                   setCancelTarget({
                     order,
@@ -539,6 +566,22 @@ export function TradingPanel({
                 environment={cancelOutcome.environment}
               />
             )}
+            {cancelNeedsRefresh && (
+              <section className="okx-unknown-order" aria-label="待核对撤单">
+                <p role="alert">
+                  撤单结果未确认，订单 {cancelOutcome?.result.order_id}
+                  。请先重新读取交易上下文；确认挂单状态后再进行操作。
+                </p>
+                <button
+                  className="button"
+                  type="button"
+                  disabled={action.busy || !instrumentPattern.test(form.instId)}
+                  onClick={readContext}
+                >
+                  重新读取交易上下文
+                </button>
+              </section>
+            )}
             {history && <OrderHistory rows={history} />}
           </>
         )}
@@ -566,9 +609,11 @@ export function TradingPanel({
 
 function TradeContextView({
   context,
+  allowCancel,
   onCancel,
 }: {
   context: OkxTradeContext;
+  allowCancel: boolean;
   onCancel: (order: OkxTradeContext['account']['pending_orders'][number]) => void;
 }) {
   const { instrument, account } = context;
@@ -636,7 +681,8 @@ function TradeContextView({
                   订单 {order.ord_id} · {order.pos_side ?? 'net'} · {modeLabel[order.margin_mode]} ·{' '}
                   {order.reduce_only ? '只减仓' : '普通订单'}
                 </p>
-                {(order.state === 'live' || order.state === 'partially_filled') &&
+                {allowCancel &&
+                  (order.state === 'live' || order.state === 'partially_filled') &&
                   hasPositiveRemainder(order.remaining_size) && (
                     <button className="button" type="button" onClick={() => onCancel(order)}>
                       撤单
@@ -887,4 +933,8 @@ function newClientOrderId(): string {
 
 function cancelStatus(status: OkxOrderActionResult['status']): string {
   return status === 'accepted' ? '请求已接受' : status === 'unknown' ? '结果未确认' : '已拒绝';
+}
+
+function quoteCurrencyFromId(instId: string): string | null {
+  return instId.trim().toUpperCase().split('-')[1] || null;
 }

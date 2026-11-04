@@ -32,6 +32,7 @@ async function open(configured = false) {
     });
     window.nextOrderResult = null;
     window.nextOrderError = null;
+    window.nextCancelError = null;
     window.orderDetailResult = null;
     window.orderHistoryResult = null;
     window.tradeContextDelay = 0;
@@ -155,10 +156,10 @@ async function open(configured = false) {
                 tick_sz: '0.1',
                 lot_sz: '1',
                 min_sz: '1',
-                ct_val: '0.01',
-                ct_val_ccy: 'BTC',
-                ct_type: 'linear',
-                settle_ccy: 'USDT',
+                ct_val: args.instId.includes('-USD-') ? '100' : '0.01',
+                ct_val_ccy: args.instId.includes('-USD-') ? 'USD' : 'BTC',
+                ct_type: args.instId.includes('-USD-') ? 'inverse' : 'linear',
+                settle_ccy: args.instId.includes('-USD-') ? 'BTC' : 'USDT',
                 base_ccy: null,
                 quote_ccy: null,
               }
@@ -233,6 +234,11 @@ async function open(configured = false) {
           await new Promise((resolve) => setTimeout(resolve, window.orderHistoryDelay));
         window.orderHistoryCallsFinished += 1;
         return window.orderHistoryResult ?? [];
+      }
+      if (command === 'okx_cancel_order' && window.nextCancelError) {
+        const error = window.nextCancelError;
+        window.nextCancelError = null;
+        throw new Error(error);
       }
       if (command === 'okx_cancel_order')
         return {
@@ -609,6 +615,33 @@ test('contract order confirmation sends the selected action, margin mode, size a
   }
 });
 
+test('inverse contract limit prices use the quote currency, not settlement currency', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('产品类型', { exact: true }).selectOption('SWAP');
+    await page.getByLabel('交易品种', { exact: true }).fill('BTC-USD-SWAP');
+    await page.getByLabel('订单类型', { exact: true }).selectOption('limit');
+    await page.getByLabel(/委托数量.*张/).fill('1');
+    await page.getByLabel('委托价格（USD）').fill('10000');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    const review = page.getByRole('dialog', { name: '确认 OKX 订单' });
+    await review.waitFor();
+    await review.getByText('10000 USD', { exact: true }).waitFor();
+    assert.match(await review.innerText(), /100 USD 合约面值/);
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'okx_place_order'),
+      ),
+      false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
 test('unknown submit keeps its ID and requires same-ID order lookup before another submit', async () => {
   const page = await open(false);
   try {
@@ -620,6 +653,27 @@ test('unknown submit keeps its ID and requires same-ID order lookup before anoth
         acknowledgement: null,
         error_code: 'provider_failure',
       };
+      window.orderDetailResult = null;
+    });
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('委托数量（BTC）').fill('0.001');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    await page.getByRole('button', { name: '确认并下单', exact: true }).click();
+    await page.getByText(/结果未确认/).waitFor();
+    const firstId = await page.getByLabel('待核对客户订单号').inputValue();
+    assert.equal(firstId, '0123456789abcdef0123456789abcdef');
+    assert.equal(
+      await page.getByRole('button', { name: '预览订单', exact: true }).isDisabled(),
+      true,
+    );
+    await page.getByRole('button', { name: '查询此订单状态', exact: true }).click();
+    await page.getByText(/暂未查询到此订单/).waitFor();
+    assert.equal(
+      await page.getByRole('button', { name: '预览订单', exact: true }).isDisabled(),
+      true,
+    );
+    await page.evaluate(() => {
       window.orderDetailResult = {
         inst_id: 'BTC-USDT',
         order_id: '123456',
@@ -639,18 +693,6 @@ test('unknown submit keeps its ID and requires same-ID order lookup before anoth
         updated_at: '1708587373361',
       };
     });
-    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
-    await page.getByLabel('委托数量（BTC）').fill('0.001');
-    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
-    await page.getByRole('button', { name: '预览订单', exact: true }).click();
-    await page.getByRole('button', { name: '确认并下单', exact: true }).click();
-    await page.getByText(/结果未确认/).waitFor();
-    const firstId = await page.getByLabel('待核对客户订单号').inputValue();
-    assert.equal(firstId, '0123456789abcdef0123456789abcdef');
-    assert.equal(
-      await page.getByRole('button', { name: '预览订单', exact: true }).isDisabled(),
-      true,
-    );
     await page.getByRole('button', { name: '查询此订单状态', exact: true }).click();
     await page.getByText('filled', { exact: true }).waitFor();
     await page.getByText(/已成交数量 0\.001 \/ 0\.001/).waitFor();
@@ -734,6 +776,55 @@ test('selected incomplete contract order needs cancel confirmation and passes it
         () => window.workflowCalls.filter((item) => item.command === 'okx_trade_context').length,
       ),
       2,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('uncertain cancellation blocks another cancel until refreshed pending orders are read', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('产品类型', { exact: true }).selectOption('SWAP');
+    await page.getByLabel('交易品种', { exact: true }).fill('BTC-USDT-SWAP');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    const pending = page.getByRole('region', { name: '当前挂单', exact: true });
+    await pending.getByText(/987654/).waitFor();
+    await page.evaluate(() => {
+      window.nextCancelError = 'order_cancel_requires_reconciliation:987654';
+    });
+    await pending.getByRole('button', { name: '撤单', exact: true }).click();
+    await page.getByRole('button', { name: '确认撤销订单', exact: true }).click();
+    await page
+      .getByRole('region', { name: '待核对撤单' })
+      .getByText(/订单 987654/)
+      .waitFor();
+    assert.equal(await pending.getByRole('button', { name: '撤单', exact: true }).count(), 0);
+    assert.equal(
+      await page.getByRole('button', { name: '预览订单', exact: true }).isDisabled(),
+      true,
+    );
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((call) => call.command === 'okx_cancel_order').length,
+      ),
+      1,
+    );
+    await page.getByRole('button', { name: '重新读取交易上下文', exact: true }).click();
+    await page.getByRole('button', { name: '撤单', exact: true }).waitFor();
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((call) => call.command === 'okx_trade_context').length,
+      ),
+      2,
+    );
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((call) => call.command === 'okx_cancel_order').length,
+      ),
+      1,
     );
   } finally {
     await page.close();

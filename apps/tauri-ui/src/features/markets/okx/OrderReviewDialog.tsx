@@ -30,7 +30,10 @@ function OrderReviewBody({ draft, instrument, estimate, onConfirm }: OrderReview
   const [error, setError] = useState('');
   const { busy, setBusy, close } = useDialog();
   const baseUnit = instrument.base_ccy ?? 'base currency';
-  const quoteUnit = instrument.quote_ccy ?? instrument.settle_ccy ?? 'quote currency';
+  const quoteUnit =
+    instrument.quote_ccy ??
+    quoteCurrencyFromId(draft.inst_id) ??
+    (draft.inst_type === 'SPOT' ? 'quote currency' : '价格币种未知');
   const sizeUnit =
     draft.inst_type !== 'SPOT'
       ? '张'
@@ -148,4 +151,8 @@ function ratioAsPercent(value: string): string {
   const percentWhole = scaled.slice(0, -scale);
   const percentFraction = scaled.slice(-scale).replace(/0+$/, '');
   return percentFraction ? `${percentWhole}.${percentFraction}` : percentWhole;
+}
+
+function quoteCurrencyFromId(instId: string): string | null {
+  return instId.trim().toUpperCase().split('-')[1] || null;
 }

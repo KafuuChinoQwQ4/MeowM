@@ -8,17 +8,21 @@ Every draft preview first reloads product/account context and remains local unti
 
 The Task 4 frontend integration review exposed a serialization mismatch: Rust order acknowledgment and snapshot models deserialize OKX camel-case fields but also serialized them as camel case across Tauri IPC, while the frozen frontend contract is snake case. Their Serde fields now use distinct exchange deserialization and IPC serialization names; a Rust regression test checks both directions. This correction is included because Task 5 consumes those exact commands.
 
+Independent review found that inverse derivative limit prices could be labeled with their settlement currency. The UI now uses the instrument quote currency or derives the quote segment from the instrument ID; for example, `BTC-USD-SWAP` displays USD even when the contract settles in BTC. Review also prompted explicit handling for uncertain cancellation results: further writes stay blocked until the user refreshes pending orders. The unknown-order browser flow now verifies that an empty lookup remains blocked until a later query finds the order.
+
 ## TDD evidence
 
 - **RED:** `node --test --test-name-pattern='trading tab guides users' tests/okx-workflows.test.mjs` failed as expected because the `交易下单` tab did not exist (Playwright locator timeout).
 - **RED:** The five initial trading browser workflows all failed on the missing tab before trade IPC could run.
 - **RED:** Deferred-context browser cases reproduced stale review resurrection after a draft edit and stale Demo rows after switching to Production. Both pass with revision checks.
 - **RED:** `order_ipc_models_keep_snake_case_while_deserializing_okx_field_names` first failed because an OKX acknowledgment serialized as `ordId`/`clOrdId`/`sCode`/`sMsg`. Separate Serde names now preserve OKX input fields and emit snake-case IPC.
-- **GREEN:** Complete OKX browser workflow suite: 16 passed, 0 failed.
+- **GREEN:** Initial OKX browser workflow suite: 16 passed, 0 failed.
+- **GREEN:** Review regressions for inverse USD quote units, an empty client-ID lookup, and uncertain cancellation reconciliation: OKX browser workflow suite 18 passed, 0 failed.
 
 ## Verification
 
-- `node --test tests/okx-workflows.test.mjs` — 16 passed, 0 failed.
+- `node --test tests/okx-workflows.test.mjs` — 18 passed, 0 failed after review fixes.
+- `npm run test:ui` — full browser suite 118 passed, 0 failed after review fixes.
 - `npm run build` — passed.
 - `npm run format:check` — passed.
 - `cargo fmt --all -- --check` — passed.
