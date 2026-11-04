@@ -40,7 +40,13 @@ function upstream(record: CryptoRecord): string {
   );
 }
 
-export function RecordsPanel({ configured }: { configured: boolean }) {
+export function RecordsPanel({
+  configured,
+  onConfigure,
+}: {
+  configured: boolean;
+  onConfigure: () => void;
+}) {
   const [source, setSource] = useState<CryptoHistorySource>('bills');
   const [begin, setBegin] = useState(() => localInput(Date.now() - 6 * 86400000));
   const [end, setEnd] = useState(() => localInput(Date.now()));
@@ -95,7 +101,7 @@ export function RecordsPanel({ configured }: { configured: boolean }) {
       <p className="field-hint">
         候选需人工核对。现货买卖保留两种资产的转换和手续费，确认后保存在加密流水中，不计入法币收支。
       </p>
-      {!configured && <ConfigureHint />}
+      {!configured && <ConfigureHint onConfigure={onConfigure} />}
       <form
         className="okx-import-form"
         onSubmit={(event) => {

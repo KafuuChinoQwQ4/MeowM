@@ -1,6 +1,7 @@
 import { invoke } from './client';
 
-export type ProviderId = 'wechat_pay' | 'alipay' | 'binance' | 'okx' | 'ifind';
+export type ProviderId =
+  'wechat_pay' | 'alipay' | 'binance' | 'okx' | 'okx_trade_demo' | 'okx_trade_live' | 'ifind';
 
 export type CredentialInput =
   | {
@@ -17,6 +18,12 @@ export type CredentialInput =
     }
   | { provider: 'binance'; api_key: string; secret_key: string }
   | { provider: 'okx'; api_key: string; secret_key: string; passphrase: string }
+  | {
+      provider: 'okx_trade_demo' | 'okx_trade_live';
+      api_key: string;
+      secret_key: string;
+      passphrase: string;
+    }
   | { provider: 'ifind'; refresh_token: string };
 
 export interface ConnectionStatus {

@@ -2,6 +2,7 @@ import { ProviderConnectionCard } from '../connections/ProviderConnectionCard';
 import { useEffect, useRef } from 'react';
 import { useConnections } from '../connections/useConnections';
 import { OkxWorkspace } from './okx/OkxWorkspace';
+import { OkxCredentialSettings } from './okx/OkxCredentialSettings';
 import type { CredentialInput, ProviderId } from '../../api/connections';
 import '../../styles/providerConnections.css';
 
@@ -19,7 +20,7 @@ const marketProviders = [
   {
     provider: 'okx',
     title: '欧易',
-    description: '读取交易与资金账户、流水及合约记录。API Key 请仅开启读取权限。',
+    description: '公开行情无需 API Key；账户数据可配置只读凭据，交易功能使用单独的交易凭据。',
     operation: 'balances',
     fields: [
       { name: 'api_key', label: 'API Key' },
@@ -66,8 +67,13 @@ export function MarketsPage({
   const provider = marketProviders.find((item) => item.provider === route?.provider);
   const configured = (id: ProviderId) =>
     connections.statuses.find((status) => status.provider === id)?.configured ?? false;
-  const needsSetup = provider && (!configured(provider.provider) || route?.page === 'settings');
+  const needsSetup =
+    provider &&
+    (provider.provider === 'okx'
+      ? route?.page === 'settings'
+      : !configured(provider.provider) || route?.page === 'settings');
   const unavailable = connections.loading || !!connections.error;
+  const routeUnavailable = provider?.provider === 'okx' ? connections.loading : unavailable;
   const save = async (input: CredentialInput) => {
     const origin = route;
     await connections.save(input);
@@ -90,9 +96,11 @@ export function MarketsPage({
         <p>
           {provider
             ? needsSetup
-              ? '填写只读 API 凭据，保存后进入该交易所。'
+              ? provider.provider === 'okx'
+                ? '按需分别配置只读、模拟盘和实盘 API 凭据。'
+                : '填写 API 凭据，保存后进入该交易所。'
               : provider.description
-            : '选择交易所，查看账户与行情。首次使用请先配置只读 API。'}
+            : '选择交易所，查看账户与行情。OKX 公开行情可直接查看。'}
         </p>
       </header>
       {connections.loading && <p role="status">正在读取连接状态…</p>}
@@ -112,7 +120,7 @@ export function MarketsPage({
               key={item.provider}
               type="button"
               aria-label={`打开${item.title}`}
-              disabled={unavailable}
+              disabled={connections.loading || (!!connections.error && item.provider !== 'okx')}
               onClick={() => onNavigate({ provider: item.provider, page: 'account' })}
             >
               <span>
@@ -143,9 +151,9 @@ export function MarketsPage({
             <span>尚未开放</span>
           </article>
         </div>
-      ) : !unavailable ? (
+      ) : !routeUnavailable ? (
         <>
-          {!needsSetup && (
+          {!needsSetup && provider.provider !== 'okx' && (
             <div>
               <button
                 className="button"
@@ -156,8 +164,22 @@ export function MarketsPage({
               </button>
             </div>
           )}
-          {provider.provider === 'okx' && !needsSetup ? (
-            <OkxWorkspace configured />
+          {provider.provider === 'okx' ? (
+            needsSetup ? (
+              <OkxCredentialSettings
+                configured={configured}
+                onSave={save}
+                onRemove={remove}
+                onBack={() => onNavigate({ provider: 'okx', page: 'account' })}
+              />
+            ) : (
+              <OkxWorkspace
+                readConfigured={configured('okx')}
+                demoConfigured={configured('okx_trade_demo')}
+                liveConfigured={configured('okx_trade_live')}
+                onCredentialSettings={() => onNavigate({ provider: 'okx', page: 'settings' })}
+              />
+            )
           ) : (
             <ProviderConnectionCard
               key={`${provider.provider}-${needsSetup ? 'settings' : 'account'}`}

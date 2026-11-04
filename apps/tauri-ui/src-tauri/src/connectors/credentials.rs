@@ -120,6 +120,9 @@ pub async fn connections_test(
             ProviderId::Binance | ProviderId::Okx | ProviderId::Ifind => {
                 super::markets::test(request, loaded, &ifind_tokens)
             }
+            ProviderId::OkxTradeDemo | ProviderId::OkxTradeLive => {
+                Err(ProviderErrorCode::UnsupportedProvider)
+            }
         };
         match result {
             Ok(summary) => Ok(ConnectionTestResult {

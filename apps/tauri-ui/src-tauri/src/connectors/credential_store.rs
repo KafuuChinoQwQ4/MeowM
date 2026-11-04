@@ -180,6 +180,8 @@ impl CredentialService {
             ProviderId::Alipay,
             ProviderId::Binance,
             ProviderId::Okx,
+            ProviderId::OkxTradeDemo,
+            ProviderId::OkxTradeLive,
             ProviderId::Ifind,
         ]
         .into_iter()
@@ -275,6 +277,16 @@ impl CredentialService {
                 secret_key: take(&mut fields, CredentialField::SecretKey)?,
                 passphrase: take(&mut fields, CredentialField::Passphrase)?,
             },
+            ProviderId::OkxTradeDemo => CredentialInput::OkxTradeDemo {
+                api_key: take(&mut fields, CredentialField::ApiKey)?,
+                secret_key: take(&mut fields, CredentialField::SecretKey)?,
+                passphrase: take(&mut fields, CredentialField::Passphrase)?,
+            },
+            ProviderId::OkxTradeLive => CredentialInput::OkxTradeLive {
+                api_key: take(&mut fields, CredentialField::ApiKey)?,
+                secret_key: take(&mut fields, CredentialField::SecretKey)?,
+                passphrase: take(&mut fields, CredentialField::Passphrase)?,
+            },
             ProviderId::Ifind => CredentialInput::Ifind {
                 refresh_token: take(&mut fields, CredentialField::RefreshToken)?,
             },
@@ -318,6 +330,7 @@ fn required_fields(provider: ProviderId) -> &'static [CredentialField] {
         ProviderId::Alipay => &[AppId, AppPrivateKeyPem, AlipayPublicKeyPem],
         ProviderId::Binance => &[ApiKey, SecretKey],
         ProviderId::Okx => &[ApiKey, SecretKey, Passphrase],
+        ProviderId::OkxTradeDemo | ProviderId::OkxTradeLive => &[ApiKey, SecretKey, Passphrase],
         ProviderId::Ifind => &[RefreshToken],
     }
 }

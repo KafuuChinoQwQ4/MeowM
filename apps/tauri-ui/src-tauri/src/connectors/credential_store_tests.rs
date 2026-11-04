@@ -130,3 +130,43 @@ fn loading_credentials_rejects_partial_groups_and_returns_zeroizing_inputs() {
         _ => panic!("loaded provider credentials must retain their type"),
     }
 }
+
+#[test]
+fn okx_read_demo_and_live_credentials_are_isolated() {
+    let store = Arc::new(MemoryCredentialStore::default());
+    let service = CredentialService::new(store);
+    let credentials = |provider: &str, api_key: &str| {
+        serde_json::from_value(serde_json::json!({
+            "provider": provider,
+            "api_key": api_key,
+            "secret_key": format!("{api_key}-secret"),
+            "passphrase": format!("{api_key}-passphrase"),
+        }))
+        .unwrap()
+    };
+
+    service.save(credentials("okx", "read-key")).unwrap();
+    service
+        .save(credentials("okx_trade_demo", "demo-key"))
+        .unwrap();
+    service
+        .save(credentials("okx_trade_live", "live-key"))
+        .unwrap();
+
+    assert!(service.status(ProviderId::Okx).unwrap().configured);
+    assert!(service.status(ProviderId::OkxTradeDemo).unwrap().configured);
+    assert!(service.status(ProviderId::OkxTradeLive).unwrap().configured);
+    assert!(matches!(
+        service.load(ProviderId::OkxTradeDemo).unwrap(),
+        Some(CredentialInput::OkxTradeDemo { api_key, .. }) if api_key.expose_secret() == "demo-key"
+    ));
+
+    service.remove(ProviderId::OkxTradeDemo).unwrap();
+    assert!(service.status(ProviderId::Okx).unwrap().configured);
+    assert!(!service.status(ProviderId::OkxTradeDemo).unwrap().configured);
+    assert!(service.status(ProviderId::OkxTradeLive).unwrap().configured);
+    assert!(matches!(
+        service.load(ProviderId::Okx).unwrap(),
+        Some(CredentialInput::Okx { api_key, .. }) if api_key.expose_secret() == "read-key"
+    ));
+}

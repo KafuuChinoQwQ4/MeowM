@@ -9,6 +9,8 @@ pub enum ProviderId {
     Alipay,
     Binance,
     Okx,
+    OkxTradeDemo,
+    OkxTradeLive,
     Ifind,
 }
 
@@ -19,6 +21,8 @@ impl ProviderId {
             Self::Alipay => "alipay",
             Self::Binance => "binance",
             Self::Okx => "okx",
+            Self::OkxTradeDemo => "okx_trade_demo",
+            Self::OkxTradeLive => "okx_trade_live",
             Self::Ifind => "ifind",
         }
     }
@@ -42,6 +46,16 @@ pub enum CredentialInput {
         secret_key: SensitiveString,
     },
     Okx {
+        api_key: SensitiveString,
+        secret_key: SensitiveString,
+        passphrase: SensitiveString,
+    },
+    OkxTradeDemo {
+        api_key: SensitiveString,
+        secret_key: SensitiveString,
+        passphrase: SensitiveString,
+    },
+    OkxTradeLive {
         api_key: SensitiveString,
         secret_key: SensitiveString,
         passphrase: SensitiveString,
@@ -88,6 +102,7 @@ impl<'de> Deserialize<'de> for SensitiveString {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+// OKX uses one field set per provider account prefix for read/demo/live isolation.
 pub enum CredentialField {
     MerchantId,
     CertificateSerial,
@@ -125,6 +140,8 @@ impl CredentialInput {
             Self::Alipay { .. } => ProviderId::Alipay,
             Self::Binance { .. } => ProviderId::Binance,
             Self::Okx { .. } => ProviderId::Okx,
+            Self::OkxTradeDemo { .. } => ProviderId::OkxTradeDemo,
+            Self::OkxTradeLive { .. } => ProviderId::OkxTradeLive,
             Self::Ifind { .. } => ProviderId::Ifind,
         }
     }
@@ -157,6 +174,24 @@ impl CredentialInput {
                 (CredentialField::SecretKey, secret_key),
             ],
             Self::Okx {
+                api_key,
+                secret_key,
+                passphrase,
+            } => vec![
+                (CredentialField::ApiKey, api_key),
+                (CredentialField::SecretKey, secret_key),
+                (CredentialField::Passphrase, passphrase),
+            ],
+            Self::OkxTradeDemo {
+                api_key,
+                secret_key,
+                passphrase,
+            } => vec![
+                (CredentialField::ApiKey, api_key),
+                (CredentialField::SecretKey, secret_key),
+                (CredentialField::Passphrase, passphrase),
+            ],
+            Self::OkxTradeLive {
                 api_key,
                 secret_key,
                 passphrase,

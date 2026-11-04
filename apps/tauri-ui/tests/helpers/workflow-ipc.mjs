@@ -15,7 +15,9 @@ export async function installWorkflowIpc(page, seed = {}) {
     let pending = seedData.pending ?? [];
     let reversed = false;
     const connectionStatus = new Map(
-      ['wechat_pay', 'alipay', 'binance', 'okx', 'ifind'].map((provider) => [provider, false]),
+      ['wechat_pay', 'alipay', 'binance', 'okx', 'okx_trade_demo', 'okx_trade_live', 'ifind'].map(
+        (provider) => [provider, false],
+      ),
     );
     window.workflowCalls = [];
     window.savedTransactions = [];

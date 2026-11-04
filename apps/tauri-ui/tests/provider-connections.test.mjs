@@ -51,7 +51,7 @@ test('payment APIs live under settings and safely save, test, clear and disconne
   }
 });
 
-test('exchange directory opens only the selected empty setup form and returns to choose another provider', async () => {
+test('exchange directory opens public OKX first and keeps credentials in settings', async () => {
   const page = await open();
   try {
     await navigate(page, 'markets');
@@ -62,6 +62,9 @@ test('exchange directory opens only the selected empty setup form and returns to
     assert.equal(await page.getByRole('tablist', { name: 'OKX 功能' }).count(), 0);
     await page.getByText('更多交易所，后续接入', { exact: true }).waitFor();
     await page.getByRole('button', { name: '打开欧易', exact: true }).click();
+    await page.getByRole('tab', { name: 'OKX 行情', exact: true }).waitFor();
+    assert.equal(await page.getByLabel('API Key', { exact: true }).count(), 0);
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     const okx = page.locator('[data-provider="okx"]');
     await okx.getByLabel('API Key', { exact: true }).waitFor();
     for (const name of ['API Key', 'Secret Key', 'Passphrase'])
@@ -70,15 +73,24 @@ test('exchange directory opens only the selected empty setup form and returns to
     assert.equal(await page.locator('[data-provider="binance"]').count(), 0);
     assert.equal(await page.getByRole('tablist', { name: 'OKX 功能' }).count(), 0);
     assert.equal(
-      await page.evaluate(() => window.workflowCalls.some((c) => c.command.startsWith('okx_'))),
+      await page.evaluate(() =>
+        window.workflowCalls.some((c) =>
+          ['okx_assets', 'okx_positions', 'okx_import_history', 'okx_place_order'].includes(
+            c.command,
+          ),
+        ),
+      ),
       false,
     );
+    await page.getByRole('button', { name: '返回 OKX 行情', exact: true }).click();
     await page.getByRole('button', { name: '返回上一级', exact: true }).click();
     await page.getByRole('button', { name: '打开币安', exact: true }).click();
     await page.locator('[data-provider="binance"]').waitFor();
     assert.equal(await page.locator('[data-provider="okx"]').count(), 0);
     await page.getByRole('button', { name: '返回上一级', exact: true }).click();
     await page.getByRole('button', { name: '打开欧易', exact: true }).click();
+    await page.getByRole('tab', { name: 'OKX 行情', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     assert.equal(await okx.getByLabel('API Key', { exact: true }).inputValue(), '');
     await navigate(page, 'exchange');
     await page.getByRole('heading', { name: '法币汇率', exact: true }).waitFor();

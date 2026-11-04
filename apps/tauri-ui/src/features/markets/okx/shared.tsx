@@ -78,8 +78,17 @@ export function ReadState({
     </>
   );
 }
-export function ConfigureHint() {
-  return <p className="field-hint">请先在下方欧易卡片保存只读凭据。</p>;
+export function ConfigureHint({ onConfigure }: { onConfigure?: () => void } = {}) {
+  return (
+    <p className="field-hint">
+      请配置 OKX 只读凭据以读取账户数据。{' '}
+      {onConfigure && (
+        <button className="text-button" type="button" onClick={onConfigure}>
+          配置私有凭据
+        </button>
+      )}
+    </p>
+  );
 }
 export function time(value: number): string {
   return new Date(value).toLocaleString('zh-CN');

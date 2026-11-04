@@ -141,6 +141,7 @@ async function open(configured = false) {
   await navigate(page, 'markets');
   await page.getByRole('button', { name: '打开欧易', exact: true }).click();
   if (configured) {
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     const card = page.locator('[data-provider="okx"]');
     await card.getByLabel('API Key', { exact: true }).fill('test-key');
     await card.getByLabel('Secret Key', { exact: true }).fill('test-secret');
@@ -176,6 +177,35 @@ test('configured OKX opens its workspace with public quotes, persistent watchlis
     const calls = await page.evaluate(() => window.workflowCalls);
     assert.equal(
       calls.some((c) => ['okx_assets', 'okx_positions', 'okx_import_history'].includes(c.command)),
+      false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('OKX public markets open without credentials while private data links to credential settings', async () => {
+  const page = await open(false);
+  try {
+    await page.getByRole('tab', { name: 'OKX 行情', exact: true }).waitFor();
+    await page.getByRole('img', { name: /BTC-USDT K 线/ }).waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'okx_tickers'),
+      ),
+      true,
+    );
+    assert.equal(await page.getByLabel('API Key', { exact: true }).count(), 0);
+
+    await page.getByRole('tab', { name: '资产总览', exact: true }).click();
+    await page.getByRole('button', { name: '配置私有凭据', exact: true }).waitFor();
+    await page.getByRole('button', { name: '配置私有凭据', exact: true }).click();
+    await page.getByRole('heading', { name: '只读 API', exact: true }).waitFor();
+    assert.equal(await page.getByLabel('API Key', { exact: true }).count(), 3);
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'okx_place_order'),
+      ),
       false,
     );
   } finally {
@@ -242,7 +272,7 @@ test('replacing configured OKX credentials resets the old account workspace', as
   try {
     await page.getByRole('tab', { name: '资产总览', exact: true }).click();
     await page.getByText('12.340987654321', { exact: true }).waitFor();
-    await page.getByRole('button', { name: 'API 设置', exact: true }).click();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     assert.equal(await page.getByText('12.340987654321', { exact: true }).count(), 0);
     const card = page.locator('[data-provider="okx"]');
     await card.getByLabel('API Key', { exact: true }).fill('second-account-key');
