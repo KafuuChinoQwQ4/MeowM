@@ -125,6 +125,66 @@ fn pending_order_row(ord_id: &str) -> serde_json::Value {
     })
 }
 
+fn pending_cap_responses(
+    probe_rows: Vec<serde_json::Value>,
+    include_leverage: bool,
+) -> Vec<(&'static str, serde_json::Value)> {
+    let mut responses = vec![
+        (
+            "/api/v5/account/config",
+            serde_json::json!({"code":"0","data":[{"acctLv":"2","posMode":"net_mode"}]}),
+        ),
+        (
+            "/api/v5/account/positions?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[]}),
+        ),
+    ];
+    for (start, path) in [
+        (
+            1500,
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100",
+        ),
+        (
+            1400,
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100&after=1401",
+        ),
+        (
+            1300,
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100&after=1301",
+        ),
+        (
+            1200,
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100&after=1201",
+        ),
+        (
+            1100,
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100&after=1101",
+        ),
+    ] {
+        let rows = (0..100)
+            .map(|index| pending_order_row(&(start - index).to_string()))
+            .collect::<Vec<_>>();
+        responses.push((path, serde_json::json!({"code":"0","data":rows})));
+    }
+    responses.push((
+        "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100&after=1001",
+        serde_json::json!({"code":"0","data":probe_rows}),
+    ));
+    if include_leverage {
+        responses.extend([
+            (
+                "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=cross",
+                serde_json::json!({"code":"0","data":[]}),
+            ),
+            (
+                "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=isolated",
+                serde_json::json!({"code":"0","data":[]}),
+            ),
+        ]);
+    }
+    responses
+}
+
 fn spot_spec() -> InstrumentSpec {
     InstrumentSpec {
         inst_type: OrderInstrumentType::Spot,
@@ -646,6 +706,37 @@ fn pending_order_pagination_rejects_a_repeated_cursor_page() {
             serde_json::json!({"code":"0","data":[pending_order_row("901")]}),
         ),
     ]);
+    let result = client.read_trade_context(
+        &credentials(),
+        OrderInstrumentType::Swap,
+        "BTC-USDT-SWAP",
+        OkxEnvironment::Demo,
+    );
+    assert_eq!(result.unwrap_err(), ProviderErrorCode::InvalidResponse);
+    handle.join().unwrap();
+}
+
+#[test]
+fn exactly_500_pending_orders_require_an_empty_probe_and_are_complete() {
+    let (client, handle) = demo_server(pending_cap_responses(Vec::new(), true));
+    let context = client
+        .read_trade_context(
+            &credentials(),
+            OrderInstrumentType::Swap,
+            "BTC-USDT-SWAP",
+            OkxEnvironment::Demo,
+        )
+        .unwrap();
+    assert_eq!(context.pending_orders.len(), 500);
+    handle.join().unwrap();
+}
+
+#[test]
+fn pending_order_beyond_500_cap_fails_closed_after_probe() {
+    let (client, handle) = demo_server(pending_cap_responses(
+        vec![pending_order_row("1000")],
+        false,
+    ));
     let result = client.read_trade_context(
         &credentials(),
         OrderInstrumentType::Swap,

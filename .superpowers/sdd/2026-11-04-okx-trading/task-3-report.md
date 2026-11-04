@@ -34,13 +34,15 @@ Added bounded typed GET readers for public instruments, account configuration, p
 
 ## Follow-up: complete pending-order pagination
 
-Added cursor pagination for `/api/v5/trade/orders-pending` using 100 rows per request and the last row's `ordId` as `after`. The reader tracks all seen order IDs and fails closed on duplicate/overlapping pages, invalid cursor IDs, or responses beyond the page/instrument caps. It stops after the documented maximum of 500 pending orders for one instrument, so the context read stays bounded and close-size validation sees every open order in the supported range.
+Added cursor pagination for `/api/v5/trade/orders-pending` using 100 rows per request and the last row's `ordId` as `after`. The reader tracks all seen order IDs and fails closed on duplicate/overlapping pages, invalid cursor IDs, or responses beyond the page/instrument caps. After 500 rows it makes a bounded sixth probe: an empty response confirms completeness, while any row rejects the context to handle legacy accounts that exceed the documented cap.
 
 For SPOT context, pending orders are omitted because OKX reports `accFillSz` in base currency while market `sz` can be quote currency. The reader therefore avoids subtracting incompatible amounts; contract close validation continues to use the fully paginated pending list.
 
 - **RED:** `cargo test -p ledger-tauri-ui pending_orders_are_paginated_through_all_120_rows_for_close_validation -- --nocapture` failed against the original implementation because the request omitted `limit=100` and did not issue the second page request.
 - **GREEN:** The 120-row pagination test passes and proves that 120 pending closes leave only 80 of a 200-contract position available: size 80 validates while size 81 is rejected.
 - The repeated-page test verifies that a response reusing the prior cursor's `ordId` returns `InvalidResponse` without following another page.
+- **RED:** `cargo test -p ledger-tauri-ui exactly_500_pending_orders_require_an_empty_probe_and_are_complete -- --nocapture` failed before the cap-probe change because the reader skipped the required sixth request after 500 rows.
+- **GREEN:** An exact 500-row result succeeds only after the empty probe; a 501st row on the probe returns `InvalidResponse`.
 - `spot_trade_context_skips_contract_pending_size_accounting` verifies that SPOT context does not issue the unsafe pending-order query.
-- `cargo test -p ledger-tauri-ui connectors::markets::okx -- --nocapture` — 23 passed, 0 failed, 1 ignored.
+- `cargo test -p ledger-tauri-ui connectors::markets::okx -- --nocapture` — 25 passed, 0 failed, 1 ignored.
 - `cargo fmt --check` and `git diff --check` — passed.

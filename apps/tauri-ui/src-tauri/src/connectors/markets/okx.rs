@@ -315,7 +315,8 @@ impl OkxClient {
 
         // OKX returns at most 100 rows per page and caps pending orders at 500
         // for one trading symbol. Both bounds keep this read finite.
-        for _ in 0..(MAX_PENDING_ORDERS_PER_INSTRUMENT / PENDING_ORDERS_PAGE_SIZE) {
+        let probe_page = MAX_PENDING_ORDERS_PER_INSTRUMENT / PENDING_ORDERS_PAGE_SIZE;
+        for page_number in 0..=probe_page {
             let mut params = vec![
                 ("instType", inst_type.as_okx().to_string()),
                 ("instId", inst_id.to_string()),
@@ -330,9 +331,18 @@ impl OkxClient {
                 Some(credentials),
                 environment,
             )?;
-            if rows.len() > PENDING_ORDERS_PAGE_SIZE
-                || orders.len().saturating_add(rows.len()) > MAX_PENDING_ORDERS_PER_INSTRUMENT
-            {
+            if rows.len() > PENDING_ORDERS_PAGE_SIZE {
+                return Err(ProviderErrorCode::InvalidResponse);
+            }
+            if page_number == probe_page {
+                // Legacy accounts can exceed the published 500-order cap.
+                // Only an empty probe proves that the capped result is complete.
+                if rows.is_empty() {
+                    break;
+                }
+                return Err(ProviderErrorCode::InvalidResponse);
+            }
+            if orders.len().saturating_add(rows.len()) > MAX_PENDING_ORDERS_PER_INSTRUMENT {
                 return Err(ProviderErrorCode::InvalidResponse);
             }
             if rows.is_empty() {
@@ -351,9 +361,7 @@ impl OkxClient {
                 orders.push(order_validation::parse_pending_order(row)?);
             }
 
-            if rows.len() < PENDING_ORDERS_PAGE_SIZE
-                || orders.len() == MAX_PENDING_ORDERS_PER_INSTRUMENT
-            {
+            if rows.len() < PENDING_ORDERS_PAGE_SIZE {
                 break;
             }
 
