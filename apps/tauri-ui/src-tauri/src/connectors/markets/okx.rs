@@ -13,6 +13,7 @@ mod history;
 mod market;
 pub(crate) mod model;
 mod order_validation;
+pub(crate) mod orders;
 mod positions;
 #[cfg(test)]
 mod tests;
@@ -23,6 +24,21 @@ const BALANCE_PATH: &str = "/api/v5/account/balance";
 const TRADE_POST_PATHS: &[&str] = &["/api/v5/trade/order", "/api/v5/trade/cancel-order"];
 const PENDING_ORDERS_PAGE_SIZE: usize = 100;
 const MAX_PENDING_ORDERS_PER_INSTRUMENT: usize = 500;
+
+pub(super) enum OrderPostFailure {
+    BeforeSend(ProviderErrorCode),
+    Unconfirmed(ProviderErrorCode),
+    Rejected(ProviderErrorCode),
+}
+
+impl OrderPostFailure {
+    #[cfg(test)]
+    pub(super) fn code(&self) -> ProviderErrorCode {
+        match self {
+            Self::BeforeSend(code) | Self::Unconfirmed(code) | Self::Rejected(code) => *code,
+        }
+    }
+}
 
 pub(crate) struct OkxCredentials<'a> {
     pub api_key: &'a str,
@@ -45,6 +61,7 @@ impl Default for OkxClient {
 }
 
 impl OkxClient {
+    #[cfg(test)]
     fn post<T, B>(
         &self,
         path: &'static str,
@@ -56,14 +73,33 @@ impl OkxClient {
         T: serde::de::DeserializeOwned,
         B: Serialize + ?Sized,
     {
+        self.post_with_outcome(path, body, credentials, environment)
+            .map_err(|error| error.code())
+    }
+
+    pub(super) fn post_with_outcome<T, B>(
+        &self,
+        path: &'static str,
+        body: &B,
+        credentials: &OkxCredentials<'_>,
+        environment: OkxEnvironment,
+    ) -> Result<T, OrderPostFailure>
+    where
+        T: serde::de::DeserializeOwned,
+        B: Serialize + ?Sized,
+    {
         if !TRADE_POST_PATHS.contains(&path) {
-            return Err(ProviderErrorCode::InvalidRequest);
+            return Err(OrderPostFailure::BeforeSend(
+                ProviderErrorCode::InvalidRequest,
+            ));
         }
-        let body = serde_json::to_vec(body).map_err(|_| ProviderErrorCode::InvalidRequest)?;
+        let body = serde_json::to_vec(body)
+            .map_err(|_| OrderPostFailure::BeforeSend(ProviderErrorCode::InvalidRequest))?;
         let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
         let mut prehash = format!("{timestamp}POST{path}").into_bytes();
         prehash.extend_from_slice(&body);
-        let signature = hmac_base64(credentials.secret_key.as_bytes(), &prehash)?;
+        let signature = hmac_base64(credentials.secret_key.as_bytes(), &prehash)
+            .map_err(OrderPostFailure::BeforeSend)?;
         let url = format!("{}{path}", self.base_url.trim_end_matches('/'));
         let mut request = self
             .agent
@@ -76,9 +112,46 @@ impl OkxClient {
         if environment == OkxEnvironment::Demo {
             request = request.header("x-simulated-trading", "1");
         }
-        let mut response = request.send(body.as_slice()).map_err(request_error)?;
-        let value = parse_json_response(&mut response, map_exchange_http_status)?;
-        parse_okx_envelope(value)
+        let mut response = request
+            .send(body.as_slice())
+            .map_err(|error| OrderPostFailure::Unconfirmed(request_error(error)))?;
+        let status = response.status().as_u16();
+        if !(200..300).contains(&status) {
+            let error = map_exchange_http_status(status);
+            return Err(if status == 408 || status == 504 || status >= 500 {
+                OrderPostFailure::Unconfirmed(error)
+            } else {
+                OrderPostFailure::Rejected(error)
+            });
+        }
+        let value = parse_json_response(&mut response, map_exchange_http_status)
+            .map_err(OrderPostFailure::Unconfirmed)?;
+        let code = value
+            .get("code")
+            .and_then(serde_json::Value::as_str)
+            .ok_or(OrderPostFailure::Unconfirmed(
+                ProviderErrorCode::InvalidResponse,
+            ))?;
+        if code != "0" {
+            let error = map_okx_code(code);
+            return Err(if error == ProviderErrorCode::ProviderFailure {
+                // Unknown exchange-side failures can be returned after the
+                // request reached the matching engine. Preserve the client ID
+                // and require a query before any deliberate resubmission.
+                OrderPostFailure::Unconfirmed(error)
+            } else {
+                OrderPostFailure::Rejected(error)
+            });
+        }
+        serde_json::from_value(
+            value
+                .get("data")
+                .cloned()
+                .ok_or(OrderPostFailure::Unconfirmed(
+                    ProviderErrorCode::InvalidResponse,
+                ))?,
+        )
+        .map_err(|_| OrderPostFailure::Unconfirmed(ProviderErrorCode::InvalidResponse))
     }
 
     fn get<T: serde::de::DeserializeOwned>(

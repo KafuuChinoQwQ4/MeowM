@@ -65,7 +65,7 @@ pub(crate) enum OkxEnvironment {
     Production,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub(crate) struct OrderAcknowledgement {
     /// Exchange order identifier assigned after request acceptance.
     #[serde(rename = "ordId")]
@@ -228,6 +228,41 @@ pub(crate) struct AccountTradeContext {
     pub positions: Vec<TradePosition>,
     pub pending_orders: Vec<PendingOrder>,
     pub leverage: Vec<InstrumentLeverage>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub(crate) struct OrderSnapshot {
+    #[serde(rename = "instId")]
+    pub inst_id: String,
+    #[serde(rename = "ordId")]
+    pub order_id: String,
+    #[serde(rename = "clOrdId")]
+    pub client_order_id: String,
+    #[serde(rename = "instType")]
+    pub inst_type: String,
+    pub side: String,
+    #[serde(rename = "ordType")]
+    pub order_type: String,
+    #[serde(rename = "tdMode")]
+    pub trade_mode: String,
+    pub sz: String,
+    #[serde(default, rename = "px")]
+    pub price: String,
+    #[serde(default, rename = "avgPx")]
+    pub average_price: String,
+    #[serde(default, rename = "accFillSz")]
+    pub accumulated_fill_size: String,
+    pub state: String,
+    #[serde(default, rename = "posSide")]
+    pub position_side: String,
+    #[serde(default, rename = "reduceOnly")]
+    pub reduce_only: String,
+    #[serde(default, rename = "tgtCcy")]
+    pub target_currency: String,
+    #[serde(default, rename = "cTime")]
+    pub created_at: String,
+    #[serde(default, rename = "uTime")]
+    pub updated_at: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

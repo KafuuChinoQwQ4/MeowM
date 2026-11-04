@@ -5,9 +5,14 @@ use super::model::{
 use super::model::{OkxEnvironment, OrderAcknowledgement};
 use super::*;
 use crate::connectors::payments::{MAX_JSON_BYTES, agent};
+use crate::connectors::{
+    credential_store::{CredentialService, MemoryCredentialStore},
+    model::{CredentialInput, SensitiveString},
+};
 use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
+    sync::Arc,
 };
 
 fn read_request(stream: &mut TcpStream) -> (String, Vec<u8>) {
@@ -116,6 +121,456 @@ fn credentials() -> OkxCredentials<'static> {
         secret_key: "secret",
         passphrase: "test-passphrase",
     }
+}
+
+struct ServiceReply {
+    request_line: &'static str,
+    response: Option<serde_json::Value>,
+    api_key: Option<&'static str>,
+    secret: Option<&'static [u8]>,
+    demo: Option<bool>,
+    body: Option<serde_json::Value>,
+}
+
+fn service_server(replies: Vec<ServiceReply>) -> (OkxClient, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let handle = std::thread::spawn(move || {
+        for expected in replies {
+            let (mut stream, _) = listener.accept().unwrap();
+            let (headers, body) = read_request(&mut stream);
+            assert!(headers.starts_with(expected.request_line), "{headers}");
+            if let Some(api_key) = expected.api_key {
+                let timestamp = header_value(&headers, "OK-ACCESS-TIMESTAMP");
+                assert_eq!(header_value(&headers, "OK-ACCESS-KEY"), api_key);
+                let method_and_path = expected
+                    .request_line
+                    .split_once(' ')
+                    .map(|(_, rest)| rest.trim_end_matches(" HTTP/1.1\r\n"))
+                    .unwrap();
+                let method = expected.request_line.split_whitespace().next().unwrap();
+                let mut prehash = format!("{timestamp}{method}{method_and_path}").into_bytes();
+                prehash.extend_from_slice(&body);
+                assert_eq!(
+                    header_value(&headers, "OK-ACCESS-SIGN"),
+                    hmac_base64(expected.secret.unwrap(), &prehash).unwrap()
+                );
+            } else {
+                assert!(!headers.to_ascii_lowercase().contains("ok-access-"));
+            }
+            if let Some(demo) = expected.demo {
+                assert_eq!(
+                    headers
+                        .to_ascii_lowercase()
+                        .contains("x-simulated-trading: 1"),
+                    demo
+                );
+            }
+            if let Some(expected_body) = expected.body {
+                assert_eq!(
+                    serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+                    expected_body
+                );
+            }
+            if let Some(response) = expected.response {
+                let response = response.to_string();
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    response.len(),
+                    response
+                )
+                .unwrap();
+            }
+        }
+        listener.set_nonblocking(true).unwrap();
+        assert!(matches!(
+            listener.accept(),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+        ));
+    });
+    (OkxClient::for_test(agent(), endpoint), handle)
+}
+
+fn service_credential(api_key: &str, secret_key: &str, passphrase: &str) -> CredentialInput {
+    CredentialInput::OkxTradeDemo {
+        api_key: SensitiveString::new(api_key.to_string()).unwrap(),
+        secret_key: SensitiveString::new(secret_key.to_string()).unwrap(),
+        passphrase: SensitiveString::new(passphrase.to_string()).unwrap(),
+    }
+}
+
+fn test_order_credentials(include_demo: bool) -> Arc<CredentialService> {
+    let service = Arc::new(CredentialService::new(Arc::new(
+        MemoryCredentialStore::default(),
+    )));
+    service
+        .save(CredentialInput::Okx {
+            api_key: SensitiveString::new("read-key".into()).unwrap(),
+            secret_key: SensitiveString::new("read-secret".into()).unwrap(),
+            passphrase: SensitiveString::new("read-pass".into()).unwrap(),
+        })
+        .unwrap();
+    service
+        .save(CredentialInput::OkxTradeLive {
+            api_key: SensitiveString::new("live-key".into()).unwrap(),
+            secret_key: SensitiveString::new("live-secret".into()).unwrap(),
+            passphrase: SensitiveString::new("live-pass".into()).unwrap(),
+        })
+        .unwrap();
+    if include_demo {
+        service
+            .save(service_credential("demo-key", "demo-secret", "demo-pass"))
+            .unwrap();
+    }
+    service
+}
+
+fn demo_spot_place_replies(
+    post_response: Option<serde_json::Value>,
+    post_body: serde_json::Value,
+) -> Vec<ServiceReply> {
+    vec![
+        ServiceReply {
+            request_line: "GET /api/v5/public/instruments?instType=SPOT&instId=BTC-USDT HTTP/1.1\r\n",
+            response: Some(serde_json::json!({"code":"0","data":[{
+                "instType":"SPOT","instId":"BTC-USDT","state":"live",
+                "tickSz":"0.1","lotSz":"0.0001","minSz":"0.0005",
+                "baseCcy":"BTC","quoteCcy":"USDT"
+            }]})),
+            api_key: None,
+            secret: None,
+            demo: None,
+            body: None,
+        },
+        ServiceReply {
+            request_line: "GET /api/v5/account/config HTTP/1.1\r\n",
+            response: Some(
+                serde_json::json!({"code":"0","data":[{"acctLv":"2","posMode":"net_mode"}]}),
+            ),
+            api_key: Some("demo-key"),
+            secret: Some(b"demo-secret"),
+            demo: Some(true),
+            body: None,
+        },
+        ServiceReply {
+            request_line: "POST /api/v5/trade/order HTTP/1.1\r\n",
+            response: post_response,
+            api_key: Some("demo-key"),
+            secret: Some(b"demo-secret"),
+            demo: Some(true),
+            body: Some(post_body),
+        },
+    ]
+}
+
+#[test]
+fn order_service_uses_only_demo_credentials_and_posts_once_after_fresh_validation() {
+    let order_body = serde_json::json!({
+        "instId":"BTC-USDT", "tdMode":"cash", "clOrdId":"client123",
+        "side":"buy", "ordType":"market", "sz":"0.001",
+        "tgtCcy":"base_ccy", "slippagePct":"0.01"
+    });
+    let replies = demo_spot_place_replies(
+        Some(serde_json::json!({"code":"0","data":[{
+            "ordId":"123456","clOrdId":"client123","sCode":"0","sMsg":""
+        }]})),
+        order_body,
+    );
+    let (client, server) = service_server(replies);
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+
+    let result = order_service
+        .place_order(spot_draft(OrderSide::Buy, OrderType::Market, "0.001"))
+        .unwrap();
+    assert_eq!(
+        result.status,
+        super::orders::OrderSubmissionStatus::Accepted
+    );
+    let acknowledgement = result.acknowledgement.unwrap();
+    assert_eq!(acknowledgement.order_id, "123456");
+    assert_eq!(acknowledgement.client_order_id, "client123");
+    // Acceptance is not reported as an order fill.
+    assert_eq!(
+        result.status,
+        super::orders::OrderSubmissionStatus::Accepted
+    );
+    server.join().unwrap();
+}
+
+#[test]
+fn production_order_uses_only_live_credentials_and_omits_demo_header() {
+    let order_body = serde_json::json!({
+        "instId":"BTC-USDT", "tdMode":"cash", "clOrdId":"client123",
+        "side":"sell", "ordType":"limit", "sz":"0.001", "px":"50000"
+    });
+    let mut replies = demo_spot_place_replies(
+        Some(serde_json::json!({"code":"0","data":[{
+            "ordId":"123457","clOrdId":"client123","sCode":"0","sMsg":""
+        }]})),
+        order_body,
+    );
+    for reply in &mut replies {
+        if reply.api_key.is_some() {
+            reply.api_key = Some("live-key");
+            reply.secret = Some(b"live-secret");
+            reply.demo = Some(false);
+        }
+    }
+    let (client, server) = service_server(replies);
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    let mut draft = spot_draft(OrderSide::Sell, OrderType::Limit, "0.001");
+    draft.environment = OkxEnvironment::Production;
+    draft.price = Some("50000".into());
+    let result = order_service.place_order(draft).unwrap();
+    assert_eq!(
+        result.status,
+        super::orders::OrderSubmissionStatus::Accepted
+    );
+    assert_eq!(result.acknowledgement.unwrap().order_id, "123457");
+    server.join().unwrap();
+}
+
+#[test]
+fn demo_write_does_not_fall_back_to_read_only_or_live_credentials() {
+    let (client, server) = service_server(Vec::new());
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(false));
+    assert_eq!(
+        order_service
+            .place_order(spot_draft(OrderSide::Buy, OrderType::Market, "0.001"))
+            .unwrap_err(),
+        ProviderErrorCode::InvalidCredentials
+    );
+    server.join().unwrap();
+}
+
+#[test]
+fn invalid_size_is_rejected_before_any_order_post() {
+    let (client, server) = service_server(Vec::new());
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    assert_eq!(
+        order_service
+            .place_order(spot_draft(OrderSide::Buy, OrderType::Market, "0"))
+            .unwrap_err(),
+        ProviderErrorCode::InvalidRequest
+    );
+    server.join().unwrap();
+}
+
+#[test]
+fn order_service_rejects_client_ids_outside_okx_alphanumeric_format_before_network_use() {
+    let (client, server) = service_server(Vec::new());
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    let mut draft = spot_draft(OrderSide::Buy, OrderType::Market, "0.001");
+    draft.cl_ord_id = "client-id_1".into();
+    assert_eq!(
+        order_service.place_order(draft).unwrap_err(),
+        ProviderErrorCode::InvalidRequest
+    );
+    server.join().unwrap();
+}
+
+#[test]
+fn per_order_exchange_error_is_returned_as_rejected_with_code_and_message() {
+    let order_body = serde_json::json!({
+        "instId":"BTC-USDT", "tdMode":"cash", "clOrdId":"client123",
+        "side":"buy", "ordType":"market", "sz":"0.001",
+        "tgtCcy":"base_ccy", "slippagePct":"0.01"
+    });
+    let replies = demo_spot_place_replies(
+        Some(serde_json::json!({"code":"0","data":[{
+            "ordId":"","clOrdId":"client123","sCode":"51008","sMsg":"Insufficient balance"
+        }]})),
+        order_body,
+    );
+    let (client, server) = service_server(replies);
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    let result = order_service
+        .place_order(spot_draft(OrderSide::Buy, OrderType::Market, "0.001"))
+        .unwrap();
+    assert_eq!(
+        result.status,
+        super::orders::OrderSubmissionStatus::Rejected
+    );
+    assert_eq!(result.error_code, None);
+    let acknowledgement = result.acknowledgement.unwrap();
+    assert_eq!(acknowledgement.code, "51008");
+    assert_eq!(acknowledgement.message, "Insufficient balance");
+    server.join().unwrap();
+}
+
+#[test]
+fn unclear_submit_keeps_client_id_for_order_detail_reconciliation() {
+    let mut replies = demo_spot_place_replies(
+        None,
+        serde_json::json!({
+            "instId":"BTC-USDT", "tdMode":"cash", "clOrdId":"client123",
+            "side":"buy", "ordType":"market", "sz":"0.001",
+            "tgtCcy":"base_ccy", "slippagePct":"0.01"
+        }),
+    );
+    replies.push(ServiceReply {
+        request_line: "GET /api/v5/trade/order?instId=BTC-USDT&clOrdId=client123 HTTP/1.1\r\n",
+        response: Some(serde_json::json!({"code":"0","data":[{
+            "instId":"BTC-USDT","ordId":"123456","clOrdId":"client123",
+            "instType":"SPOT","side":"buy","ordType":"market","tdMode":"cash",
+            "sz":"0.001","px":"","avgPx":"50000","accFillSz":"0.001",
+            "state":"filled","posSide":"net","reduceOnly":"false","tgtCcy":"base_ccy"
+        }]})),
+        api_key: Some("demo-key"),
+        secret: Some(b"demo-secret"),
+        demo: Some(true),
+        body: None,
+    });
+    let (client, server) = service_server(replies);
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    let submit = order_service
+        .place_order(spot_draft(OrderSide::Buy, OrderType::Market, "0.001"))
+        .unwrap();
+    assert_eq!(submit.status, super::orders::OrderSubmissionStatus::Unknown);
+    assert_eq!(submit.client_order_id, "client123");
+    let detail = order_service
+        .order_detail("BTC-USDT", &submit.client_order_id, OkxEnvironment::Demo)
+        .unwrap()
+        .unwrap();
+    assert_eq!(detail.client_order_id, submit.client_order_id);
+    assert_eq!(detail.state, "filled");
+    server.join().unwrap();
+}
+
+#[test]
+fn ambiguous_exchange_server_error_keeps_client_id_and_is_reconciled_without_resubmit() {
+    let mut replies = demo_spot_place_replies(
+        Some(serde_json::json!({"code":"50000","msg":"exchange internal error"})),
+        serde_json::json!({
+            "instId":"BTC-USDT", "tdMode":"cash", "clOrdId":"client123",
+            "side":"buy", "ordType":"market", "sz":"0.001",
+            "tgtCcy":"base_ccy", "slippagePct":"0.01"
+        }),
+    );
+    replies.push(ServiceReply {
+        request_line: "GET /api/v5/trade/order?instId=BTC-USDT&clOrdId=client123 HTTP/1.1\r\n",
+        response: Some(serde_json::json!({"code":"0","data":[{
+            "instId":"BTC-USDT","ordId":"123456","clOrdId":"client123",
+            "instType":"SPOT","side":"buy","ordType":"market","tdMode":"cash",
+            "sz":"0.001","px":"","avgPx":"50000","accFillSz":"0.001",
+            "state":"filled","posSide":"net","reduceOnly":"false","tgtCcy":"base_ccy"
+        }]})),
+        api_key: Some("demo-key"),
+        secret: Some(b"demo-secret"),
+        demo: Some(true),
+        body: None,
+    });
+    let (client, server) = service_server(replies);
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    let submit = order_service
+        .place_order(spot_draft(OrderSide::Buy, OrderType::Market, "0.001"))
+        .unwrap();
+    assert_eq!(submit.status, super::orders::OrderSubmissionStatus::Unknown);
+    assert_eq!(submit.error_code, Some(ProviderErrorCode::ProviderFailure));
+    assert_eq!(submit.client_order_id, "client123");
+    let detail = order_service
+        .order_detail("BTC-USDT", &submit.client_order_id, OkxEnvironment::Demo)
+        .unwrap()
+        .unwrap();
+    assert_eq!(detail.state, "filled");
+    server.join().unwrap();
+}
+
+#[test]
+fn order_history_and_single_order_cancel_use_fixed_paths_and_explicit_ids() {
+    let replies = vec![
+        ServiceReply {
+            request_line: "GET /api/v5/trade/orders-history?instType=SPOT&limit=100 HTTP/1.1\r\n",
+            response: Some(serde_json::json!({"code":"0","data":[{
+                "instId":"BTC-USDT","ordId":"123456","clOrdId":"client123",
+                "instType":"SPOT","side":"buy","ordType":"limit","tdMode":"cash",
+                "sz":"0.001","px":"50000","avgPx":"","accFillSz":"0",
+                "state":"canceled","posSide":"net","reduceOnly":"false","tgtCcy":""
+            }]})),
+            api_key: Some("demo-key"),
+            secret: Some(b"demo-secret"),
+            demo: Some(true),
+            body: None,
+        },
+        ServiceReply {
+            request_line: "POST /api/v5/trade/cancel-order HTTP/1.1\r\n",
+            response: Some(serde_json::json!({"code":"0","data":[{
+                "instId":"BTC-USDT","ordId":"123456","clOrdId":"",
+                "sCode":"0","sMsg":""
+            }]})),
+            api_key: Some("demo-key"),
+            secret: Some(b"demo-secret"),
+            demo: Some(true),
+            body: Some(serde_json::json!({"instId":"BTC-USDT","ordId":"123456"})),
+        },
+    ];
+    let (client, server) = service_server(replies);
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    let history = order_service
+        .order_history(OrderInstrumentType::Spot, OkxEnvironment::Demo)
+        .unwrap();
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0].state, "canceled");
+    let cancel = order_service
+        .cancel_order("BTC-USDT", "123456", OkxEnvironment::Demo)
+        .unwrap();
+    assert_eq!(
+        cancel.status,
+        super::orders::OrderSubmissionStatus::Accepted
+    );
+    assert_eq!(cancel.order_id, "123456");
+    server.join().unwrap();
+}
+
+#[test]
+fn order_history_rejects_rows_that_do_not_match_the_requested_instrument_type() {
+    let (client, server) = service_server(vec![ServiceReply {
+        request_line: "GET /api/v5/trade/orders-history?instType=SPOT&limit=100 HTTP/1.1\r\n",
+        response: Some(serde_json::json!({"code":"0","data":[{
+            "instId":"BTC-USDT","ordId":"123456","clOrdId":"client123",
+            "instType":"SWAP","side":"buy","ordType":"limit","tdMode":"cash",
+            "sz":"0.001","px":"50000","avgPx":"","accFillSz":"0",
+            "state":"canceled","posSide":"net","reduceOnly":"false","tgtCcy":""
+        }]})),
+        api_key: Some("demo-key"),
+        secret: Some(b"demo-secret"),
+        demo: Some(true),
+        body: None,
+    }]);
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    assert_eq!(
+        order_service
+            .order_history(OrderInstrumentType::Spot, OkxEnvironment::Demo)
+            .unwrap_err(),
+        ProviderErrorCode::InvalidResponse
+    );
+    server.join().unwrap();
+}
+
+#[test]
+fn malicious_detail_and_cancel_identifiers_fail_before_network_use() {
+    let (client, server) = service_server(Vec::new());
+    let order_service = super::orders::OkxOrderService::new(client, test_order_credentials(true));
+    assert_eq!(
+        order_service
+            .order_detail("BTC-USDT/../trade", "123", OkxEnvironment::Demo)
+            .unwrap_err(),
+        ProviderErrorCode::InvalidRequest
+    );
+    assert_eq!(
+        order_service
+            .order_detail("BTC-USDT", "abc&instType=FUTURES", OkxEnvironment::Demo)
+            .unwrap_err(),
+        ProviderErrorCode::InvalidRequest
+    );
+    assert_eq!(
+        order_service
+            .cancel_order("BTC-USDT", "123/../cancel-all", OkxEnvironment::Demo)
+            .unwrap_err(),
+        ProviderErrorCode::InvalidRequest
+    );
+    server.join().unwrap();
 }
 
 fn pending_order_row(ord_id: &str) -> serde_json::Value {

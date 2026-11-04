@@ -1,7 +1,11 @@
 use crate::connectors::{
     credential_store::CredentialService,
     credentials::ConnectorState,
-    markets::okx::{OkxClient, OkxCredentials, model::*},
+    markets::okx::{
+        OkxClient, OkxCredentials,
+        model::*,
+        orders::{OkxOrderService, OrderActionResult, OrderSubmissionResult, TradeContextResponse},
+    },
     model::{CredentialInput, ProviderErrorCode, ProviderId},
 };
 use crate::{LedgerState, access};
@@ -132,6 +136,122 @@ pub(crate) async fn okx_positions(
         ensure_generation(l, generation)?;
         Ok(result)
     })
+}
+
+#[tauri::command]
+pub(crate) async fn okx_trade_context(
+    ledger: State<'_, LedgerState>,
+    connectors: State<'_, ConnectorState>,
+    inst_type: OrderInstrumentType,
+    inst_id: String,
+    environment: OkxEnvironment,
+) -> Result<TradeContextResponse, String> {
+    let generation = access(ledger.clone(), |l| Ok(l.import_generation()))?;
+    let credentials = connectors.credentials();
+    let result = background(move || {
+        OkxOrderService::new(OkxClient::default(), credentials).trade_context(
+            inst_type,
+            &inst_id,
+            environment,
+        )
+    })
+    .await?;
+    access(ledger, |l| {
+        ensure_generation(l, generation)?;
+        Ok(result)
+    })
+}
+
+#[tauri::command]
+pub(crate) async fn okx_place_order(
+    ledger: State<'_, LedgerState>,
+    connectors: State<'_, ConnectorState>,
+    draft: OrderDraft,
+) -> Result<OrderSubmissionResult, String> {
+    let generation = access(ledger.clone(), |l| Ok(l.import_generation()))?;
+    let client_order_id = draft.cl_ord_id.clone();
+    let credentials = connectors.credentials();
+    let result = background(move || {
+        OkxOrderService::new(OkxClient::default(), credentials).place_order(draft)
+    })
+    .await?;
+    if access(ledger, |l| ensure_generation(l, generation)).is_err() {
+        // A write may already have reached OKX. Preserve its only reconciliation
+        // key if the local session was locked or invalidated while in flight.
+        return Err(format!(
+            "order_result_requires_reconciliation:{client_order_id}"
+        ));
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+pub(crate) async fn okx_order_detail(
+    ledger: State<'_, LedgerState>,
+    connectors: State<'_, ConnectorState>,
+    inst_id: String,
+    cl_ord_id: String,
+    environment: OkxEnvironment,
+) -> Result<Option<OrderSnapshot>, String> {
+    let generation = access(ledger.clone(), |l| Ok(l.import_generation()))?;
+    let credentials = connectors.credentials();
+    let result = background(move || {
+        OkxOrderService::new(OkxClient::default(), credentials).order_detail(
+            &inst_id,
+            &cl_ord_id,
+            environment,
+        )
+    })
+    .await?;
+    access(ledger, |l| {
+        ensure_generation(l, generation)?;
+        Ok(result)
+    })
+}
+
+#[tauri::command]
+pub(crate) async fn okx_order_history(
+    ledger: State<'_, LedgerState>,
+    connectors: State<'_, ConnectorState>,
+    inst_type: OrderInstrumentType,
+    environment: OkxEnvironment,
+) -> Result<Vec<OrderSnapshot>, String> {
+    let generation = access(ledger.clone(), |l| Ok(l.import_generation()))?;
+    let credentials = connectors.credentials();
+    let result = background(move || {
+        OkxOrderService::new(OkxClient::default(), credentials)
+            .order_history(inst_type, environment)
+    })
+    .await?;
+    access(ledger, |l| {
+        ensure_generation(l, generation)?;
+        Ok(result)
+    })
+}
+
+#[tauri::command]
+pub(crate) async fn okx_cancel_order(
+    ledger: State<'_, LedgerState>,
+    connectors: State<'_, ConnectorState>,
+    inst_id: String,
+    ord_id: String,
+    environment: OkxEnvironment,
+) -> Result<OrderActionResult, String> {
+    let generation = access(ledger.clone(), |l| Ok(l.import_generation()))?;
+    let order_id = ord_id.clone();
+    let credentials = connectors.credentials();
+    let result = background(move || {
+        OkxOrderService::new(OkxClient::default(), credentials).cancel_order(
+            &inst_id,
+            &ord_id,
+            environment,
+        )
+    })
+    .await?;
+    if access(ledger, |l| ensure_generation(l, generation)).is_err() {
+        return Err(format!("order_cancel_requires_reconciliation:{order_id}"));
+    }
+    Ok(result)
 }
 
 #[derive(Serialize)]

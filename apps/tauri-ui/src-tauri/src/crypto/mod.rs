@@ -1,4 +1,4 @@
-//! Read-only OKX workflows; all accounting evidence stays in dedicated crypto tables.
+//! OKX reads and order actions stay separate from fiat ledger transactions.
 pub(crate) mod commands;
 #[cfg(test)]
 mod tests;

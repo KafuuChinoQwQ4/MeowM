@@ -34,22 +34,27 @@ pub(crate) struct OrderBody {
 }
 
 impl OrderBody {
+    #[cfg(test)]
     pub(crate) fn side(&self) -> OrderSide {
         self.side
     }
 
+    #[cfg(test)]
     pub(crate) fn tgt_ccy(&self) -> Option<&'static str> {
         self.target_currency
     }
 
+    #[cfg(test)]
     pub(crate) fn slippage_pct(&self) -> Option<&str> {
         self.slippage_pct.as_deref()
     }
 
+    #[cfg(test)]
     pub(crate) fn pos_side(&self) -> Option<PositionSide> {
         self.position_side
     }
 
+    #[cfg(test)]
     pub(crate) fn reduce_only(&self) -> Option<bool> {
         self.reduce_only
     }
@@ -186,6 +191,58 @@ impl ValidatedOrder {
     pub(crate) fn body(&self) -> &OrderBody {
         &self.body
     }
+}
+
+pub(super) fn validate_order_draft_shape(draft: &OrderDraft) -> Result<(), ProviderErrorCode> {
+    if !valid_instrument_id(draft.inst_type, &draft.inst_id)
+        || !valid_client_order_id(&draft.cl_ord_id)
+        || !positive_decimal(&draft.size)
+    {
+        return Err(ProviderErrorCode::InvalidRequest);
+    }
+
+    match draft.ord_type {
+        OrderType::Market if draft.price.is_some() => {
+            return Err(ProviderErrorCode::InvalidRequest);
+        }
+        OrderType::Limit if !draft.price.as_deref().is_some_and(positive_decimal) => {
+            return Err(ProviderErrorCode::InvalidRequest);
+        }
+        _ => {}
+    }
+
+    match draft.inst_type {
+        OrderInstrumentType::Spot => {
+            if draft.position_action.is_some()
+                || draft.td_mode.is_some_and(|mode| mode != TradeMode::Cash)
+            {
+                return Err(ProviderErrorCode::InvalidRequest);
+            }
+        }
+        OrderInstrumentType::Swap | OrderInstrumentType::Futures => {
+            let Some(TradeMode::Cross | TradeMode::Isolated) = draft.td_mode else {
+                return Err(ProviderErrorCode::InvalidRequest);
+            };
+            let Some(action) = draft.position_action else {
+                return Err(ProviderErrorCode::InvalidRequest);
+            };
+            if draft.side != contract_order_mapping(action, PositionMode::Net).0 {
+                return Err(ProviderErrorCode::InvalidRequest);
+            }
+        }
+    }
+
+    match (draft.inst_type, draft.ord_type) {
+        (OrderInstrumentType::Spot, OrderType::Market) => {
+            if let Some(slippage) = draft.slippage_pct.as_deref() {
+                validate_slippage(slippage)?;
+            }
+        }
+        _ if draft.slippage_pct.is_some() => return Err(ProviderErrorCode::InvalidRequest),
+        _ => {}
+    }
+
+    Ok(())
 }
 
 fn validate_spec(spec: &InstrumentSpec) -> Result<(), ProviderErrorCode> {
@@ -325,7 +382,7 @@ pub(super) fn parse_pending_order(
     })
 }
 
-fn valid_instrument_id_from_string(inst_id: &str) -> bool {
+pub(super) fn valid_instrument_id_from_string(inst_id: &str) -> bool {
     let parts: Vec<_> = inst_id.split('-').collect();
     if parts.len() == 2 {
         valid_spot_instrument(inst_id)
@@ -409,14 +466,11 @@ fn decimal_string(decimal: Decimal) -> String {
     format!("{sign}{digits}")
 }
 
-fn valid_client_order_id(value: &str) -> bool {
-    (1..=32).contains(&value.len())
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_' || byte == b'-')
+pub(super) fn valid_client_order_id(value: &str) -> bool {
+    (1..=32).contains(&value.len()) && value.bytes().all(|byte| byte.is_ascii_alphanumeric())
 }
 
-fn positive_decimal(value: &str) -> bool {
+pub(super) fn positive_decimal(value: &str) -> bool {
     parse_decimal(value).is_some_and(|decimal| decimal.coefficient > 0)
 }
 
