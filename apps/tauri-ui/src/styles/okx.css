@@ -13,7 +13,7 @@
 }
 .okx-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 5px;
   margin: 16px 0;
 }
@@ -181,6 +181,51 @@
   padding: 10px;
   border-radius: 8px;
   background: #edf7f2;
+}
+.okx-warning {
+  padding: 10px;
+  border: 1px solid #d89438;
+  border-radius: 8px;
+  background: #fff6e8;
+  color: #75490c;
+  overflow-wrap: anywhere;
+}
+.okx-credential-prompt {
+  padding: 12px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.okx-trading-panel,
+.okx-trade-form,
+.okx-trade-context,
+.okx-review {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.okx-trade-context section {
+  min-width: 0;
+}
+.okx-trade-rows {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+}
+.okx-estimate {
+  padding: 10px;
+  border-radius: 8px;
+  background: #f2f6f4;
+  overflow-wrap: anywhere;
+}
+.okx-unknown-order {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d89438;
+  border-radius: 10px;
 }
 @media (max-width: 480px) {
   .okx-workspace {

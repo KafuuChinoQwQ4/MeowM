@@ -68,14 +68,14 @@ pub(crate) enum OkxEnvironment {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub(crate) struct OrderAcknowledgement {
     /// Exchange order identifier assigned after request acceptance.
-    #[serde(rename = "ordId")]
+    #[serde(rename(serialize = "order_id", deserialize = "ordId"))]
     pub order_id: String,
-    #[serde(rename = "clOrdId")]
+    #[serde(rename(serialize = "client_order_id", deserialize = "clOrdId"))]
     pub client_order_id: String,
     /// Per-order request result code; zero means accepted, not filled.
-    #[serde(rename = "sCode")]
+    #[serde(rename(serialize = "code", deserialize = "sCode"))]
     pub code: String,
-    #[serde(rename = "sMsg")]
+    #[serde(rename(serialize = "message", deserialize = "sMsg"))]
     pub message: String,
 }
 
@@ -234,36 +234,39 @@ pub(crate) struct AccountTradeContext {
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 pub(crate) struct OrderSnapshot {
-    #[serde(rename = "instId")]
+    #[serde(rename(serialize = "inst_id", deserialize = "instId"))]
     pub inst_id: String,
-    #[serde(rename = "ordId")]
+    #[serde(rename(serialize = "order_id", deserialize = "ordId"))]
     pub order_id: String,
-    #[serde(rename = "clOrdId")]
+    #[serde(rename(serialize = "client_order_id", deserialize = "clOrdId"))]
     pub client_order_id: String,
-    #[serde(rename = "instType")]
+    #[serde(rename(serialize = "inst_type", deserialize = "instType"))]
     pub inst_type: String,
     pub side: String,
-    #[serde(rename = "ordType")]
+    #[serde(rename(serialize = "order_type", deserialize = "ordType"))]
     pub order_type: String,
-    #[serde(rename = "tdMode")]
+    #[serde(rename(serialize = "trade_mode", deserialize = "tdMode"))]
     pub trade_mode: String,
     pub sz: String,
-    #[serde(default, rename = "px")]
+    #[serde(default, rename(serialize = "price", deserialize = "px"))]
     pub price: String,
-    #[serde(default, rename = "avgPx")]
+    #[serde(default, rename(serialize = "average_price", deserialize = "avgPx"))]
     pub average_price: String,
-    #[serde(default, rename = "accFillSz")]
+    #[serde(
+        default,
+        rename(serialize = "accumulated_fill_size", deserialize = "accFillSz")
+    )]
     pub accumulated_fill_size: String,
     pub state: String,
-    #[serde(default, rename = "posSide")]
+    #[serde(default, rename(serialize = "position_side", deserialize = "posSide"))]
     pub position_side: String,
-    #[serde(default, rename = "reduceOnly")]
+    #[serde(default, rename(serialize = "reduce_only", deserialize = "reduceOnly"))]
     pub reduce_only: String,
-    #[serde(default, rename = "tgtCcy")]
+    #[serde(default, rename(serialize = "target_currency", deserialize = "tgtCcy"))]
     pub target_currency: String,
-    #[serde(default, rename = "cTime")]
+    #[serde(default, rename(serialize = "created_at", deserialize = "cTime"))]
     pub created_at: String,
-    #[serde(default, rename = "uTime")]
+    #[serde(default, rename(serialize = "updated_at", deserialize = "uTime"))]
     pub updated_at: String,
 }
 

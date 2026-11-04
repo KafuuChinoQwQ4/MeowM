@@ -3,6 +3,7 @@ import { MarketPanel } from './MarketPanel';
 import { AssetsPanel } from './AssetsPanel';
 import { RecordsPanel } from './RecordsPanel';
 import { PositionsPanel } from './PositionsPanel';
+import { TradingPanel } from './TradingPanel';
 import { ConfigureHint } from './shared';
 import '../../../styles/okx.css';
 
@@ -11,6 +12,7 @@ const tabs = {
   assets: '资产总览',
   records: '加密流水',
   positions: '合约表现',
+  trading: '交易下单',
 } as const;
 export function OkxWorkspace({
   readConfigured,
@@ -65,6 +67,13 @@ export function OkxWorkspace({
           ) : (
             <ConfigureHint onConfigure={onCredentialSettings} />
           ))}
+        {tab === 'trading' && (
+          <TradingPanel
+            demoConfigured={demoConfigured}
+            liveConfigured={liveConfigured}
+            onConfigure={onCredentialSettings}
+          />
+        )}
       </div>
     </section>
   );

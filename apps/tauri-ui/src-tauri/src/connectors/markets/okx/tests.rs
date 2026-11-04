@@ -1,6 +1,6 @@
 use super::model::{
-    AccountTradeContext, InstrumentSpec, OrderDraft, OrderInstrumentType, OrderSide, OrderType,
-    PendingOrder, PositionAction, PositionMode, PositionSide, TradeMode, TradePosition,
+    AccountTradeContext, InstrumentSpec, OrderDraft, OrderInstrumentType, OrderSide, OrderSnapshot,
+    OrderType, PendingOrder, PositionAction, PositionMode, PositionSide, TradeMode, TradePosition,
 };
 use super::model::{OkxEnvironment, OrderAcknowledgement};
 use super::*;
@@ -1623,6 +1623,69 @@ fn positions_preserve_net_pnl_without_subtracting_its_included_fees() {
     assert_eq!(positions.history[0].realized_pnl.as_deref(), Some("0.001"));
     assert_eq!(positions.history[0].fee.as_deref(), Some("-0.0001"));
     handle.join().unwrap();
+}
+
+#[test]
+fn order_ipc_models_keep_snake_case_while_deserializing_okx_field_names() {
+    let acknowledgement: OrderAcknowledgement = serde_json::from_value(serde_json::json!({
+        "ordId": "123456",
+        "clOrdId": "client123",
+        "sCode": "0",
+        "sMsg": ""
+    }))
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(acknowledgement).unwrap(),
+        serde_json::json!({
+            "order_id": "123456",
+            "client_order_id": "client123",
+            "code": "0",
+            "message": ""
+        })
+    );
+
+    let snapshot: OrderSnapshot = serde_json::from_value(serde_json::json!({
+        "instId": "BTC-USDT",
+        "ordId": "123456",
+        "clOrdId": "client123",
+        "instType": "SPOT",
+        "side": "buy",
+        "ordType": "market",
+        "tdMode": "cash",
+        "sz": "0.001",
+        "px": "",
+        "avgPx": "100",
+        "accFillSz": "0.001",
+        "state": "filled",
+        "posSide": "net",
+        "reduceOnly": "false",
+        "tgtCcy": "base_ccy",
+        "cTime": "123",
+        "uTime": "124"
+    }))
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(snapshot).unwrap(),
+        serde_json::json!({
+            "inst_id": "BTC-USDT",
+            "order_id": "123456",
+            "client_order_id": "client123",
+            "inst_type": "SPOT",
+            "side": "buy",
+            "order_type": "market",
+            "trade_mode": "cash",
+            "sz": "0.001",
+            "price": "",
+            "average_price": "100",
+            "accumulated_fill_size": "0.001",
+            "state": "filled",
+            "position_side": "net",
+            "reduce_only": "false",
+            "target_currency": "base_ccy",
+            "created_at": "123",
+            "updated_at": "124"
+        })
+    );
 }
 
 #[test]

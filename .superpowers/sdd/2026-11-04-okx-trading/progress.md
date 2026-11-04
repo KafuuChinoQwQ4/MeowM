@@ -41,10 +41,11 @@
 - Task 3: complete (`425f8f1` plus reviewed fixes `4bd598c`, `3f19d0e`; independent review approved).
 - Task 3: deferred minor: spot market sell `sz` uses quote currency, so local base-currency `lotSz/minSz` cannot apply; UI labels the unit and OKX validates final minimum. Spot trade-context skips generic pending-size subtraction because `sz` and `accFillSz` may use different units.
 - Task 3 review finding resolved: pending close accounting pages 100 rows, rejects overlap, and makes an empty sixth-page probe after 500 rows; any result or read error at the probe fails closed.
-- Task 4: pending.
-- Task 5: pending.
+- Task 4: complete (`b781135`, review approved).
+- Task 5: complete locally; added demo/live-gated trading UI, confirmed spot/contract orders, same-ID unknown reconciliation, selected-order cancellation, user-triggered history, and Task 4 snake_case IPC serialization fix. Report: `.superpowers/sdd/2026-11-04-okx-trading/task-5-report.md`.
 - Task 6: pending.
-- Task 4: complete locally; commit and independent review pending. Report: `.superpowers/sdd/2026-11-04-okx-trading/task-4-report.md`.
+- Task 4 report: `.superpowers/sdd/2026-11-04-okx-trading/task-4-report.md`.
 - Task 4: local preflight rejects malformed draft shapes before network; product steps and close capacity are validated against fresh OKX metadata/context. A residual service error or malformed order acknowledgment yields `unknown` plus `clOrdId`; known per-order `sCode` is returned as rejected with its message.
 - Task 4: live and demo credential isolation, one POST, unknown reconciliation, fixed detail/history/cancel endpoints, and malformed ID rejection have local-server tests. No order data is persisted.
-- Task 4 follow-up: all five commands recheck session state after background work, and pending rows expose validated `ord_id` plus `live`/`partially_filled` state; focused crypto/connector tests pass.
+- Task 4 follow-up: complete (`c7d963a`, review approved); all five commands recheck session state after background work, and pending rows expose validated `ord_id` plus `live`/`partially_filled` state.
+- Task 5 verification: browser workflow 16/16; build, frontend formatting, Rust formatting, OKX connector 39 passed/1 ignored, crypto 2 passed, and diff check all pass. No exchange orders were sent.

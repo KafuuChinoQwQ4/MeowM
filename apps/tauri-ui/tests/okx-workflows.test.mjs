@@ -30,6 +30,14 @@ async function open(configured = false) {
       volume: '1.00000001',
       confirmed: true,
     });
+    window.nextOrderResult = null;
+    window.nextOrderError = null;
+    window.orderDetailResult = null;
+    window.orderHistoryResult = null;
+    window.tradeContextDelay = 0;
+    window.tradeContextCallsFinished = 0;
+    window.orderHistoryDelay = 0;
+    window.orderHistoryCallsFinished = 0;
     window.__TAURI_INTERNALS__.invoke = async (command, args) => {
       if (!command.startsWith('okx_')) return original(command, args);
       window.workflowCalls.push({ command, args });
@@ -133,6 +141,108 @@ async function open(configured = false) {
           fetched_at: 1708587373361,
         };
       }
+      if (command === 'okx_trade_context') {
+        if (window.tradeContextDelay)
+          await new Promise((resolve) => setTimeout(resolve, window.tradeContextDelay));
+        window.tradeContextCallsFinished += 1;
+        const contract = args.instType !== 'SPOT';
+        return {
+          instrument: contract
+            ? {
+                inst_type: args.instType,
+                inst_id: args.instId,
+                state: 'live',
+                tick_sz: '0.1',
+                lot_sz: '1',
+                min_sz: '1',
+                ct_val: '0.01',
+                ct_val_ccy: 'BTC',
+                ct_type: 'linear',
+                settle_ccy: 'USDT',
+                base_ccy: null,
+                quote_ccy: null,
+              }
+            : {
+                inst_type: 'SPOT',
+                inst_id: args.instId,
+                state: 'live',
+                tick_sz: '0.1',
+                lot_sz: '0.0001',
+                min_sz: '0.0005',
+                ct_val: null,
+                ct_val_ccy: null,
+                ct_type: null,
+                settle_ccy: null,
+                base_ccy: 'BTC',
+                quote_ccy: 'USDT',
+              },
+          account: {
+            acct_lv: '2',
+            pos_mode: 'net_mode',
+            positions: [
+              {
+                inst_id: 'BTC-USDT-SWAP',
+                pos_side: 'net',
+                quantity: '2',
+                margin_mode: 'cross',
+              },
+            ],
+            pending_orders: [
+              {
+                inst_id: 'BTC-USDT-SWAP',
+                ord_id: '987654',
+                state: 'partially_filled',
+                side: 'sell',
+                pos_side: 'net',
+                margin_mode: 'cross',
+                reduce_only: true,
+                remaining_size: '1',
+              },
+            ],
+            leverage: [
+              { inst_id: 'BTC-USDT-SWAP', margin_mode: 'cross', pos_side: 'net', leverage: '5' },
+            ],
+          },
+        };
+      }
+      if (command === 'okx_place_order' && window.nextOrderError) {
+        const error = window.nextOrderError;
+        window.nextOrderError = null;
+        throw new Error(error);
+      }
+      if (command === 'okx_place_order')
+        return (
+          window.nextOrderResult ?? {
+            status: 'accepted',
+            client_order_id: args.draft.cl_ord_id,
+            acknowledgement: {
+              order_id: '123456',
+              client_order_id: args.draft.cl_ord_id,
+              code: '0',
+              message: '',
+            },
+            error_code: null,
+          }
+        );
+      if (command === 'okx_order_detail')
+        return window.orderDetailResult
+          ? { ...window.orderDetailResult, client_order_id: args.clOrdId }
+          : null;
+      if (command === 'okx_order_history') {
+        if (window.orderHistoryDelay)
+          await new Promise((resolve) => setTimeout(resolve, window.orderHistoryDelay));
+        window.orderHistoryCallsFinished += 1;
+        return window.orderHistoryResult ?? [];
+      }
+      if (command === 'okx_cancel_order')
+        return {
+          status: 'accepted',
+          order_id: args.ordId,
+          client_order_id: null,
+          code: '0',
+          message: '',
+          error_code: null,
+        };
       throw Error('Unexpected OKX command');
     };
   });
@@ -150,6 +260,16 @@ async function open(configured = false) {
     await page.getByRole('tab', { name: 'OKX 行情', exact: true }).waitFor();
   }
   return page;
+}
+
+async function saveOkxTradeKey(page, provider) {
+  await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
+  const card = page.locator(`[data-provider="${provider}"]`);
+  await card.getByLabel('API Key', { exact: true }).fill(`${provider}-key`);
+  await card.getByLabel('Secret Key', { exact: true }).fill(`${provider}-secret`);
+  await card.getByLabel('Passphrase', { exact: true }).fill(`${provider}-passphrase`);
+  await card.getByRole('button', { name: '保存凭据', exact: true }).click();
+  await page.getByRole('tab', { name: '交易下单', exact: true }).waitFor();
 }
 
 test('configured OKX opens its workspace with public quotes, persistent watchlist and earlier candles on mobile', async () => {
@@ -207,6 +327,413 @@ test('OKX public markets open without credentials while private data links to cr
         window.workflowCalls.some((call) => call.command === 'okx_place_order'),
       ),
       false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('OKX trading tab guides users to trade credentials without sending exchange requests', async () => {
+  const page = await open(false);
+  try {
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByText(/请配置 OKX 模拟盘交易 API/).waitFor();
+    const calls = await page.evaluate(() => window.workflowCalls);
+    assert.equal(
+      calls.some((call) => call.command === 'okx_trade_context'),
+      false,
+    );
+    assert.equal(
+      calls.some((call) => call.command === 'okx_place_order'),
+      false,
+    );
+    assert.equal(
+      calls.some((call) => call.command === 'okx_order_history'),
+      false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('completed OKX orders load only on request and render their snake-case snapshot fields', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'okx_order_history'),
+      ),
+      false,
+    );
+    await page.evaluate(() => {
+      window.orderHistoryResult = [
+        {
+          inst_id: 'BTC-USDT',
+          order_id: '123456',
+          client_order_id: 'history-client-123',
+          inst_type: 'SPOT',
+          side: 'buy',
+          order_type: 'market',
+          trade_mode: 'cash',
+          sz: '0.001',
+          price: '',
+          average_price: '50000',
+          accumulated_fill_size: '0.001',
+          state: 'filled',
+          position_side: 'net',
+          reduce_only: 'false',
+          target_currency: 'base_ccy',
+          created_at: '1708587373361',
+          updated_at: '1708587373361',
+        },
+      ];
+    });
+    await page.getByRole('button', { name: '读取历史订单', exact: true }).click();
+    const history = page.getByRole('region', { name: '历史订单', exact: true });
+    await history.getByText('filled', { exact: true }).waitFor();
+    await history.getByText(/123456 .*history-client-123/).waitFor();
+    const request = await page.evaluate(() =>
+      window.workflowCalls.find((call) => call.command === 'okx_order_history'),
+    );
+    assert.equal(request.args.instType, 'SPOT');
+    assert.equal(request.args.environment, 'demo');
+  } finally {
+    await page.close();
+  }
+});
+
+test('Demo spot preview waits for second confirmation and submits one alphanumeric client order ID', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('交易环境', { exact: true }).selectOption('demo');
+    await page.getByLabel('产品类型', { exact: true }).selectOption('SPOT');
+    await page.getByLabel('交易品种', { exact: true }).fill('BTC-USDT');
+    await page.getByLabel('交易方向', { exact: true }).selectOption('buy');
+    await page.getByLabel('订单类型', { exact: true }).selectOption('market');
+    await page.getByLabel(/委托数量.*BTC/).fill('0.001');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    await page.getByText('最新交易上下文 · BTC-USDT', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    await page.getByRole('dialog', { name: '确认 OKX 订单' }).waitFor();
+    await page
+      .getByRole('dialog', { name: '确认 OKX 订单' })
+      .getByText(/滑点上限 1%/)
+      .waitFor();
+    assert.equal(await page.getByLabel('最大滑点（%）').inputValue(), '1');
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((call) => call.command === 'okx_place_order').length,
+      ),
+      0,
+    );
+    await page.getByRole('button', { name: '确认并下单', exact: true }).click();
+    await page.getByText('订单已提交，尚未确认成交', { exact: true }).waitFor();
+    await page.getByText(/OKX 订单号 123456 .*sCode 0/).waitFor();
+    const call = await page.evaluate(() =>
+      window.workflowCalls.find((item) => item.command === 'okx_place_order'),
+    );
+    assert.equal(call.args.draft.environment, 'demo');
+    assert.equal(call.args.draft.inst_type, 'SPOT');
+    assert.equal(call.args.draft.inst_id, 'BTC-USDT');
+    assert.equal(call.args.draft.side, 'buy');
+    assert.equal(call.args.draft.ord_type, 'market');
+    assert.equal(call.args.draft.size, '0.001');
+    assert.equal(call.args.draft.slippage_pct, '0.01');
+    assert.equal(call.args.draft.cl_ord_id.length, 32);
+    assert.match(call.args.draft.cl_ord_id, /^[A-Za-z0-9]{32}$/);
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((item) => item.command === 'okx_place_order').length,
+      ),
+      1,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('editing a draft while fresh context is pending cannot reopen a stale order review', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel(/委托数量.*BTC/).fill('0.001');
+    await page.evaluate(() => {
+      window.tradeContextDelay = 500;
+    });
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    await page.waitForFunction(() =>
+      window.workflowCalls.some((call) => call.command === 'okx_trade_context'),
+    );
+    await page.getByLabel(/委托数量.*BTC/).fill('0.002');
+    await page.waitForFunction(() => window.tradeContextCallsFinished === 1);
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('button')).some(
+        (button) => button.textContent.trim() === '预览订单' && !button.disabled,
+      ),
+    );
+    assert.equal(await page.getByRole('dialog', { name: '确认 OKX 订单' }).count(), 0);
+    assert.equal(await page.getByLabel(/委托数量.*BTC/).inputValue(), '0.002');
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'okx_place_order'),
+      ),
+      false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('changing environment while context is pending discards old-mode pending orders', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await saveOkxTradeKey(page, 'okx_trade_live');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('产品类型', { exact: true }).selectOption('SWAP');
+    await page.getByLabel('交易品种', { exact: true }).fill('BTC-USDT-SWAP');
+    await page.evaluate(() => {
+      window.tradeContextDelay = 500;
+    });
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    await page.waitForFunction(() =>
+      window.workflowCalls.some((call) => call.command === 'okx_trade_context'),
+    );
+    await page.getByLabel('交易环境', { exact: true }).selectOption('production');
+    await page.waitForFunction(() => window.tradeContextCallsFinished === 1);
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('button')).some(
+        (button) => button.textContent.trim() === '读取交易上下文',
+      ),
+    );
+    assert.equal(await page.getByRole('region', { name: '最新交易上下文' }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: '撤单', exact: true }).count(), 0);
+    const contextCall = await page.evaluate(() =>
+      window.workflowCalls.find((call) => call.command === 'okx_trade_context'),
+    );
+    assert.equal(contextCall.args.environment, 'demo');
+    assert.equal(await page.getByText(/当前环境：实盘/).count(), 1);
+    await page.evaluate(() => {
+      window.orderHistoryDelay = 500;
+    });
+    await page.getByRole('button', { name: '读取历史订单', exact: true }).click();
+    await page.waitForFunction(() =>
+      window.workflowCalls.some((call) => call.command === 'okx_order_history'),
+    );
+    await page.getByLabel('交易环境', { exact: true }).selectOption('demo');
+    await page.waitForFunction(() => window.orderHistoryCallsFinished === 1);
+    await page.waitForFunction(() =>
+      Array.from(document.querySelectorAll('button')).some(
+        (button) => /^(读取|刷新)历史订单$/.test(button.textContent.trim()) && !button.disabled,
+      ),
+    );
+    assert.equal(await page.getByRole('region', { name: '历史订单', exact: true }).count(), 0);
+  } finally {
+    await page.close();
+  }
+});
+
+test('spot market sell uses quote-currency size and production requires its separate key', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('交易环境', { exact: true }).selectOption('production');
+    await page.getByText(/请配置 OKX 实盘交易 API/).waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'okx_trade_context'),
+      ),
+      false,
+    );
+    await saveOkxTradeKey(page, 'okx_trade_live');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('交易环境', { exact: true }).selectOption('production');
+    await page.getByText(/实盘.*真实资产/).waitFor();
+    await page.getByLabel('产品类型', { exact: true }).selectOption('SPOT');
+    await page.getByLabel('交易品种', { exact: true }).fill('BTC-USDT');
+    await page.getByLabel('交易方向', { exact: true }).selectOption('sell');
+    await page.getByLabel('订单类型', { exact: true }).selectOption('market');
+    await page.getByLabel(/委托数量.*USDT/).fill('10');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    const review = page.getByRole('dialog', { name: '确认 OKX 订单' });
+    await review
+      .getByText('实盘订单会使用真实资产下单，请核对全部字段后再确认。', { exact: true })
+      .waitFor();
+    await review.getByText(/10 USDT.*市价卖出收到的报价币数量/).waitFor();
+    await page.getByRole('button', { name: '确认并下单', exact: true }).click();
+    const order = await page.evaluate(() =>
+      window.workflowCalls.find((call) => call.command === 'okx_place_order'),
+    );
+    assert.equal(order.args.draft.environment, 'production');
+    assert.equal(order.args.draft.side, 'sell');
+    assert.equal(order.args.draft.size, '10');
+  } finally {
+    await page.close();
+  }
+});
+
+test('contract order confirmation sends the selected action, margin mode, size and mapped side', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('产品类型', { exact: true }).selectOption('SWAP');
+    await page.getByLabel('交易品种', { exact: true }).fill('BTC-USDT-SWAP');
+    await page.getByLabel('合约操作', { exact: true }).selectOption('open_short');
+    await page.getByLabel('保证金模式', { exact: true }).selectOption('isolated');
+    await page.getByLabel('订单类型', { exact: true }).selectOption('market');
+    await page.getByLabel('委托数量（张）', { exact: true }).fill('3');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    await page.getByRole('button', { name: '确认并下单', exact: true }).click();
+    await page.getByText('订单已提交，尚未确认成交', { exact: true }).waitFor();
+    const call = await page.evaluate(() =>
+      window.workflowCalls.find((item) => item.command === 'okx_place_order'),
+    );
+    assert.equal(call.args.draft.inst_type, 'SWAP');
+    assert.equal(call.args.draft.inst_id, 'BTC-USDT-SWAP');
+    assert.equal(call.args.draft.position_action, 'open_short');
+    assert.equal(call.args.draft.td_mode, 'isolated');
+    assert.equal(call.args.draft.side, 'sell');
+    assert.equal(call.args.draft.size, '3');
+    assert.equal(call.args.draft.slippage_pct, null);
+  } finally {
+    await page.close();
+  }
+});
+
+test('unknown submit keeps its ID and requires same-ID order lookup before another submit', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.evaluate(() => {
+      window.nextOrderResult = {
+        status: 'unknown',
+        client_order_id: '0123456789abcdef0123456789abcdef',
+        acknowledgement: null,
+        error_code: 'provider_failure',
+      };
+      window.orderDetailResult = {
+        inst_id: 'BTC-USDT',
+        order_id: '123456',
+        inst_type: 'SPOT',
+        side: 'buy',
+        order_type: 'market',
+        trade_mode: 'cash',
+        sz: '0.001',
+        price: '',
+        average_price: '50000',
+        accumulated_fill_size: '0.001',
+        state: 'filled',
+        position_side: 'net',
+        reduce_only: 'false',
+        target_currency: 'base_ccy',
+        created_at: '1708587373361',
+        updated_at: '1708587373361',
+      };
+    });
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('委托数量（BTC）').fill('0.001');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    await page.getByRole('button', { name: '确认并下单', exact: true }).click();
+    await page.getByText(/结果未确认/).waitFor();
+    const firstId = await page.getByLabel('待核对客户订单号').inputValue();
+    assert.equal(firstId, '0123456789abcdef0123456789abcdef');
+    assert.equal(
+      await page.getByRole('button', { name: '预览订单', exact: true }).isDisabled(),
+      true,
+    );
+    await page.getByRole('button', { name: '查询此订单状态', exact: true }).click();
+    await page.getByText('filled', { exact: true }).waitFor();
+    await page.getByText(/已成交数量 0\.001 \/ 0\.001/).waitFor();
+    const lookup = await page.evaluate(() =>
+      window.workflowCalls.find((call) => call.command === 'okx_order_detail'),
+    );
+    assert.equal(lookup.args.clOrdId, firstId);
+    assert.equal(
+      await page.getByRole('button', { name: '预览订单', exact: true }).isDisabled(),
+      true,
+    );
+    await page.getByRole('button', { name: '已核对订单状态，允许新订单预览' }).click();
+    assert.equal(
+      await page.getByRole('button', { name: '预览订单', exact: true }).isDisabled(),
+      false,
+    );
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((item) => item.command === 'okx_place_order').length,
+      ),
+      1,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('pre-send provider failure remains actionable and is not treated as an unknown submission', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.evaluate(() => {
+      window.nextOrderError = 'network_failure';
+    });
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel(/委托数量.*BTC/).fill('0.001');
+    await page.getByRole('button', { name: '预览订单', exact: true }).click();
+    await page.getByRole('button', { name: '确认并下单', exact: true }).click();
+    const review = page.getByRole('dialog', { name: '确认 OKX 订单' });
+    await review.getByText(/无法连接 OKX/).waitFor();
+    assert.equal(await page.getByLabel('待核对客户订单号').count(), 0);
+    assert.equal(await page.getByRole('button', { name: '查询此订单状态' }).count(), 0);
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((call) => call.command === 'okx_place_order').length,
+      ),
+      1,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('selected incomplete contract order needs cancel confirmation and passes its exact IDs', async () => {
+  const page = await open(false);
+  try {
+    await saveOkxTradeKey(page, 'okx_trade_demo');
+    await page.getByRole('tab', { name: '交易下单', exact: true }).click();
+    await page.getByLabel('产品类型', { exact: true }).selectOption('SWAP');
+    await page.getByLabel('交易品种', { exact: true }).fill('BTC-USDT-SWAP');
+    await page.getByRole('button', { name: '读取交易上下文', exact: true }).click();
+    const pending = page.getByRole('region', { name: '当前挂单', exact: true });
+    await pending.getByText(/987654/).waitFor();
+    await pending.getByRole('button', { name: '撤单', exact: true }).click();
+    await page.getByRole('dialog', { name: '确认撤单' }).waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'okx_cancel_order'),
+      ),
+      false,
+    );
+    await page.getByRole('button', { name: '确认撤销订单', exact: true }).click();
+    await page.getByText('撤单请求已接受', { exact: true }).waitFor();
+    const cancel = await page.evaluate(() =>
+      window.workflowCalls.find((call) => call.command === 'okx_cancel_order'),
+    );
+    assert.equal(cancel.args.instId, 'BTC-USDT-SWAP');
+    assert.equal(cancel.args.ordId, '987654');
+    assert.equal(
+      await page.evaluate(
+        () => window.workflowCalls.filter((item) => item.command === 'okx_trade_context').length,
+      ),
+      2,
     );
   } finally {
     await page.close();
