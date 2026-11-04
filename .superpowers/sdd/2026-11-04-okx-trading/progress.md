@@ -47,3 +47,4 @@
 - Task 4: complete locally; commit and independent review pending. Report: `.superpowers/sdd/2026-11-04-okx-trading/task-4-report.md`.
 - Task 4: local preflight rejects malformed draft shapes before network; product steps and close capacity are validated against fresh OKX metadata/context. A residual service error or malformed order acknowledgment yields `unknown` plus `clOrdId`; known per-order `sCode` is returned as rejected with its message.
 - Task 4: live and demo credential isolation, one POST, unknown reconciliation, fixed detail/history/cancel endpoints, and malformed ID rejection have local-server tests. No order data is persisted.
+- Task 4 follow-up: all five commands recheck session state after background work, and pending rows expose validated `ord_id` plus `live`/`partially_filled` state; focused crypto/connector tests pass.

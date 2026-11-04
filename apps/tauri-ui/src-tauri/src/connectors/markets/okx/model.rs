@@ -202,6 +202,8 @@ pub(crate) struct TradePosition {
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PendingOrder {
+    pub ord_id: String,
+    pub state: String,
     pub inst_id: String,
     pub side: OrderSide,
     pub pos_side: Option<PositionSide>,

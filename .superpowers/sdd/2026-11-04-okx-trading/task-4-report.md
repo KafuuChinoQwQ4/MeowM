@@ -60,3 +60,23 @@ Other argument shapes are `okx_trade_context({ instType, instId, environment })`
 - `apps/tauri-ui/src-tauri/src/lib.rs`
 
 The Rust build reports only the two pre-existing ledger dead-code warnings (`create_platform` and `save_entry`).
+
+## Focused follow-up
+
+The five trade commands now pass every background result through the same post-request gate. It always checks that the ledger remains unlocked and its import generation is unchanged, including when the exchange call returns an error. On a failed post-check, order placement returns `order_result_requires_reconciliation:<clOrdId>` and cancellation returns `order_cancel_requires_reconciliation:<ordId>`; successful post-checks preserve the original exchange result. The command paths still release the ledger lock before network work.
+
+`PendingOrder` now includes `ord_id` and `state` in its snake_case IPC JSON. The parser accepts only non-empty decimal `ordId` values and pending states `live` or `partially_filled`, so the UI can target the selected open row for cancellation and cannot offer completed, canceled, malformed, or unknown rows.
+
+### Follow-up TDD evidence
+
+- **RED:** The session-ordering regression initially failed to compile because the shared result gate did not exist. The pending context assertion also failed to compile because `PendingOrder.ord_id` was not present.
+- **RED:** The pending-state regression failed to compile because `PendingOrder.state` was not present.
+- **GREEN:** `exchange_results_are_always_gated_by_the_post_request_session_check` covers exchange error versus session error ordering, preserving provider errors after a successful session check, and preserving order/cancel reconciliation identifiers on failed post-checks. All five command paths call this shared gate.
+- **GREEN:** `pending_order_parser_rejects_missing_or_unsafe_exchange_order_ids` rejects missing, empty, non-numeric, and traversal-like IDs. `pending_order_parser_accepts_only_live_or_partially_filled_state` accepts both documented pending states and rejects absent, terminal, and unknown states.
+
+### Follow-up verification
+
+- `cargo test -p ledger-tauri-ui connectors::markets::okx -- --nocapture` — 38 passed, 0 failed, 1 ignored.
+- `cargo test -p ledger-tauri-ui crypto -- --nocapture` — 2 passed, 0 failed.
+- `cargo fmt --all -- --check` and `git diff --check` — passed.
+- No live or demo credentials or exchange requests were used. Build output contains only the two existing ledger dead-code warnings noted above.

@@ -348,6 +348,11 @@ pub(super) fn parse_position(row: &serde_json::Value) -> Result<TradePosition, P
 pub(super) fn parse_pending_order(
     row: &serde_json::Value,
 ) -> Result<PendingOrder, ProviderErrorCode> {
+    let ord_id = super::model::id(row, "ordId")?;
+    let state = super::model::text(row, "state")?;
+    if !matches!(state.as_str(), "live" | "partially_filled") {
+        return Err(ProviderErrorCode::InvalidResponse);
+    }
     let inst_id = super::model::text(row, "instId")?;
     if !valid_instrument_id_from_string(&inst_id) {
         return Err(ProviderErrorCode::InvalidResponse);
@@ -373,6 +378,8 @@ pub(super) fn parse_pending_order(
         .filter(|value| !value.starts_with('-'))
         .ok_or(ProviderErrorCode::InvalidResponse)?;
     Ok(PendingOrder {
+        ord_id,
+        state,
         inst_id,
         side,
         pos_side,

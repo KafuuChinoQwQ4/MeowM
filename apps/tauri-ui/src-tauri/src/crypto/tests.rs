@@ -1,4 +1,4 @@
-use super::commands::commit_import;
+use super::commands::{commit_import, complete_exchange_result};
 use crate::{connectors::markets::okx::model::HistoryPage, ledger::Ledger};
 use ledger_domain::crypto::{CryptoLeg, CryptoRecord};
 
@@ -51,5 +51,37 @@ fn outstanding_import_cannot_write_after_its_session_is_invalidated() {
             .unwrap()
             .1,
         1
+    );
+}
+
+#[test]
+fn exchange_results_are_always_gated_by_the_post_request_session_check() {
+    assert_eq!(
+        complete_exchange_result::<()>(
+            Err("provider_failure".into()),
+            Err("crypto_session_changed".into()),
+            None,
+        ),
+        Err("crypto_session_changed".into())
+    );
+    assert_eq!(
+        complete_exchange_result::<()>(Err("provider_failure".into()), Ok(()), None),
+        Err("provider_failure".into())
+    );
+    assert_eq!(
+        complete_exchange_result::<()>(
+            Err("provider_failure".into()),
+            Err("ledger_locked".into()),
+            Some("order_result_requires_reconciliation:client123".into()),
+        ),
+        Err("order_result_requires_reconciliation:client123".into())
+    );
+    assert_eq!(
+        complete_exchange_result::<()>(
+            Err("provider_failure".into()),
+            Err("ledger_locked".into()),
+            Some("order_cancel_requires_reconciliation:123456".into()),
+        ),
+        Err("order_cancel_requires_reconciliation:123456".into())
     );
 }

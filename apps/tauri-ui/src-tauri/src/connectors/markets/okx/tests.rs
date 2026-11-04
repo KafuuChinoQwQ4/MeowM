@@ -575,9 +575,56 @@ fn malicious_detail_and_cancel_identifiers_fail_before_network_use() {
 
 fn pending_order_row(ord_id: &str) -> serde_json::Value {
     serde_json::json!({
-        "ordId":ord_id, "instId":"BTC-USDT-SWAP", "side":"sell", "posSide":"net",
+        "ordId":ord_id, "state":"live", "instId":"BTC-USDT-SWAP", "side":"sell", "posSide":"net",
         "tdMode":"cross", "reduceOnly":"true", "sz":"1", "accFillSz":"0"
     })
+}
+
+#[test]
+fn pending_order_parser_rejects_missing_or_unsafe_exchange_order_ids() {
+    let mut missing = pending_order_row("123");
+    missing.as_object_mut().unwrap().remove("ordId");
+    for row in [
+        missing,
+        pending_order_row(""),
+        pending_order_row("123x"),
+        pending_order_row("../cancel-all"),
+    ] {
+        assert_eq!(
+            super::order_validation::parse_pending_order(&row),
+            Err(ProviderErrorCode::InvalidResponse)
+        );
+    }
+}
+
+#[test]
+fn pending_order_parser_accepts_only_live_or_partially_filled_state() {
+    let mut row = pending_order_row("123");
+    assert_eq!(
+        super::order_validation::parse_pending_order(&row)
+            .unwrap()
+            .state,
+        "live"
+    );
+    row["state"] = serde_json::json!("partially_filled");
+    assert_eq!(
+        super::order_validation::parse_pending_order(&row)
+            .unwrap()
+            .state,
+        "partially_filled"
+    );
+    for state in ["filled", "canceled", "mystery"] {
+        row["state"] = serde_json::json!(state);
+        assert_eq!(
+            super::order_validation::parse_pending_order(&row),
+            Err(ProviderErrorCode::InvalidResponse)
+        );
+    }
+    row.as_object_mut().unwrap().remove("state");
+    assert_eq!(
+        super::order_validation::parse_pending_order(&row),
+        Err(ProviderErrorCode::InvalidResponse)
+    );
 }
 
 fn pending_cap_responses(
@@ -795,6 +842,8 @@ fn net_mode_closes_are_reduce_only_and_cannot_exceed_remaining_position() {
         margin_mode: TradeMode::Isolated,
     });
     context.pending_orders.push(PendingOrder {
+        ord_id: "200".into(),
+        state: "live".into(),
         inst_id: "BTC-USDT-SWAP".into(),
         side: OrderSide::Sell,
         pos_side: Some(PositionSide::Net),
@@ -1000,7 +1049,7 @@ fn demo_trade_context_reads_account_mode_positions_pending_closes_and_leverage()
         ),
         (
             "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100",
-            serde_json::json!({"code":"0","data":[{"ordId":"200","instId":"BTC-USDT-SWAP","side":"sell","posSide":"net","tdMode":"cross","reduceOnly":"true","sz":"3","accFillSz":"1.5"}]}),
+            serde_json::json!({"code":"0","data":[{"ordId":"200","state":"partially_filled","instId":"BTC-USDT-SWAP","side":"sell","posSide":"net","tdMode":"cross","reduceOnly":"true","sz":"3","accFillSz":"1.5"}]}),
         ),
         (
             "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=cross",
@@ -1022,6 +1071,8 @@ fn demo_trade_context_reads_account_mode_positions_pending_closes_and_leverage()
     assert_eq!(context.acct_lv, "2");
     assert_eq!(context.pos_mode, PositionMode::Net);
     assert_eq!(context.positions[0].quantity, "2");
+    assert_eq!(context.pending_orders[0].ord_id, "200");
+    assert_eq!(context.pending_orders[0].state, "partially_filled");
     assert_eq!(context.pending_orders[0].remaining_size, "1.5");
     assert_eq!(context.leverage.len(), 2);
     assert_eq!(context.leverage[0].pos_side, Some(PositionSide::Net));

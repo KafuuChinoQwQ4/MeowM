@@ -22,6 +22,17 @@ fn ensure_generation(ledger: &crate::ledger::Ledger, expected: u64) -> Result<()
     Ok(())
 }
 
+pub(super) fn complete_exchange_result<T>(
+    result: Result<T, String>,
+    session_check: Result<(), String>,
+    reconciliation_error: Option<String>,
+) -> Result<T, String> {
+    if let Err(error) = session_check {
+        return Err(reconciliation_error.unwrap_or(error));
+    }
+    result
+}
+
 fn provider_error(error: ProviderErrorCode) -> String {
     serde_json::to_value(error)
         .ok()
@@ -155,11 +166,9 @@ pub(crate) async fn okx_trade_context(
             environment,
         )
     })
-    .await?;
-    access(ledger, |l| {
-        ensure_generation(l, generation)?;
-        Ok(result)
-    })
+    .await;
+    let session_check = access(ledger, |l| ensure_generation(l, generation));
+    complete_exchange_result(result, session_check, None)
 }
 
 #[tauri::command]
@@ -174,15 +183,17 @@ pub(crate) async fn okx_place_order(
     let result = background(move || {
         OkxOrderService::new(OkxClient::default(), credentials).place_order(draft)
     })
-    .await?;
-    if access(ledger, |l| ensure_generation(l, generation)).is_err() {
-        // A write may already have reached OKX. Preserve its only reconciliation
-        // key if the local session was locked or invalidated while in flight.
-        return Err(format!(
+    .await;
+    let session_check = access(ledger, |l| ensure_generation(l, generation));
+    // A write may already have reached OKX. Preserve its only reconciliation
+    // key if the local session was locked or invalidated while in flight.
+    complete_exchange_result(
+        result,
+        session_check,
+        Some(format!(
             "order_result_requires_reconciliation:{client_order_id}"
-        ));
-    }
-    Ok(result)
+        )),
+    )
 }
 
 #[tauri::command]
@@ -202,11 +213,9 @@ pub(crate) async fn okx_order_detail(
             environment,
         )
     })
-    .await?;
-    access(ledger, |l| {
-        ensure_generation(l, generation)?;
-        Ok(result)
-    })
+    .await;
+    let session_check = access(ledger, |l| ensure_generation(l, generation));
+    complete_exchange_result(result, session_check, None)
 }
 
 #[tauri::command]
@@ -222,11 +231,9 @@ pub(crate) async fn okx_order_history(
         OkxOrderService::new(OkxClient::default(), credentials)
             .order_history(inst_type, environment)
     })
-    .await?;
-    access(ledger, |l| {
-        ensure_generation(l, generation)?;
-        Ok(result)
-    })
+    .await;
+    let session_check = access(ledger, |l| ensure_generation(l, generation));
+    complete_exchange_result(result, session_check, None)
 }
 
 #[tauri::command]
@@ -247,11 +254,13 @@ pub(crate) async fn okx_cancel_order(
             environment,
         )
     })
-    .await?;
-    if access(ledger, |l| ensure_generation(l, generation)).is_err() {
-        return Err(format!("order_cancel_requires_reconciliation:{order_id}"));
-    }
-    Ok(result)
+    .await;
+    let session_check = access(ledger, |l| ensure_generation(l, generation));
+    complete_exchange_result(
+        result,
+        session_check,
+        Some(format!("order_cancel_requires_reconciliation:{order_id}")),
+    )
 }
 
 #[derive(Serialize)]
