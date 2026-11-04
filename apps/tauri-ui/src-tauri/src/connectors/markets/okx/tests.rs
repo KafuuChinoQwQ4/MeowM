@@ -118,6 +118,13 @@ fn credentials() -> OkxCredentials<'static> {
     }
 }
 
+fn pending_order_row(ord_id: &str) -> serde_json::Value {
+    serde_json::json!({
+        "ordId":ord_id, "instId":"BTC-USDT-SWAP", "side":"sell", "posSide":"net",
+        "tdMode":"cross", "reduceOnly":"true", "sz":"1", "accFillSz":"0"
+    })
+}
+
 fn spot_spec() -> InstrumentSpec {
     InstrumentSpec {
         inst_type: OrderInstrumentType::Spot,
@@ -477,8 +484,8 @@ fn demo_trade_context_reads_account_mode_positions_pending_closes_and_leverage()
             serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","pos":"2","posSide":"net","mgnMode":"cross"}]}),
         ),
         (
-            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP",
-            serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","side":"sell","posSide":"net","tdMode":"cross","reduceOnly":"true","sz":"3","accFillSz":"1.5"}]}),
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100",
+            serde_json::json!({"code":"0","data":[{"ordId":"200","instId":"BTC-USDT-SWAP","side":"sell","posSide":"net","tdMode":"cross","reduceOnly":"true","sz":"3","accFillSz":"1.5"}]}),
         ),
         (
             "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=cross",
@@ -510,6 +517,24 @@ fn demo_trade_context_reads_account_mode_positions_pending_closes_and_leverage()
 }
 
 #[test]
+fn spot_trade_context_skips_contract_pending_size_accounting() {
+    let (client, handle) = demo_server(vec![(
+        "/api/v5/account/config",
+        serde_json::json!({"code":"0","data":[{"acctLv":"2","posMode":"net_mode"}]}),
+    )]);
+    let context = client
+        .read_trade_context(
+            &credentials(),
+            OrderInstrumentType::Spot,
+            "BTC-USDT",
+            OkxEnvironment::Demo,
+        )
+        .unwrap();
+    assert!(context.pending_orders.is_empty());
+    handle.join().unwrap();
+}
+
+#[test]
 fn unavailable_optional_cross_leverage_does_not_block_trade_context() {
     let (client, handle) = demo_server(vec![
         (
@@ -521,7 +546,7 @@ fn unavailable_optional_cross_leverage_does_not_block_trade_context() {
             serde_json::json!({"code":"0","data":[]}),
         ),
         (
-            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP",
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100",
             serde_json::json!({"code":"0","data":[]}),
         ),
         (
@@ -543,6 +568,91 @@ fn unavailable_optional_cross_leverage_does_not_block_trade_context() {
         .unwrap();
     assert_eq!(context.leverage.len(), 1);
     assert_eq!(context.leverage[0].margin_mode, TradeMode::Isolated);
+    handle.join().unwrap();
+}
+
+#[test]
+fn pending_orders_are_paginated_through_all_120_rows_for_close_validation() {
+    let first_page = (0..100)
+        .map(|index| pending_order_row(&(1099 - index).to_string()))
+        .collect::<Vec<_>>();
+    let second_page = (0..20)
+        .map(|index| pending_order_row(&(999 - index).to_string()))
+        .collect::<Vec<_>>();
+    let (client, handle) = demo_server(vec![
+        (
+            "/api/v5/account/config",
+            serde_json::json!({"code":"0","data":[{"acctLv":"2","posMode":"net_mode"}]}),
+        ),
+        (
+            "/api/v5/account/positions?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","pos":"200","posSide":"net","mgnMode":"cross"}]}),
+        ),
+        (
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100",
+            serde_json::json!({"code":"0","data":first_page}),
+        ),
+        (
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100&after=1000",
+            serde_json::json!({"code":"0","data":second_page}),
+        ),
+        (
+            "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=cross",
+            serde_json::json!({"code":"0","data":[]}),
+        ),
+        (
+            "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=isolated",
+            serde_json::json!({"code":"0","data":[]}),
+        ),
+    ]);
+    let context = client
+        .read_trade_context(
+            &credentials(),
+            OrderInstrumentType::Swap,
+            "BTC-USDT-SWAP",
+            OkxEnvironment::Demo,
+        )
+        .unwrap();
+    assert_eq!(context.pending_orders.len(), 120);
+    let mut boundary_close = swap_draft(PositionAction::CloseLong, "80");
+    boundary_close.td_mode = Some(TradeMode::Cross);
+    assert!(build_order(boundary_close, &swap_spec(), &context).is_ok());
+    let mut close = swap_draft(PositionAction::CloseLong, "81");
+    close.td_mode = Some(TradeMode::Cross);
+    assert!(build_order(close, &swap_spec(), &context).is_err());
+    handle.join().unwrap();
+}
+
+#[test]
+fn pending_order_pagination_rejects_a_repeated_cursor_page() {
+    let first_page = (0..100)
+        .map(|index| pending_order_row(&(1000 - index).to_string()))
+        .collect::<Vec<_>>();
+    let (client, handle) = demo_server(vec![
+        (
+            "/api/v5/account/config",
+            serde_json::json!({"code":"0","data":[{"acctLv":"2","posMode":"net_mode"}]}),
+        ),
+        (
+            "/api/v5/account/positions?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[]}),
+        ),
+        (
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100",
+            serde_json::json!({"code":"0","data":first_page}),
+        ),
+        (
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP&limit=100&after=901",
+            serde_json::json!({"code":"0","data":[pending_order_row("901")]}),
+        ),
+    ]);
+    let result = client.read_trade_context(
+        &credentials(),
+        OrderInstrumentType::Swap,
+        "BTC-USDT-SWAP",
+        OkxEnvironment::Demo,
+    );
+    assert_eq!(result.unwrap_err(), ProviderErrorCode::InvalidResponse);
     handle.join().unwrap();
 }
 

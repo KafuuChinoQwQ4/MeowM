@@ -21,6 +21,8 @@ use self::model::OkxEnvironment;
 const API_BASE: &str = "https://openapi.okx.com";
 const BALANCE_PATH: &str = "/api/v5/account/balance";
 const TRADE_POST_PATHS: &[&str] = &["/api/v5/trade/order", "/api/v5/trade/cancel-order"];
+const PENDING_ORDERS_PAGE_SIZE: usize = 100;
+const MAX_PENDING_ORDERS_PER_INSTRUMENT: usize = 500;
 
 pub(crate) struct OkxCredentials<'a> {
     pub api_key: &'a str,
@@ -236,23 +238,14 @@ impl OkxClient {
                 .collect::<Result<Vec<_>, _>>()?
         };
 
-        let pending_params = [
-            ("instType", inst_type.as_okx().to_string()),
-            ("instId", inst_id.to_string()),
-        ];
-        let pending_rows: Vec<serde_json::Value> = self.get_with_environment(
-            "/api/v5/trade/orders-pending",
-            &pending_params,
-            Some(credentials),
-            environment,
-        )?;
-        if pending_rows.len() > 1000 {
-            return Err(ProviderErrorCode::InvalidResponse);
-        }
-        let pending_orders = pending_rows
-            .iter()
-            .map(order_validation::parse_pending_order)
-            .collect::<Result<Vec<_>, _>>()?;
+        // Pending-close accounting is used only for contracts. OKX reports
+        // spot `accFillSz` in base currency while `sz` may use quote currency,
+        // so a generic subtraction would not produce a meaningful remainder.
+        let pending_orders = if inst_type == OrderInstrumentType::Spot {
+            Vec::new()
+        } else {
+            self.read_pending_orders(credentials, inst_type, inst_id, environment)?
+        };
 
         let mut leverage = Vec::new();
         if inst_type != OrderInstrumentType::Spot {
@@ -305,6 +298,75 @@ impl OkxClient {
             pending_orders,
             leverage,
         })
+    }
+
+    fn read_pending_orders(
+        &self,
+        credentials: &OkxCredentials<'_>,
+        inst_type: model::OrderInstrumentType,
+        inst_id: &str,
+        environment: OkxEnvironment,
+    ) -> Result<Vec<model::PendingOrder>, ProviderErrorCode> {
+        use std::collections::HashSet;
+
+        let mut orders = Vec::new();
+        let mut seen_order_ids = HashSet::new();
+        let mut after: Option<String> = None;
+
+        // OKX returns at most 100 rows per page and caps pending orders at 500
+        // for one trading symbol. Both bounds keep this read finite.
+        for _ in 0..(MAX_PENDING_ORDERS_PER_INSTRUMENT / PENDING_ORDERS_PAGE_SIZE) {
+            let mut params = vec![
+                ("instType", inst_type.as_okx().to_string()),
+                ("instId", inst_id.to_string()),
+                ("limit", PENDING_ORDERS_PAGE_SIZE.to_string()),
+            ];
+            if let Some(cursor) = after.as_ref() {
+                params.push(("after", cursor.clone()));
+            }
+            let rows: Vec<serde_json::Value> = self.get_with_environment(
+                "/api/v5/trade/orders-pending",
+                &params,
+                Some(credentials),
+                environment,
+            )?;
+            if rows.len() > PENDING_ORDERS_PAGE_SIZE
+                || orders.len().saturating_add(rows.len()) > MAX_PENDING_ORDERS_PER_INSTRUMENT
+            {
+                return Err(ProviderErrorCode::InvalidResponse);
+            }
+            if rows.is_empty() {
+                break;
+            }
+
+            let mut page_order_ids = Vec::with_capacity(rows.len());
+            for row in &rows {
+                let order_id = model::id(row, "ordId")?;
+                if !seen_order_ids.insert(order_id.clone()) {
+                    // Duplicate IDs indicate a repeated/overlapping page. Do not
+                    // use a partial list to authorize a close order.
+                    return Err(ProviderErrorCode::InvalidResponse);
+                }
+                page_order_ids.push(order_id);
+                orders.push(order_validation::parse_pending_order(row)?);
+            }
+
+            if rows.len() < PENDING_ORDERS_PAGE_SIZE
+                || orders.len() == MAX_PENDING_ORDERS_PER_INSTRUMENT
+            {
+                break;
+            }
+
+            let next_cursor = page_order_ids
+                .last()
+                .cloned()
+                .ok_or(ProviderErrorCode::InvalidResponse)?;
+            if after.as_ref() == Some(&next_cursor) {
+                return Err(ProviderErrorCode::InvalidResponse);
+            }
+            after = Some(next_cursor);
+        }
+        Ok(orders)
     }
 }
 
