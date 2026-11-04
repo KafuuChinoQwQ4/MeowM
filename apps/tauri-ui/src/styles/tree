@@ -13,7 +13,7 @@
 - `index.css` — 按职责组合界面样式，包含汇率曲线和 API 连接卡片样式。
 - `navigation.css` — 导航菜单、遮罩和返回按钮样式。
 - `notifications.css` — Notification permission and source settings layout.
-- `okx.css` — OKX 工作区、移动端页签、蜡烛图、资产及流水卡片布局样式。
+- `okx.css` — OKX 行情、资产、流水、移动端页签和交易订单表单布局样式。
 - `pending.css` — 待确认筛选、批量操作与重复详情样式。
 - `privacy.css` — 锁屏与隐私设置的响应式样式。
 - `providerConnections.css` — 支付与市场 API 连接卡片、私钥遮蔽表单及只读结果样式。

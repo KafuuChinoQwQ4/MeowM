@@ -41,4 +41,5 @@
 - `ledger-domain/src/crypto.rs` 定义独立于法币 `Money` 的加密数量、双资产转换腿、来源记录和核对状态。数量保留十进制字符串，成交实际报价资产使用 tradeQuoteCcy 以兼容统一 USD/USDC 订单簿，报价腿由 checked i128 十进制乘法计算，溢出明确拒绝。
 - Schema 15 的 `crypto_watchlist` 和 `crypto_records` 保存自选及带 OKX UID 的加密核对记录；7 天和归档账单共用来源 ID。重导保留人工状态，已确认记录不被远端覆盖，未完成充提不能确认；不写入法币 transactions/postings。新增表纳入可信快照、加密备份、恢复校验和全量清理，旧版本快照逐级迁移。
 - `connectors/markets/okx/` 将公共行情、账户与估值、分页历史和合约分离，沿用有界 HTTP 客户端和完整查询串 HMAC-SHA256 签名。`src-tauri/src/crypto/commands.rs` 在后台请求前和提交结果时检查应用锁及 import_generation，会话被锁定、清空、恢复或更换 OKX 凭据后旧请求不可提交，历史分页绑定 UID，网络不持账本互斥锁，私有请求复用系统凭据存储。
-- React `features/markets/MarketsPage.tsx` 按交易所凭据状态分层展示目录、API 设置和对应工作区；切换交易所时回到列表，当前工作区只挂载已选平台。`features/markets/okx/` 提供公共行情、自选和 SVG K 线、资产总览、独立加密流水与合约表现。分页需显式继续读取；持仓净盈亏按结算币种精确相加，费用仅作为已经包含在净盈亏中的分项展示。行情采用手动 REST 刷新，不依赖 API Key；没有真实账户凭据的协议测试不能替代私人账户联调。
+- `connectors/markets/okx/orders.rs` 只使用固定的订单、查询、历史和撤单端点；下单前按实时产品规则和账户持仓校验，模拟盘与实盘各自读取独立 Trade 凭据。未知下单结果保留同一 `clOrdId` 供查询，不自动重试，也不保存到账本。
+- React `features/markets/MarketsPage.tsx` 按交易所凭据状态分层展示目录、API 设置和对应工作区；切换交易所时回到列表，当前工作区只挂载已选平台。`features/markets/okx/` 提供免密公共行情、自选和 SVG K 线、资产总览、独立加密流水、合约表现及逐笔确认的现货/合约交易面板。只读、模拟盘交易和实盘交易凭据分开保存；交易默认使用模拟盘，实盘有独立风险提示和二次确认。分页需显式继续读取；持仓净盈亏按结算币种精确相加，费用仅作为已经包含在净盈亏中的分项展示。行情采用手动 REST 刷新，不依赖 API Key；没有真实账户凭据的协议测试不能替代私人账户联调。

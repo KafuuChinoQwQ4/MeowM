@@ -6,7 +6,7 @@
 - `budgets.ts` — 预算创建、编辑、停用及提醒的 IPC 契约。
 - `client.ts` — 唯一 Tauri invoke 入口。
 - `connections.ts` — 支付商家、交易所和 iFinD 连接凭据及只读测试结果的类型化 IPC 客户端。
-- `crypto.ts` — OKX 行情、账户、加密流水与合约表现的类型化 API。
+- `crypto.ts` — OKX 行情、私有资产、账单流水、合约表现及交易订单的类型化 IPC。
 - `data.ts` — 备份、恢复预览和导出的类型化 IPC 客户端。
 - `entries.ts` — 含撤销状态的分页查询、分类及待确认操作的类型与 IPC 接口。
 - `exchangeRates.ts` — 本机汇率 IPC 客户端，并以双方共同日期构造精确货币对历史。
