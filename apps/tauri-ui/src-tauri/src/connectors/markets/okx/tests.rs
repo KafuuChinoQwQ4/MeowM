@@ -1,9 +1,34 @@
+use super::model::{OkxEnvironment, OrderAcknowledgement};
 use super::*;
-use crate::connectors::payments::agent;
+use crate::connectors::payments::{MAX_JSON_BYTES, agent};
 use std::{
     io::{Read, Write},
-    net::TcpListener,
+    net::{TcpListener, TcpStream},
 };
+
+fn read_request(stream: &mut TcpStream) -> (String, Vec<u8>) {
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(3)))
+        .unwrap();
+    let mut header_bytes = Vec::new();
+    let mut byte = [0u8];
+    while !header_bytes.ends_with(b"\r\n\r\n") {
+        stream.read_exact(&mut byte).unwrap();
+        header_bytes.push(byte[0]);
+    }
+    let header = String::from_utf8(header_bytes).unwrap();
+    let content_length = header
+        .lines()
+        .find_map(|line| {
+            line.split_once(':')
+                .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                .and_then(|(_, value)| value.trim().parse::<usize>().ok())
+        })
+        .unwrap_or_default();
+    let mut body = vec![0; content_length];
+    stream.read_exact(&mut body).unwrap();
+    (header, body)
+}
 
 fn server(
     responses: Vec<(&'static str, serde_json::Value)>,
@@ -63,6 +88,174 @@ fn credentials() -> OkxCredentials<'static> {
         secret_key: "secret",
         passphrase: "test-passphrase",
     }
+}
+
+#[derive(serde::Serialize)]
+struct TestOrder {
+    #[serde(rename = "instId")]
+    inst_id: &'static str,
+    #[serde(rename = "tdMode")]
+    trade_mode: &'static str,
+    #[serde(rename = "clOrdId")]
+    client_order_id: &'static str,
+    side: &'static str,
+    #[serde(rename = "ordType")]
+    order_type: &'static str,
+    sz: &'static str,
+}
+
+fn post_server(responses: Vec<Vec<u8>>) -> (OkxClient, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let handle = std::thread::spawn(move || {
+        for body in responses {
+            let (mut stream, _) = listener.accept().unwrap();
+            let (headers, _) = read_request(&mut stream);
+            assert!(headers.starts_with("POST /api/v5/trade/order HTTP/1.1\r\n"));
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            )
+            .unwrap();
+            stream.write_all(&body).unwrap();
+        }
+    });
+    (OkxClient::for_test(agent(), endpoint), handle)
+}
+
+#[test]
+fn signed_order_post_uses_exact_body_and_demo_header() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let order = TestOrder {
+        inst_id: "BTC-USDT",
+        trade_mode: "cash",
+        client_order_id: "client123",
+        side: "buy",
+        order_type: "market",
+        sz: "100.00",
+    };
+    let expected_body = serde_json::to_vec(&order).unwrap();
+    let server = std::thread::spawn(move || {
+        for (environment, response_body) in [
+            (
+                OkxEnvironment::Demo,
+                r#"{"code":"0","data":[{"ordId":"42","clOrdId":"client123","sCode":"0","sMsg":""}],"msg":""}"#,
+            ),
+            (
+                OkxEnvironment::Production,
+                r#"{"code":"0","data":[{"ordId":"43","clOrdId":"client123","sCode":"51008","sMsg":"Order rejected"}],"msg":""}"#,
+            ),
+        ] {
+            let (mut stream, _) = listener.accept().unwrap();
+            let (headers, body) = read_request(&mut stream);
+            assert!(headers.starts_with("POST /api/v5/trade/order HTTP/1.1\r\n"));
+            assert!(
+                headers
+                    .lines()
+                    .any(|line| { line.eq_ignore_ascii_case("content-type: application/json") })
+            );
+            assert_eq!(body, expected_body);
+            let timestamp = header_value(&headers, "OK-ACCESS-TIMESTAMP");
+            let mut prehash = format!("{timestamp}POST/api/v5/trade/order").into_bytes();
+            prehash.extend_from_slice(&body);
+            assert_eq!(
+                header_value(&headers, "OK-ACCESS-SIGN"),
+                hmac_base64(b"secret", &prehash).unwrap()
+            );
+            assert_eq!(header_value(&headers, "OK-ACCESS-KEY"), "test-key");
+            match environment {
+                OkxEnvironment::Demo => {
+                    assert_eq!(header_value(&headers, "x-simulated-trading"), "1")
+                }
+                OkxEnvironment::Production => {
+                    assert!(
+                        !headers
+                            .to_ascii_lowercase()
+                            .contains("x-simulated-trading:")
+                    )
+                }
+            }
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body
+            )
+            .unwrap();
+        }
+    });
+    let client = OkxClient::for_test(agent(), endpoint);
+    let demo_ack: Vec<OrderAcknowledgement> = client
+        .post(
+            "/api/v5/trade/order",
+            &order,
+            &credentials(),
+            OkxEnvironment::Demo,
+        )
+        .unwrap();
+    assert_eq!(demo_ack[0].order_id, "42");
+    assert_eq!(demo_ack[0].client_order_id, "client123");
+    assert_eq!(demo_ack[0].code, "0");
+    assert_eq!(demo_ack[0].message, "");
+
+    let live_ack: Vec<OrderAcknowledgement> = client
+        .post(
+            "/api/v5/trade/order",
+            &order,
+            &credentials(),
+            OkxEnvironment::Production,
+        )
+        .unwrap();
+    assert_eq!(live_ack[0].code, "51008");
+    assert_eq!(live_ack[0].message, "Order rejected");
+    // A successful request envelope is only an acknowledgment, never a fill.
+    assert!(server.join().is_ok());
+}
+
+#[test]
+fn signed_post_fails_closed_for_exchange_errors_malformed_and_oversized_responses() {
+    let oversized = vec![b' '; MAX_JSON_BYTES as usize + 1];
+    let (client, server) = post_server(vec![
+        br#"{"code":"50113","msg":"invalid signature"}"#.to_vec(),
+        b"{invalid json".to_vec(),
+        oversized,
+    ]);
+    let order = TestOrder {
+        inst_id: "BTC-USDT",
+        trade_mode: "cash",
+        client_order_id: "client123",
+        side: "buy",
+        order_type: "market",
+        sz: "100.00",
+    };
+
+    for expected in [
+        ProviderErrorCode::InvalidCredentials,
+        ProviderErrorCode::InvalidResponse,
+        ProviderErrorCode::InvalidResponse,
+    ] {
+        let result = client.post::<Vec<OrderAcknowledgement>, _>(
+            "/api/v5/trade/order",
+            &order,
+            &credentials(),
+            OkxEnvironment::Production,
+        );
+        assert_eq!(result.unwrap_err(), expected);
+    }
+    server.join().unwrap();
+}
+
+fn header_value<'a>(headers: &'a str, name: &str) -> &'a str {
+    headers
+        .lines()
+        .find_map(|line| {
+            line.split_once(':')
+                .filter(|(header, _)| header.eq_ignore_ascii_case(name))
+                .map(|(_, value)| value.trim())
+        })
+        .unwrap()
 }
 
 #[test]

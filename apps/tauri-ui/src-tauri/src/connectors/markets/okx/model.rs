@@ -57,6 +57,27 @@ pub(crate) enum HistorySource {
     Deposits,
     Withdrawals,
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum OkxEnvironment {
+    Demo,
+    Production,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub(crate) struct OrderAcknowledgement {
+    /// Exchange order identifier assigned after request acceptance.
+    #[serde(rename = "ordId")]
+    pub order_id: String,
+    #[serde(rename = "clOrdId")]
+    pub client_order_id: String,
+    /// Per-order request result code; zero means accepted, not filled.
+    #[serde(rename = "sCode")]
+    pub code: String,
+    #[serde(rename = "sMsg")]
+    pub message: String,
+}
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct HistoryRequest {

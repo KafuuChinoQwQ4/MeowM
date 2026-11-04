@@ -4,7 +4,7 @@ use crate::connectors::model::{AssetBalance, ProviderErrorCode};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use chrono::{SecondsFormat, Utc};
 use hmac::{Hmac, Mac};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 use ureq::Agent;
 
@@ -15,9 +15,11 @@ pub(crate) mod model;
 mod positions;
 #[cfg(test)]
 mod tests;
+use self::model::OkxEnvironment;
 
 const API_BASE: &str = "https://openapi.okx.com";
 const BALANCE_PATH: &str = "/api/v5/account/balance";
+const TRADE_POST_PATHS: &[&str] = &["/api/v5/trade/order", "/api/v5/trade/cancel-order"];
 
 pub(crate) struct OkxCredentials<'a> {
     pub api_key: &'a str,
@@ -40,6 +42,42 @@ impl Default for OkxClient {
 }
 
 impl OkxClient {
+    fn post<T, B>(
+        &self,
+        path: &'static str,
+        body: &B,
+        credentials: &OkxCredentials<'_>,
+        environment: OkxEnvironment,
+    ) -> Result<T, ProviderErrorCode>
+    where
+        T: serde::de::DeserializeOwned,
+        B: Serialize + ?Sized,
+    {
+        if !TRADE_POST_PATHS.contains(&path) {
+            return Err(ProviderErrorCode::InvalidRequest);
+        }
+        let body = serde_json::to_vec(body).map_err(|_| ProviderErrorCode::InvalidRequest)?;
+        let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+        let mut prehash = format!("{timestamp}POST{path}").into_bytes();
+        prehash.extend_from_slice(&body);
+        let signature = hmac_base64(credentials.secret_key.as_bytes(), &prehash)?;
+        let url = format!("{}{path}", self.base_url.trim_end_matches('/'));
+        let mut request = self
+            .agent
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .header("OK-ACCESS-KEY", credentials.api_key)
+            .header("OK-ACCESS-SIGN", &signature)
+            .header("OK-ACCESS-TIMESTAMP", &timestamp)
+            .header("OK-ACCESS-PASSPHRASE", credentials.passphrase);
+        if environment == OkxEnvironment::Demo {
+            request = request.header("x-simulated-trading", "1");
+        }
+        let mut response = request.send(body.as_slice()).map_err(request_error)?;
+        let value = parse_json_response(&mut response, map_exchange_http_status)?;
+        parse_okx_envelope(value)
+    }
+
     fn get<T: serde::de::DeserializeOwned>(
         &self,
         path: &str,
@@ -70,20 +108,7 @@ impl OkxClient {
         }
         let mut response = request.call().map_err(request_error)?;
         let value = parse_json_response(&mut response, map_exchange_http_status)?;
-        let code = value
-            .get("code")
-            .and_then(serde_json::Value::as_str)
-            .ok_or(ProviderErrorCode::InvalidResponse)?;
-        if code != "0" {
-            return Err(map_okx_code(code));
-        }
-        serde_json::from_value(
-            value
-                .get("data")
-                .cloned()
-                .ok_or(ProviderErrorCode::InvalidResponse)?,
-        )
-        .map_err(|_| ProviderErrorCode::InvalidResponse)
+        parse_okx_envelope(value)
     }
     #[cfg(test)]
     pub(super) fn for_test(agent: Agent, base_url: String) -> Self {
@@ -116,6 +141,25 @@ impl OkxClient {
         }
         Ok(balances)
     }
+}
+
+fn parse_okx_envelope<T: serde::de::DeserializeOwned>(
+    value: serde_json::Value,
+) -> Result<T, ProviderErrorCode> {
+    let code = value
+        .get("code")
+        .and_then(serde_json::Value::as_str)
+        .ok_or(ProviderErrorCode::InvalidResponse)?;
+    if code != "0" {
+        return Err(map_okx_code(code));
+    }
+    serde_json::from_value(
+        value
+            .get("data")
+            .cloned()
+            .ok_or(ProviderErrorCode::InvalidResponse)?,
+    )
+    .map_err(|_| ProviderErrorCode::InvalidResponse)
 }
 
 fn hmac_base64(key: &[u8], message: &[u8]) -> Result<String, ProviderErrorCode> {
