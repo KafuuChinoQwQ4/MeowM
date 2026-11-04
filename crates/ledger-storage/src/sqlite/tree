@@ -6,6 +6,7 @@
 - `budgets.rs` — 预算持久化、唯一范围和停用分类的事务校验。
 - `classification.rs` — 分类与规则持久化及分类删除的关联保护。
 - `core_repository.rs` — 账户、交易、日末余额和来源仓储实现。
+- `crypto.rs` — 加密自选与流水的原子导入、去重、分页、人工核对和快照校验。
 - `diagnostics.rs` — 数据库诊断及审计数量查询。
 - `exchange_rates.rs` — 参考汇率精确十进制存储、币种校验、查询及同步状态仓储。
 - `feature_repository.rs` — 分页查询、跨页候选原子确认、版本编辑及隐私仓储实现。

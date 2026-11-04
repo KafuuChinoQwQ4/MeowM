@@ -40,7 +40,7 @@ impl BackupService {
         let plaintext = crypto::decrypt(data, password)?;
         let archive: Archive =
             serde_json::from_slice(&plaintext).map_err(|_| BackupError::InvalidData)?;
-        if archive.format_version != 1 || !(1..=14).contains(&archive.snapshot.schema_version) {
+        if archive.format_version != 1 || !(1..=15).contains(&archive.snapshot.schema_version) {
             return Err(BackupError::Version);
         }
         if archive.snapshot.fingerprint()? != archive.checksum
@@ -102,7 +102,7 @@ mod tests {
         let bytes = crypto::encrypt(&serde_json::to_vec(&a).unwrap(), "test-only-pass").unwrap();
         let checked = BackupService::inspect(&bytes, "test-only-pass").unwrap();
         assert_eq!(checked.info.schema_version, 3);
-        assert_eq!(checked.snapshot.schema_version, 14);
+        assert_eq!(checked.snapshot.schema_version, 15);
         let mut bytes = bytes;
         bytes[8] = 2;
         assert!(matches!(
@@ -116,10 +116,14 @@ mod tests {
         let repo = SqliteLedgerRepository::in_memory().unwrap();
         let mut data = serde_json::to_value(repo.snapshot().unwrap()).unwrap();
         data["schema_version"] = 13.into();
-        data["tables"]
-            .as_array_mut()
-            .unwrap()
-            .retain(|table| table["name"] != "transaction_fx_snapshots");
+        data["tables"].as_array_mut().unwrap().retain(|table| {
+            ![
+                "transaction_fx_snapshots",
+                "crypto_watchlist",
+                "crypto_records",
+            ]
+            .contains(&table["name"].as_str().unwrap())
+        });
         let snapshot: LedgerSnapshot = serde_json::from_value(data).unwrap();
         let archive = Archive {
             format_version: 1,
@@ -131,10 +135,10 @@ mod tests {
             crypto::encrypt(&serde_json::to_vec(&archive).unwrap(), "test-only-pass").unwrap();
         let checked = BackupService::inspect(&bytes, "test-only-pass").unwrap();
         assert_eq!(checked.info.schema_version, 13);
-        assert_eq!(checked.snapshot.schema_version, 14);
+        assert_eq!(checked.snapshot.schema_version, 15);
         let destination = SqliteLedgerRepository::in_memory().unwrap();
         let expected = destination.snapshot().unwrap().fingerprint().unwrap();
         BackupService::restore(&destination, &checked, expected).unwrap();
-        assert_eq!(destination.schema_version().unwrap(), 14);
+        assert_eq!(destination.schema_version().unwrap(), 15);
     }
 }

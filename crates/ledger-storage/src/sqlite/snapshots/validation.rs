@@ -34,6 +34,7 @@ impl SqliteLedgerRepository {
         self.list_categories()?;
         self.list_rules()?;
         self.validate_exchange_rate_snapshot()?;
+        self.validate_crypto_snapshot()?;
         for account in &accounts {
             for record in self.list_reconciliations(account.id)? {
                 let session = &record.session;

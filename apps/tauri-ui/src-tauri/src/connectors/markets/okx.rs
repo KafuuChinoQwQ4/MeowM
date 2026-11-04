@@ -8,16 +8,24 @@ use serde::Deserialize;
 use sha2::Sha256;
 use ureq::Agent;
 
+mod account;
+mod history;
+mod market;
+pub(crate) mod model;
+mod positions;
+#[cfg(test)]
+mod tests;
+
 const API_BASE: &str = "https://openapi.okx.com";
 const BALANCE_PATH: &str = "/api/v5/account/balance";
 
-pub(super) struct OkxCredentials<'a> {
+pub(crate) struct OkxCredentials<'a> {
     pub api_key: &'a str,
     pub secret_key: &'a str,
     pub passphrase: &'a str,
 }
 
-pub(super) struct OkxClient {
+pub(crate) struct OkxClient {
     agent: Agent,
     base_url: String,
 }
@@ -32,6 +40,51 @@ impl Default for OkxClient {
 }
 
 impl OkxClient {
+    fn get<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        params: &[(&str, String)],
+        credentials: Option<&OkxCredentials<'_>>,
+    ) -> Result<T, ProviderErrorCode> {
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .extend_pairs(params.iter().map(|(k, v)| (*k, v.as_str())))
+            .finish();
+        let request_path = if query.is_empty() {
+            path.to_string()
+        } else {
+            format!("{path}?{query}")
+        };
+        let url = format!("{}{request_path}", self.base_url.trim_end_matches('/'));
+        let mut request = self.agent.get(&url);
+        if let Some(credentials) = credentials {
+            let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
+            let signature = hmac_base64(
+                credentials.secret_key.as_bytes(),
+                format!("{timestamp}GET{request_path}").as_bytes(),
+            )?;
+            request = request
+                .header("OK-ACCESS-KEY", credentials.api_key)
+                .header("OK-ACCESS-SIGN", &signature)
+                .header("OK-ACCESS-TIMESTAMP", &timestamp)
+                .header("OK-ACCESS-PASSPHRASE", credentials.passphrase);
+        }
+        let mut response = request.call().map_err(request_error)?;
+        let value = parse_json_response(&mut response, map_exchange_http_status)?;
+        let code = value
+            .get("code")
+            .and_then(serde_json::Value::as_str)
+            .ok_or(ProviderErrorCode::InvalidResponse)?;
+        if code != "0" {
+            return Err(map_okx_code(code));
+        }
+        serde_json::from_value(
+            value
+                .get("data")
+                .cloned()
+                .ok_or(ProviderErrorCode::InvalidResponse)?,
+        )
+        .map_err(|_| ProviderErrorCode::InvalidResponse)
+    }
     #[cfg(test)]
     pub(super) fn for_test(agent: Agent, base_url: String) -> Self {
         Self { agent, base_url }
@@ -41,28 +94,10 @@ impl OkxClient {
         &self,
         credentials: &OkxCredentials<'_>,
     ) -> Result<Vec<AssetBalance>, ProviderErrorCode> {
-        let timestamp = Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true);
-        let prehash = format!("{timestamp}GET{BALANCE_PATH}");
-        let signature = hmac_base64(credentials.secret_key.as_bytes(), prehash.as_bytes())?;
-        let url = format!("{}{}", self.base_url.trim_end_matches('/'), BALANCE_PATH);
-        let mut response = self
-            .agent
-            .get(&url)
-            .header("OK-ACCESS-KEY", credentials.api_key)
-            .header("OK-ACCESS-SIGN", &signature)
-            .header("OK-ACCESS-TIMESTAMP", &timestamp)
-            .header("OK-ACCESS-PASSPHRASE", credentials.passphrase)
-            .call()
-            .map_err(request_error)?;
-        let value = parse_json_response(&mut response, map_exchange_http_status)?;
-        let envelope: OkxBalanceResponse =
-            serde_json::from_value(value).map_err(|_| ProviderErrorCode::InvalidResponse)?;
-        if envelope.code != "0" {
-            return Err(map_okx_code(&envelope.code));
-        }
+        let accounts: Vec<OkxAccountBalance> = self.get(BALANCE_PATH, &[], Some(credentials))?;
 
         let mut balances = Vec::new();
-        for account in envelope.data {
+        for account in accounts {
             for detail in account.details {
                 validate_currency(&detail.currency)?;
                 let nonzero =
@@ -109,12 +144,6 @@ pub(super) fn map_okx_code(code: &str) -> ProviderErrorCode {
         }
         _ => ProviderErrorCode::ProviderFailure,
     }
-}
-
-#[derive(Deserialize)]
-struct OkxBalanceResponse {
-    code: String,
-    data: Vec<OkxAccountBalance>,
 }
 
 #[derive(Deserialize)]

@@ -3,6 +3,7 @@ mod accounts;
 mod budgets;
 mod classification;
 mod core_repository;
+mod crypto;
 mod diagnostics;
 mod exchange_rates;
 mod feature_repository;
@@ -75,6 +76,7 @@ impl SqliteLedgerRepository {
         repo.apply_merchant_order_migration()?;
         repo.apply_exchange_rates_migration()?;
         repo.apply_transaction_fx_migration()?;
+        repo.apply_crypto_migration()?;
         repo.connection.execute_batch("CREATE TABLE IF NOT EXISTS platform_metadata (
             account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
             category TEXT NOT NULL CHECK(category IN ('wallet','bank','securities','exchange','cash','other'))

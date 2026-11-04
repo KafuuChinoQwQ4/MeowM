@@ -1,6 +1,6 @@
 mod binance;
 mod ifind;
-mod okx;
+pub(crate) mod okx;
 
 use crate::connectors::model::{
     ConnectionTestRequest, ConnectionTestSummary, CredentialInput, ProviderErrorCode, ProviderId,

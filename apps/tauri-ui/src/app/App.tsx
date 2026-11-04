@@ -19,7 +19,7 @@ import { ImportPanel } from '../features/import/ImportPanel';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { ExchangeRatesPage } from '../features/exchangeRates/ExchangeRatesPage';
 import { PaymentConnectionsPage } from '../features/connections/PaymentConnectionsPage';
-import { MarketsPage } from '../features/markets/MarketsPage';
+import { MarketsPage, type MarketRoute } from '../features/markets/MarketsPage';
 import { BudgetsPage } from '../features/budgets/BudgetsPage';
 import { NotificationsPage } from '../features/notifications/NotificationsPage';
 import { RecurringPage } from '../features/recurring/RecurringPage';
@@ -83,6 +83,7 @@ function UnlockedApp({
   const entryAccountId = allAccounts ? (accounts[0]?.id ?? '') : accountId;
   const [date, setDate] = useState(today);
   const [view, setView] = useState<View>('ledger');
+  const [marketRoute, setMarketRoute] = useState<MarketRoute>(null);
   const parent = parentView(view);
   const [reconciliationId, setReconciliationId] = useState('');
   const [notice, setNotice] = useState('');
@@ -101,6 +102,7 @@ function UnlockedApp({
   function selectView(next: View) {
     if (next === 'pending') setPendingSource(undefined);
     setReconciliationId('');
+    setMarketRoute(null);
     setNotice('');
     setView(next);
     setNavOpen(false);
@@ -125,9 +127,18 @@ function UnlockedApp({
           <button
             className="back-button"
             aria-label="返回上一级"
-            disabled={!navOpen && !parent && !(view === 'reconciliation' && reconciliationId)}
+            disabled={
+              !navOpen &&
+              !parent &&
+              !(view === 'reconciliation' && reconciliationId) &&
+              !(view === 'markets' && marketRoute)
+            }
             onClick={() => {
               if (navOpen) setNavOpen(false);
+              else if (view === 'markets' && marketRoute)
+                setMarketRoute(
+                  marketRoute.page === 'settings' ? { ...marketRoute, page: 'account' } : null,
+                );
               else if (view === 'reconciliation' && reconciliationId) setReconciliationId('');
               else if (parent) selectView(parent);
             }}
@@ -207,7 +218,9 @@ function UnlockedApp({
                 )}
                 {view === 'reports' && <ReportsPage accounts={accounts} revision={revision} />}
                 {view === 'exchange' && <ExchangeRatesPage />}
-                {view === 'markets' && <MarketsPage />}
+                {view === 'markets' && (
+                  <MarketsPage route={marketRoute} onNavigate={setMarketRoute} />
+                )}
                 {view === 'connections' && <PaymentConnectionsPage />}
                 {view === 'budgets' && (
                   <BudgetsPage accounts={accounts} revision={revision} onChanged={refresh} />

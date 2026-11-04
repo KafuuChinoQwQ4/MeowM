@@ -5,6 +5,6 @@
 - `binance.rs` — 币安现货账户余额签名读取与精确十进制校验。
 - `ifind.rs` — iFinD access token 内存缓存、过期刷新和实时行情读取。
 - `mod.rs` — 币安、欧易和 iFinD 只读 API 分发及安全 HTTP 响应处理。
-- `okx.rs` — 欧易账户余额 HMAC 签名读取与安全响应映射。
+- `okx.rs` — OKX 固定端点 GET 请求、完整查询串签名、错误映射及兼容余额测试。
 - `tests.rs` — 币安、欧易和 iFinD 签名、凭据缓存、行情解析与错误映射测试。
 - `tree` — 本目录直接文件的说明索引。

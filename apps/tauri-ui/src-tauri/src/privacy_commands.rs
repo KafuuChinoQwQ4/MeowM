@@ -57,6 +57,7 @@ pub fn privacy_unlock(state: State<'_, LedgerState>, password: String) -> Result
         .borrow_mut()
         .unlock(&password)
         .map_err(|e| e.to_string())?;
+    l.clear_import_preview();
     Ok(status(&l))
 }
 #[tauri::command]
@@ -194,6 +195,7 @@ pub fn privacy_delete_confirm(
             return Err(format!("请输入“{required}”确认"));
         }
         l.capture_session.replace(None);
+        l.clear_import_preview();
         let repo = l.repo()?;
         if session.scope == "all" {
             l.privacy
@@ -206,7 +208,6 @@ pub fn privacy_delete_confirm(
                 .delete_source_data(&repo, session.expected)
                 .map_err(|e| e.to_string())?;
         }
-        l.clear_import_preview();
         l.restore_preview.replace(None);
         Ok(status(l))
     })

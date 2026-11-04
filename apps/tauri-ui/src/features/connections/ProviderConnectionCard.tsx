@@ -15,6 +15,7 @@ export function ProviderConnectionCard({
   description,
   fields,
   configured,
+  showCredentials = true,
   operation,
   onSave,
   onRemove,
@@ -25,6 +26,7 @@ export function ProviderConnectionCard({
   description: string;
   fields: CredentialFieldConfig[];
   configured: boolean;
+  showCredentials?: boolean;
   operation: 'bill' | 'balances' | 'quote';
   onSave: (input: CredentialInput) => Promise<void>;
   onRemove: (provider: ProviderId) => Promise<void>;
@@ -75,37 +77,41 @@ export function ProviderConnectionCard({
           {configured ? '已配置' : '尚未配置'}
         </span>
       </header>
-      {configured && <p className="credential-saved">已安全保存，凭据不会在此页面回显。</p>}
-      <div className="provider-credential-fields">
-        {fields.map((field) => (
-          <label className="form-field" key={field.name}>
-            {field.label}
-            {field.multiline ? (
-              <textarea
-                className={field.secret ? 'credential-secret-multiline' : undefined}
-                aria-label={field.label}
-                autoComplete={field.autocomplete ?? 'off'}
-                spellCheck={false}
-                value={values[field.name] ?? ''}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, [field.name]: event.target.value }))
-                }
-              />
-            ) : (
-              <input
-                aria-label={field.label}
-                type="password"
-                autoComplete={field.autocomplete ?? 'off'}
-                spellCheck={false}
-                value={values[field.name] ?? ''}
-                onChange={(event) =>
-                  setValues((current) => ({ ...current, [field.name]: event.target.value }))
-                }
-              />
-            )}
-          </label>
-        ))}
-      </div>
+      {showCredentials && configured && (
+        <p className="credential-saved">已安全保存，凭据不会在此页面回显。</p>
+      )}
+      {showCredentials && (
+        <div className="provider-credential-fields">
+          {fields.map((field) => (
+            <label className="form-field" key={field.name}>
+              {field.label}
+              {field.multiline ? (
+                <textarea
+                  className={field.secret ? 'credential-secret-multiline' : undefined}
+                  aria-label={field.label}
+                  autoComplete={field.autocomplete ?? 'off'}
+                  spellCheck={false}
+                  value={values[field.name] ?? ''}
+                  onChange={(event) =>
+                    setValues((current) => ({ ...current, [field.name]: event.target.value }))
+                  }
+                />
+              ) : (
+                <input
+                  aria-label={field.label}
+                  type="password"
+                  autoComplete={field.autocomplete ?? 'off'}
+                  spellCheck={false}
+                  value={values[field.name] ?? ''}
+                  onChange={(event) =>
+                    setValues((current) => ({ ...current, [field.name]: event.target.value }))
+                  }
+                />
+              )}
+            </label>
+          ))}
+        </div>
+      )}
       {operation === 'bill' && (
         <label className="form-field">
           账单日期
@@ -132,14 +138,16 @@ export function ProviderConnectionCard({
         </label>
       )}
       <div className="provider-card-actions">
-        <button
-          className="button button-primary"
-          type="button"
-          disabled={busy || fields.some((field) => !values[field.name]?.trim())}
-          onClick={() => void save()}
-        >
-          {busy ? '处理中…' : '保存凭据'}
-        </button>
+        {showCredentials && (
+          <button
+            className="button button-primary"
+            type="button"
+            disabled={busy || fields.some((field) => !values[field.name]?.trim())}
+            onClick={() => void save()}
+          >
+            {busy ? '处理中…' : '保存凭据'}
+          </button>
+        )}
         <button
           className="button"
           type="button"
@@ -162,20 +170,22 @@ export function ProviderConnectionCard({
               ? '测试行情读取'
               : '测试只读余额'}
         </button>
-        <button
-          className="button"
-          type="button"
-          disabled={busy || !configured}
-          onClick={() =>
-            void submit(async () => {
-              await onRemove(provider);
-              setResult(null);
-              setValues({});
-            })
-          }
-        >
-          断开连接
-        </button>
+        {showCredentials && (
+          <button
+            className="button"
+            type="button"
+            disabled={busy || !configured}
+            onClick={() =>
+              void submit(async () => {
+                await onRemove(provider);
+                setResult(null);
+                setValues({});
+              })
+            }
+          >
+            断开连接
+          </button>
+        )}
       </div>
       {error && (
         <p className="form-error" role="alert">

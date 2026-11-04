@@ -161,13 +161,13 @@ fn schema_twelve_upgrade_preserves_accounts_and_transactions() {
             "DROP TABLE transaction_fx_snapshots;
              DROP TABLE exchange_rate_sync;
              DROP TABLE exchange_rates;
-             DELETE FROM schema_version WHERE version IN (13,14);",
+             DROP TABLE crypto_records; DROP TABLE crypto_watchlist; DELETE FROM schema_version WHERE version IN (13,14,15);",
         )
         .unwrap();
     drop(connection);
 
     let upgraded = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(upgraded.schema_version().unwrap(), 14);
+    assert_eq!(upgraded.schema_version().unwrap(), 15);
     assert_eq!(upgraded.list_accounts().unwrap(), vec![account]);
     assert_eq!(
         upgraded.get_transaction(transaction.id).unwrap(),

@@ -43,7 +43,7 @@ fn exchange_rate_history_survives_encrypted_backup_inspection_and_restore() {
     .unwrap();
     let bytes = BackupService::create(&repo, "test-only-pass").unwrap();
     let inspected = BackupService::inspect(&bytes, "test-only-pass").unwrap();
-    assert_eq!(inspected.info.schema_version, 14);
+    assert_eq!(inspected.info.schema_version, 15);
 
     let restored = SqliteLedgerRepository::in_memory().unwrap();
     let expected = restored.snapshot().unwrap().fingerprint().unwrap();
@@ -104,7 +104,7 @@ fn transaction_fx_snapshot_survives_encrypted_backup() {
     repo.insert_transaction(transaction.clone()).unwrap();
     let encrypted = BackupService::create(&repo, "test-only-pass").unwrap();
     let inspected = BackupService::inspect(&encrypted, "test-only-pass").unwrap();
-    assert_eq!(inspected.info.schema_version, 14);
+    assert_eq!(inspected.info.schema_version, 15);
     let restored = SqliteLedgerRepository::in_memory().unwrap();
     let expected = restored.snapshot().unwrap().fingerprint().unwrap();
     BackupService::restore(&restored, &inspected, expected).unwrap();

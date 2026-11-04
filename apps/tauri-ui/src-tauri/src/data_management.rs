@@ -93,13 +93,13 @@ pub fn restore_backup(
             return Err("备份预览已过期，请重新检查".into());
         }
         l.capture_session.replace(None);
+        l.clear_import_preview();
         BackupService::restore(&l.repo()?, &session.backup, session.expected)
             .map_err(|e| e.to_string())?;
         l.privacy
             .borrow_mut()
             .reload_settings(&l.repo()?)
             .map_err(|e| e.to_string())?;
-        l.clear_import_preview();
         l.delete_preview.replace(None);
         Ok(())
     })

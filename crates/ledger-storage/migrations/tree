@@ -16,4 +16,5 @@
 - `0012_merchant_orders.sql` — 保留既有来源证据并独立存储、索引商户单号。
 - `0013_exchange_rates.sql` — CNY 参考汇率历史和安全同步状态的 schema 13 迁移。
 - `0014_transaction_fx_snapshots.sql` — 为外币交易保存精确汇率快照和来源日期的数据库迁移。
+- `0015_crypto.sql` — Schema 15：独立加密流水、人工核对状态、自选交易对及索引。
 - `tree` — 本目录直接文件的说明索引。

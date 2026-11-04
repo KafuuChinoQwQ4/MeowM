@@ -2,5 +2,5 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `MarketsPage.tsx` — 币安、欧易账户余额及同花顺 iFinD 行情只读 API 页面。
+- `MarketsPage.tsx` — 交易所目录、按连接状态分层的 API 设置、OKX 工作区及返回路由。
 - `tree` — 本目录直接文件的说明索引。

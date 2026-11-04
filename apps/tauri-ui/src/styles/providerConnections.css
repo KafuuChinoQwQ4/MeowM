@@ -19,6 +19,13 @@
   display: grid;
   gap: 12px;
 }
+.market-provider-entry > span:first-child {
+  flex: 1;
+}
+.market-provider-entry:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
 .provider-connection-card,
 .provider-connection-placeholder {
   min-width: 0;

@@ -3,6 +3,6 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `PaymentConnectionsPage.tsx` — 微信支付和支付宝商家凭据的保存、连接测试与断开设置页。
-- `ProviderConnectionCard.tsx` — 默认遮蔽密码和多行私钥输入、连接测试结果与安全错误提示共用卡片。
+- `ProviderConnectionCard.tsx` — 默认遮蔽密码和多行私钥输入，支持分开的连接设置与已配置状态只读结果。
 - `useConnections.ts` — 支付和市场 API 凭据状态、保存、删除和测试工作流。
 - `tree` — 本目录直接文件的说明索引。

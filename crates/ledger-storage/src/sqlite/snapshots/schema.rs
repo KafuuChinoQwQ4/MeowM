@@ -30,6 +30,8 @@ pub(super) const TABLES: &[&str] = &[
     "exchange_rates",
     "exchange_rate_sync",
     "transaction_fx_snapshots",
+    "crypto_watchlist",
+    "crypto_records",
 ];
 const MIGRATIONS: &[&str] = &[
     include_str!("../../../migrations/0001_initial.sql"),
@@ -46,6 +48,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../../../migrations/0012_merchant_orders.sql"),
     include_str!("../../../migrations/0013_exchange_rates.sql"),
     include_str!("../../../migrations/0014_transaction_fx_snapshots.sql"),
+    include_str!("../../../migrations/0015_crypto.sql"),
 ];
 pub(super) fn exists(c: &Connection, name: &str) -> Result<bool, RepositoryError> {
     c.query_row(
@@ -64,7 +67,7 @@ pub(super) fn columns(c: &Connection, name: &str) -> Result<Vec<String>, Reposit
         .map_err(storage_error)
 }
 pub(super) fn empty_at(version: i64) -> Result<Connection, RepositoryError> {
-    if !(1..=14).contains(&version) {
+    if !(1..=15).contains(&version) {
         return Err(invalid());
     }
     let c = Connection::open_in_memory().map_err(storage_error)?;

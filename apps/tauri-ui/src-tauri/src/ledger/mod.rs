@@ -38,6 +38,7 @@ pub struct Ledger {
     pub(crate) delete_preview: std::cell::RefCell<Option<crate::privacy_commands::DeleteSession>>,
     pub(crate) restore_preview: std::cell::RefCell<Option<crate::data_management::RestoreSession>>,
     preview: std::cell::RefCell<Option<PreviewSession>>,
+    import_generation: std::cell::Cell<u64>,
 }
 impl Ledger {
     pub fn open(path: &Path) -> Result<Self> {
@@ -53,6 +54,7 @@ impl Ledger {
             delete_preview: std::cell::RefCell::new(None),
             restore_preview: std::cell::RefCell::new(None),
             preview: std::cell::RefCell::new(None),
+            import_generation: std::cell::Cell::new(0),
         };
         if repo.needs_default_platforms().map_err(|e| e.to_string())? {
             for name in ["微信", "支付宝", "现金"] {
@@ -67,12 +69,23 @@ impl Ledger {
     }
     pub(crate) fn clear_import_preview(&self) {
         self.preview.replace(None);
+        // Also invalidate outstanding private imports across lock, restore or data deletion.
+        self.import_generation
+            .set(self.import_generation.get().wrapping_add(1));
+    }
+    pub(crate) fn import_generation(&self) -> u64 {
+        self.import_generation.get()
     }
     pub(crate) fn require_unlocked(&self) -> Result<()> {
-        self.privacy
+        let result = self
+            .privacy
             .borrow_mut()
             .require_unlocked()
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string());
+        if result.is_err() {
+            self.clear_import_preview();
+        }
+        result
     }
     pub(crate) fn convert_amount(
         &self,

@@ -2,6 +2,7 @@
 
 pub mod account;
 pub mod category;
+pub mod crypto;
 pub mod exchange_rate;
 pub mod features;
 pub mod money;

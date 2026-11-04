@@ -29,7 +29,7 @@ impl SqliteLedgerRepository {
                 .collect::<Result<_, _>>()
                 .map_err(storage_error)?;
             if let Some(v) = recorded_version
-                && v <= 14
+                && v <= 15
                 && versions != (1..=v).collect::<Vec<_>>()
             {
                 return Err(RepositoryError::Storage(
@@ -55,10 +55,10 @@ impl SqliteLedgerRepository {
                 | (13, Some(13)) => {
                     return Ok(());
                 }
-                (14, Some(14)) => return Ok(()),
-                (_, Some(version)) if version > 14 => {
+                (14, Some(14)) | (15, Some(15)) => return Ok(()),
+                (_, Some(version)) if version > 15 => {
                     return Err(RepositoryError::Storage(format!(
-                        "database schema version {version} is newer than supported version 14"
+                        "database schema version {version} is newer than supported version 15"
                     )));
                 }
                 _ => {

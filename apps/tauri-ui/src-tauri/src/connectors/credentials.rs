@@ -23,7 +23,7 @@ impl ConnectorState {
         }
     }
 
-    fn credentials(&self) -> Arc<CredentialService> {
+    pub(crate) fn credentials(&self) -> Arc<CredentialService> {
         self.credentials.clone()
     }
 }
@@ -47,9 +47,15 @@ pub fn save_provider_credentials(
     connectors: State<'_, ConnectorState>,
     input: CredentialInput,
 ) -> Result<ConnectionStatus, String> {
-    access(ledger, |_| Ok(()))?;
+    access(ledger.clone(), |_| Ok(()))?;
     let provider = input.provider();
     let status = connectors.credentials.save(input).map_err(storage_error)?;
+    if provider == ProviderId::Okx {
+        access(ledger, |l| {
+            l.clear_import_preview();
+            Ok(())
+        })?;
+    }
     if provider == ProviderId::Ifind {
         connectors.ifind_tokens.invalidate();
     }
@@ -62,14 +68,21 @@ pub fn remove_provider_credentials(
     connectors: State<'_, ConnectorState>,
     provider: ProviderId,
 ) -> Result<ConnectionStatus, String> {
-    access(ledger, |_| Ok(()))?;
+    access(ledger.clone(), |_| Ok(()))?;
     if provider == ProviderId::Ifind {
         connectors.ifind_tokens.invalidate();
     }
-    connectors
+    let status = connectors
         .credentials
         .remove(provider)
-        .map_err(storage_error)
+        .map_err(storage_error)?;
+    if provider == ProviderId::Okx {
+        access(ledger, |l| {
+            l.clear_import_preview();
+            Ok(())
+        })?;
+    }
+    Ok(status)
 }
 
 #[tauri::command]

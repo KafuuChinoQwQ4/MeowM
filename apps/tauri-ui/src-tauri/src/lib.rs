@@ -1,5 +1,6 @@
 mod analytics;
 mod connectors;
+mod crypto;
 mod data_files;
 mod data_management;
 mod exchange_rates;
@@ -253,6 +254,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            crypto::commands::okx_tickers,
+            crypto::commands::okx_candles,
+            crypto::commands::okx_watchlist,
+            crypto::commands::okx_save_watchlist,
+            crypto::commands::okx_assets,
+            crypto::commands::okx_positions,
+            crypto::commands::okx_import_history,
+            crypto::commands::okx_records,
+            crypto::commands::okx_review_records,
             exchange_rates::commands::exchange_rates_history,
             exchange_rates::commands::exchange_rate_for_date,
             exchange_rates::commands::exchange_rates_sync_state,

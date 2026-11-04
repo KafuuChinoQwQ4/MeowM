@@ -37,3 +37,8 @@
 
 - `ledger-storage/src/sqlite/snapshots/` 从同一 SQLite 事务读取白名单表，排除本机凭据和权限，按受信任迁移重建临时库并校验外键、金额及业务关系。恢复使用立即事务、预览指纹和完整替换，失败回滚。
 - `ledger-backup` 将版本化快照和校验摘要用 Argon2id 派生密钥、XChaCha20-Poly1305 认证加密。`ledger-export` 在一致性快照上分页查询，用字符串金额生成 CSV/JSON，导出不写库。Tauri 的 `data_management.rs` 管理十分钟恢复预览，React `features/data/` 分开备份、恢复和筛选导出；Android 的 `DataFilesPlugin` 经系统 Storage Access Framework 打开和保存用户选择的文件。
+
+- `ledger-domain/src/crypto.rs` 定义独立于法币 `Money` 的加密数量、双资产转换腿、来源记录和核对状态。数量保留十进制字符串，成交实际报价资产使用 tradeQuoteCcy 以兼容统一 USD/USDC 订单簿，报价腿由 checked i128 十进制乘法计算，溢出明确拒绝。
+- Schema 15 的 `crypto_watchlist` 和 `crypto_records` 保存自选及带 OKX UID 的加密核对记录；7 天和归档账单共用来源 ID。重导保留人工状态，已确认记录不被远端覆盖，未完成充提不能确认；不写入法币 transactions/postings。新增表纳入可信快照、加密备份、恢复校验和全量清理，旧版本快照逐级迁移。
+- `connectors/markets/okx/` 将公共行情、账户与估值、分页历史和合约分离，沿用有界 HTTP 客户端和完整查询串 HMAC-SHA256 签名。`src-tauri/src/crypto/commands.rs` 在后台请求前和提交结果时检查应用锁及 import_generation，会话被锁定、清空、恢复或更换 OKX 凭据后旧请求不可提交，历史分页绑定 UID，网络不持账本互斥锁，私有请求复用系统凭据存储。
+- React `features/markets/MarketsPage.tsx` 按交易所凭据状态分层展示目录、API 设置和对应工作区；切换交易所时回到列表，当前工作区只挂载已选平台。`features/markets/okx/` 提供公共行情、自选和 SVG K 线、资产总览、独立加密流水与合约表现。分页需显式继续读取；持仓净盈亏按结算币种精确相加，费用仅作为已经包含在净盈亏中的分项展示。行情采用手动 REST 刷新，不依赖 API Key；没有真实账户凭据的协议测试不能替代私人账户联调。

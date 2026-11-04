@@ -4,6 +4,7 @@
 
 - `account.rs` — Account kinds, opening balances, and account invariants.
 - `category.rs` — Editable category and classification rule domain types.
+- `crypto.rs` — 独立加密资产数量、精确转换、来源记录及人工核对状态校验。
 - `exchange_rate.rs` — Exact decimal exchange rate parsing, validation and currency conversion domain rules.
 - `features.rs` — 九项账本功能共用领域类型、分页及版本元数据契约。
 - `lib.rs` — Public domain APIs and errors, including transfer conservation failures.

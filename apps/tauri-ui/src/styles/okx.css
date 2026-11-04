@@ -1,0 +1,192 @@
+.okx-workspace {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffefa;
+}
+.okx-workspace h3 {
+  margin: 0 0 8px;
+}
+.okx-workspace h4 {
+  margin: 16px 0 10px;
+}
+.okx-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin: 16px 0;
+}
+.okx-tabs button {
+  padding: 10px 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+.okx-tabs button[aria-selected='true'],
+.okx-quote-list .selected {
+  background: #edf7f2;
+  border-color: #5d9b7c;
+  color: #286b54;
+}
+.okx-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  font-size: 0.8rem;
+}
+.okx-panel p {
+  margin: 4px 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.okx-panel .form-field {
+  min-width: 0;
+  margin: 0;
+}
+.okx-panel input,
+.okx-panel select {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.okx-panel .button {
+  min-height: 40px;
+  padding: 8px 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.okx-panel .button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.okx-controls,
+.okx-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.okx-controls .form-field {
+  flex: 1 1 180px;
+}
+.okx-import-form,
+.okx-candles {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.okx-date-range {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+}
+.okx-quote-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr));
+  gap: 8px;
+}
+.okx-quote-list button {
+  display: grid;
+  gap: 7px;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.okx-quote-summary,
+.okx-valuation,
+.okx-candle-detail {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f2f6f4;
+  overflow-wrap: anywhere;
+}
+.okx-valuation strong {
+  font-size: 1.3rem;
+}
+.okx-candles svg {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+}
+.okx-candle-up {
+  fill: #25815c;
+  stroke: #25815c;
+}
+.okx-candle-down {
+  fill: #c2594d;
+  stroke: #c2594d;
+}
+.okx-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.okx-values div {
+  min-width: 0;
+}
+.okx-values dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.okx-values dd {
+  margin: 5px 0 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.okx-card-list {
+  display: grid;
+  gap: 10px;
+}
+.okx-record {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 13px;
+  min-width: 0;
+}
+.okx-record header {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.okx-record .okx-actions {
+  margin-top: 12px;
+}
+.okx-legs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.okx-notice {
+  color: #286b54;
+  padding: 10px;
+  border-radius: 8px;
+  background: #edf7f2;
+}
+@media (max-width: 480px) {
+  .okx-workspace {
+    padding: 12px;
+  }
+  .okx-actions .button {
+    flex: 1 1 44%;
+  }
+}

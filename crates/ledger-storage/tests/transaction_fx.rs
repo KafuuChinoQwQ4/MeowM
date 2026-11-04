@@ -126,9 +126,9 @@ fn snapshot_export_and_restore_keep_fx_evidence() {
     );
 }
 #[test]
-fn fresh_database_uses_schema_fourteen() {
+fn fresh_database_uses_schema_fifteen() {
     let repo = SqliteLedgerRepository::in_memory().unwrap();
-    assert_eq!(repo.schema_version().unwrap(), 14);
+    assert_eq!(repo.schema_version().unwrap(), 15);
 }
 #[test]
 fn schema_thirteen_snapshot_upgrades_without_inventing_fx() {
@@ -141,13 +141,17 @@ fn schema_thirteen_snapshot_upgrades_without_inventing_fx() {
     repo.insert_transaction(transaction.clone()).unwrap();
     let mut raw = serde_json::to_value(repo.snapshot().unwrap()).unwrap();
     raw["schema_version"] = 13.into();
-    raw["tables"]
-        .as_array_mut()
-        .unwrap()
-        .retain(|table| table["name"] != "transaction_fx_snapshots");
+    raw["tables"].as_array_mut().unwrap().retain(|table| {
+        ![
+            "transaction_fx_snapshots",
+            "crypto_watchlist",
+            "crypto_records",
+        ]
+        .contains(&table["name"].as_str().unwrap())
+    });
     let old = serde_json::from_value(raw).unwrap();
     let upgraded = SqliteLedgerRepository::from_snapshot(&old).unwrap();
-    assert_eq!(upgraded.schema_version().unwrap(), 14);
+    assert_eq!(upgraded.schema_version().unwrap(), 15);
     assert_eq!(
         upgraded.get_transaction(transaction.id).unwrap().unwrap(),
         transaction
@@ -190,12 +194,12 @@ fn schema_thirteen_database_upgrade_keeps_cny_transaction() {
     drop(repo);
     let db = rusqlite::Connection::open(&path).unwrap();
     db.execute_batch(
-        "DROP TABLE transaction_fx_snapshots; DELETE FROM schema_version WHERE version=14",
+        "DROP TABLE transaction_fx_snapshots; DROP TABLE crypto_records; DROP TABLE crypto_watchlist; DELETE FROM schema_version WHERE version>=14",
     )
     .unwrap();
     drop(db);
     let upgraded = SqliteLedgerRepository::open(&path).unwrap();
-    assert_eq!(upgraded.schema_version().unwrap(), 14);
+    assert_eq!(upgraded.schema_version().unwrap(), 15);
     assert_eq!(
         upgraded.get_transaction(transaction.id).unwrap().unwrap(),
         transaction

@@ -9,10 +9,11 @@
 - `mobile-layout.test.mjs` — Small-screen and landscape scrolling, navigation reachability, keyboard-sized unlock and dialog layout regressions.
 - `multi-currency-accounting.test.mjs` — 多币种账户、外币交易、汇率预览与人民币报表折算浏览器工作流测试。
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
+- `okx-workflows.test.mjs` — 真实 React 移动端行情、自选、资产、加密流水核对及合约展示回归。
 - `pending-inbox.test.mjs` — 跨页全部确认、筛选、失败重试及退款关联界面测试。
 - `platform-themes.test.mjs` — 平台别名、误匹配边界、白色回退及全部配色文字对比度检查。
 - `privacy.test.mjs` — 模拟 IPC 的锁定、金额遮盖和删除确认浏览器测试。
-- `provider-connections.test.mjs` — 验证商家 API 设置、私钥输入遮蔽、连接结果和交易所导航入口。
+- `provider-connections.test.mjs` — 验证支付 API 与交易所目录、独立设置、连接状态切换和只读结果。
 - `react-workflows.test.mjs` — 平台增删改、日期本地当天上限、参考余额、导入修订、弹窗生命周期、撤销及过期请求的浏览器回归。
 - `reconciliation.test.mjs` — 对账完整交互、版本更新、负余额和失败保留浏览器测试。
 - `recurring.test.mjs` — 周期管理完整交互、持久化重载和首页待确认跳转的浏览器测试。
