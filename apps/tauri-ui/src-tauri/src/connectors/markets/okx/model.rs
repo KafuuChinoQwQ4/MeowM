@@ -78,6 +78,158 @@ pub(crate) struct OrderAcknowledgement {
     #[serde(rename = "sMsg")]
     pub message: String,
 }
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub(crate) enum OrderInstrumentType {
+    #[serde(rename = "SPOT")]
+    Spot,
+    #[serde(rename = "SWAP")]
+    Swap,
+    #[serde(rename = "FUTURES")]
+    Futures,
+}
+
+impl OrderInstrumentType {
+    pub(crate) fn as_okx(self) -> &'static str {
+        match self {
+            Self::Spot => "SPOT",
+            Self::Swap => "SWAP",
+            Self::Futures => "FUTURES",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum OrderSide {
+    Buy,
+    Sell,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum OrderType {
+    Market,
+    Limit,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum TradeMode {
+    Cash,
+    Cross,
+    Isolated,
+}
+
+impl TradeMode {
+    pub(crate) fn as_okx(self) -> &'static str {
+        match self {
+            Self::Cash => "cash",
+            Self::Cross => "cross",
+            Self::Isolated => "isolated",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum PositionAction {
+    OpenLong,
+    OpenShort,
+    CloseLong,
+    CloseShort,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+pub(crate) enum PositionMode {
+    #[serde(rename = "net_mode")]
+    Net,
+    #[serde(rename = "long_short_mode")]
+    LongShort,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum PositionSide {
+    Net,
+    Long,
+    Short,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct OrderDraft {
+    pub environment: OkxEnvironment,
+    pub inst_type: OrderInstrumentType,
+    pub inst_id: String,
+    pub side: OrderSide,
+    pub ord_type: OrderType,
+    pub size: String,
+    pub price: Option<String>,
+    pub slippage_pct: Option<String>,
+    pub td_mode: Option<TradeMode>,
+    pub position_action: Option<PositionAction>,
+    pub cl_ord_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct InstrumentSpec {
+    pub inst_type: OrderInstrumentType,
+    pub inst_id: String,
+    pub state: String,
+    pub tick_sz: String,
+    pub lot_sz: String,
+    pub min_sz: String,
+    pub ct_val: Option<String>,
+    pub ct_val_ccy: Option<String>,
+    pub ct_type: Option<String>,
+    pub settle_ccy: Option<String>,
+    pub base_ccy: Option<String>,
+    pub quote_ccy: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TradePosition {
+    pub inst_id: String,
+    pub pos_side: PositionSide,
+    /// In net mode this is signed; in long/short mode it is a positive size.
+    pub quantity: String,
+    pub margin_mode: TradeMode,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PendingOrder {
+    pub inst_id: String,
+    pub side: OrderSide,
+    pub pos_side: Option<PositionSide>,
+    pub margin_mode: TradeMode,
+    pub reduce_only: bool,
+    /// Unfilled quantity, calculated from `sz - accFillSz` by the response parser.
+    pub remaining_size: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct InstrumentLeverage {
+    pub inst_id: String,
+    pub margin_mode: TradeMode,
+    pub pos_side: Option<PositionSide>,
+    pub leverage: String,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AccountTradeContext {
+    pub acct_lv: String,
+    pub pos_mode: PositionMode,
+    pub positions: Vec<TradePosition>,
+    pub pending_orders: Vec<PendingOrder>,
+    pub leverage: Vec<InstrumentLeverage>,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct HistoryRequest {

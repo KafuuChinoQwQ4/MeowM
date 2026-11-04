@@ -12,6 +12,7 @@ mod account;
 mod history;
 mod market;
 pub(crate) mod model;
+mod order_validation;
 mod positions;
 #[cfg(test)]
 mod tests;
@@ -84,6 +85,16 @@ impl OkxClient {
         params: &[(&str, String)],
         credentials: Option<&OkxCredentials<'_>>,
     ) -> Result<T, ProviderErrorCode> {
+        self.get_with_environment(path, params, credentials, OkxEnvironment::Production)
+    }
+
+    fn get_with_environment<T: serde::de::DeserializeOwned>(
+        &self,
+        path: &str,
+        params: &[(&str, String)],
+        credentials: Option<&OkxCredentials<'_>>,
+        environment: OkxEnvironment,
+    ) -> Result<T, ProviderErrorCode> {
         let query = url::form_urlencoded::Serializer::new(String::new())
             .extend_pairs(params.iter().map(|(k, v)| (*k, v.as_str())))
             .finish();
@@ -105,6 +116,9 @@ impl OkxClient {
                 .header("OK-ACCESS-SIGN", &signature)
                 .header("OK-ACCESS-TIMESTAMP", &timestamp)
                 .header("OK-ACCESS-PASSPHRASE", credentials.passphrase);
+            if environment == OkxEnvironment::Demo {
+                request = request.header("x-simulated-trading", "1");
+            }
         }
         let mut response = request.call().map_err(request_error)?;
         let value = parse_json_response(&mut response, map_exchange_http_status)?;
@@ -140,6 +154,157 @@ impl OkxClient {
             }
         }
         Ok(balances)
+    }
+
+    pub(crate) fn read_instrument_spec(
+        &self,
+        inst_type: model::OrderInstrumentType,
+        inst_id: &str,
+    ) -> Result<model::InstrumentSpec, ProviderErrorCode> {
+        if !order_validation::valid_instrument_id(inst_type, inst_id) {
+            return Err(ProviderErrorCode::InvalidRequest);
+        }
+        let params = [
+            ("instType", inst_type.as_okx().to_string()),
+            ("instId", inst_id.to_string()),
+        ];
+        let rows: Vec<serde_json::Value> = self.get("/api/v5/public/instruments", &params, None)?;
+        if rows.len() != 1 {
+            return Err(ProviderErrorCode::InvalidResponse);
+        }
+        let spec = order_validation::parse_instrument_spec(inst_type, &rows[0])?;
+        if spec.inst_id != inst_id {
+            return Err(ProviderErrorCode::InvalidResponse);
+        }
+        Ok(spec)
+    }
+
+    pub(crate) fn read_trade_context(
+        &self,
+        credentials: &OkxCredentials<'_>,
+        inst_type: model::OrderInstrumentType,
+        inst_id: &str,
+        environment: OkxEnvironment,
+    ) -> Result<model::AccountTradeContext, ProviderErrorCode> {
+        use model::{
+            AccountTradeContext, InstrumentLeverage, OrderInstrumentType, PositionMode, TradeMode,
+        };
+
+        if !order_validation::valid_instrument_id(inst_type, inst_id) {
+            return Err(ProviderErrorCode::InvalidRequest);
+        }
+        let mut params = Vec::new();
+        if inst_type != OrderInstrumentType::Spot {
+            params.push(("instType", inst_type.as_okx().to_string()));
+        }
+        params.push(("instId", inst_id.to_string()));
+
+        let config: Vec<serde_json::Value> = self.get_with_environment(
+            "/api/v5/account/config",
+            &[],
+            Some(credentials),
+            environment,
+        )?;
+        if config.len() != 1 {
+            return Err(ProviderErrorCode::InvalidResponse);
+        }
+        let config = &config[0];
+        let acct_lv = model::text(config, "acctLv")?;
+        if !matches!(acct_lv.as_str(), "1" | "2" | "3" | "4") {
+            return Err(ProviderErrorCode::InvalidResponse);
+        }
+        let pos_mode = match model::text(config, "posMode")?.as_str() {
+            "net_mode" => PositionMode::Net,
+            "long_short_mode" => PositionMode::LongShort,
+            _ => return Err(ProviderErrorCode::InvalidResponse),
+        };
+
+        let positions = if inst_type == OrderInstrumentType::Spot {
+            Vec::new()
+        } else {
+            let rows: Vec<serde_json::Value> = self.get_with_environment(
+                "/api/v5/account/positions",
+                &params,
+                Some(credentials),
+                environment,
+            )?;
+            if rows.len() > 1000 {
+                return Err(ProviderErrorCode::InvalidResponse);
+            }
+            rows.iter()
+                .map(order_validation::parse_position)
+                .collect::<Result<Vec<_>, _>>()?
+        };
+
+        let pending_params = [
+            ("instType", inst_type.as_okx().to_string()),
+            ("instId", inst_id.to_string()),
+        ];
+        let pending_rows: Vec<serde_json::Value> = self.get_with_environment(
+            "/api/v5/trade/orders-pending",
+            &pending_params,
+            Some(credentials),
+            environment,
+        )?;
+        if pending_rows.len() > 1000 {
+            return Err(ProviderErrorCode::InvalidResponse);
+        }
+        let pending_orders = pending_rows
+            .iter()
+            .map(order_validation::parse_pending_order)
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut leverage = Vec::new();
+        if inst_type != OrderInstrumentType::Spot {
+            for margin_mode in [TradeMode::Cross, TradeMode::Isolated] {
+                let leverage_params = [
+                    ("instId", inst_id.to_string()),
+                    ("mgnMode", margin_mode.as_okx().to_string()),
+                ];
+                let rows: Vec<serde_json::Value> = match self.get_with_environment(
+                    "/api/v5/account/leverage-info",
+                    &leverage_params,
+                    Some(credentials),
+                    environment,
+                ) {
+                    Ok(rows) => rows,
+                    // Leverage is display-only context; some account modes do not
+                    // expose it, so an unavailable read must not block order review.
+                    Err(_) => continue,
+                };
+                if rows.len() > 1000 {
+                    return Err(ProviderErrorCode::InvalidResponse);
+                }
+                for row in &rows {
+                    if model::text(row, "instId")? != inst_id
+                        || model::text(row, "mgnMode")? != margin_mode.as_okx()
+                    {
+                        return Err(ProviderErrorCode::InvalidResponse);
+                    }
+                    let pos_side = match order_validation::optional_text(row, "posSide")?.as_deref()
+                    {
+                        None | Some("") => None,
+                        Some("net") => Some(model::PositionSide::Net),
+                        Some("long") => Some(model::PositionSide::Long),
+                        Some("short") => Some(model::PositionSide::Short),
+                        Some(_) => return Err(ProviderErrorCode::InvalidResponse),
+                    };
+                    leverage.push(InstrumentLeverage {
+                        inst_id: inst_id.to_string(),
+                        margin_mode,
+                        pos_side,
+                        leverage: model::decimal(row, "lever")?,
+                    });
+                }
+            }
+        }
+        Ok(AccountTradeContext {
+            acct_lv,
+            pos_mode,
+            positions,
+            pending_orders,
+            leverage,
+        })
     }
 }
 

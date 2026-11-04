@@ -1,3 +1,7 @@
+use super::model::{
+    AccountTradeContext, InstrumentSpec, OrderDraft, OrderInstrumentType, OrderSide, OrderType,
+    PendingOrder, PositionAction, PositionMode, PositionSide, TradeMode, TradePosition,
+};
 use super::model::{OkxEnvironment, OrderAcknowledgement};
 use super::*;
 use crate::connectors::payments::{MAX_JSON_BYTES, agent};
@@ -82,12 +86,464 @@ fn server(
     });
     (OkxClient::for_test(agent(), endpoint), handle)
 }
+
+fn demo_server(
+    responses: Vec<(&'static str, serde_json::Value)>,
+) -> (OkxClient, std::thread::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let handle = std::thread::spawn(move || {
+        for (path, value) in responses {
+            let (mut stream, _) = listener.accept().unwrap();
+            let (headers, _) = read_request(&mut stream);
+            assert!(headers.starts_with(&format!("GET {path} HTTP/1.1\r\n")));
+            let timestamp = header_value(&headers, "OK-ACCESS-TIMESTAMP");
+            assert_eq!(
+                header_value(&headers, "OK-ACCESS-SIGN"),
+                hmac_base64(b"secret", format!("{timestamp}GET{path}").as_bytes()).unwrap()
+            );
+            assert_eq!(header_value(&headers, "OK-ACCESS-KEY"), "test-key");
+            assert_eq!(header_value(&headers, "x-simulated-trading"), "1");
+            let body = value.to_string();
+            write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body).unwrap();
+        }
+    });
+    (OkxClient::for_test(agent(), endpoint), handle)
+}
 fn credentials() -> OkxCredentials<'static> {
     OkxCredentials {
         api_key: "test-key",
         secret_key: "secret",
         passphrase: "test-passphrase",
     }
+}
+
+fn spot_spec() -> InstrumentSpec {
+    InstrumentSpec {
+        inst_type: OrderInstrumentType::Spot,
+        inst_id: "BTC-USDT".into(),
+        state: "live".into(),
+        tick_sz: "0.1".into(),
+        lot_sz: "0.0001".into(),
+        min_sz: "0.0005".into(),
+        ct_val: None,
+        ct_val_ccy: None,
+        ct_type: None,
+        settle_ccy: None,
+        base_ccy: Some("BTC".into()),
+        quote_ccy: Some("USDT".into()),
+    }
+}
+
+fn swap_spec() -> InstrumentSpec {
+    InstrumentSpec {
+        inst_type: OrderInstrumentType::Swap,
+        inst_id: "BTC-USDT-SWAP".into(),
+        state: "live".into(),
+        tick_sz: "0.1".into(),
+        lot_sz: "1".into(),
+        min_sz: "1".into(),
+        ct_val: Some("0.01".into()),
+        ct_val_ccy: Some("BTC".into()),
+        ct_type: Some("linear".into()),
+        settle_ccy: Some("USDT".into()),
+        base_ccy: Some("BTC".into()),
+        quote_ccy: Some("USDT".into()),
+    }
+}
+
+fn futures_spec() -> InstrumentSpec {
+    InstrumentSpec {
+        inst_type: OrderInstrumentType::Futures,
+        inst_id: "BTC-USDT-241227".into(),
+        state: "live".into(),
+        tick_sz: "0.1".into(),
+        lot_sz: "1".into(),
+        min_sz: "1".into(),
+        ct_val: Some("0.01".into()),
+        ct_val_ccy: Some("BTC".into()),
+        ct_type: Some("linear".into()),
+        settle_ccy: Some("USDT".into()),
+        base_ccy: None,
+        quote_ccy: None,
+    }
+}
+
+fn trade_context() -> AccountTradeContext {
+    AccountTradeContext {
+        acct_lv: "2".into(),
+        pos_mode: PositionMode::Net,
+        positions: Vec::new(),
+        pending_orders: Vec::new(),
+        leverage: Vec::new(),
+    }
+}
+
+fn spot_draft(side: OrderSide, ord_type: OrderType, size: &str) -> OrderDraft {
+    OrderDraft {
+        environment: OkxEnvironment::Demo,
+        inst_type: OrderInstrumentType::Spot,
+        inst_id: "BTC-USDT".into(),
+        side,
+        ord_type,
+        size: size.into(),
+        price: None,
+        slippage_pct: None,
+        td_mode: Some(TradeMode::Cash),
+        position_action: None,
+        cl_ord_id: "client123".into(),
+    }
+}
+
+fn swap_draft(action: PositionAction, size: &str) -> OrderDraft {
+    let side = match action {
+        PositionAction::OpenLong | PositionAction::CloseShort => OrderSide::Buy,
+        PositionAction::OpenShort | PositionAction::CloseLong => OrderSide::Sell,
+    };
+    OrderDraft {
+        environment: OkxEnvironment::Demo,
+        inst_type: OrderInstrumentType::Swap,
+        inst_id: "BTC-USDT-SWAP".into(),
+        side,
+        ord_type: OrderType::Market,
+        size: size.into(),
+        price: None,
+        slippage_pct: None,
+        td_mode: Some(TradeMode::Isolated),
+        position_action: Some(action),
+        cl_ord_id: "client123".into(),
+    }
+}
+
+fn build_order(
+    draft: OrderDraft,
+    spec: &InstrumentSpec,
+    context: &AccountTradeContext,
+) -> Result<super::order_validation::ValidatedOrder, ProviderErrorCode> {
+    super::order_validation::ValidatedOrder::from_draft(draft, spec, context)
+}
+
+#[test]
+fn spot_market_orders_use_the_received_currency_and_one_percent_default_slippage() {
+    let context = trade_context();
+    let buy = build_order(
+        spot_draft(OrderSide::Buy, OrderType::Market, "0.001"),
+        &spot_spec(),
+        &context,
+    )
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(buy.body()).unwrap(),
+        serde_json::json!({
+            "instId":"BTC-USDT", "tdMode":"cash", "clOrdId":"client123",
+            "side":"buy", "ordType":"market", "sz":"0.001",
+            "tgtCcy":"base_ccy", "slippagePct":"0.01"
+        })
+    );
+
+    let sell = build_order(
+        spot_draft(OrderSide::Sell, OrderType::Market, "100.01"),
+        &spot_spec(),
+        &context,
+    )
+    .unwrap();
+    assert_eq!(sell.body().tgt_ccy(), Some("quote_ccy"));
+    assert_eq!(sell.body().slippage_pct(), Some("0.01"));
+}
+
+#[test]
+fn spot_limit_order_requires_a_tick_aligned_price_and_uses_base_size() {
+    let mut draft = spot_draft(OrderSide::Buy, OrderType::Limit, "0.001");
+    draft.price = Some("100.2".into());
+    let order = build_order(draft, &spot_spec(), &trade_context()).unwrap();
+    let body = serde_json::to_value(order.body()).unwrap();
+    assert_eq!(body["sz"], "0.001");
+    assert_eq!(body["px"], "100.2");
+    assert!(body.get("tgtCcy").is_none());
+    assert!(body.get("slippagePct").is_none());
+}
+
+#[test]
+fn net_mode_closes_are_reduce_only_and_cannot_exceed_remaining_position() {
+    let mut context = trade_context();
+    context.positions.push(TradePosition {
+        inst_id: "BTC-USDT-SWAP".into(),
+        pos_side: PositionSide::Net,
+        quantity: "3".into(),
+        margin_mode: TradeMode::Isolated,
+    });
+    context.pending_orders.push(PendingOrder {
+        inst_id: "BTC-USDT-SWAP".into(),
+        side: OrderSide::Sell,
+        pos_side: Some(PositionSide::Net),
+        margin_mode: TradeMode::Isolated,
+        reduce_only: true,
+        remaining_size: "1".into(),
+    });
+    let close = build_order(
+        swap_draft(PositionAction::CloseLong, "2"),
+        &swap_spec(),
+        &context,
+    )
+    .unwrap();
+    assert_eq!(close.body().side(), OrderSide::Sell);
+    assert_eq!(close.body().reduce_only(), Some(true));
+    assert!(
+        build_order(
+            swap_draft(PositionAction::CloseLong, "3"),
+            &swap_spec(),
+            &context
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn hedge_mode_maps_open_and_close_actions_to_side_and_position_side() {
+    let context = AccountTradeContext {
+        pos_mode: PositionMode::LongShort,
+        ..trade_context()
+    };
+    let cases = [
+        (
+            PositionAction::OpenLong,
+            OrderSide::Buy,
+            Some(PositionSide::Long),
+        ),
+        (
+            PositionAction::OpenShort,
+            OrderSide::Sell,
+            Some(PositionSide::Short),
+        ),
+        (
+            PositionAction::CloseLong,
+            OrderSide::Sell,
+            Some(PositionSide::Long),
+        ),
+        (
+            PositionAction::CloseShort,
+            OrderSide::Buy,
+            Some(PositionSide::Short),
+        ),
+    ];
+    for (action, side, pos_side) in cases {
+        let mut context = context.clone();
+        if matches!(
+            action,
+            PositionAction::CloseLong | PositionAction::CloseShort
+        ) {
+            context.positions.push(TradePosition {
+                inst_id: "BTC-USDT-SWAP".into(),
+                pos_side: pos_side.unwrap(),
+                quantity: "2".into(),
+                margin_mode: TradeMode::Isolated,
+            });
+        }
+        let order = build_order(swap_draft(action, "1"), &swap_spec(), &context).unwrap();
+        assert_eq!(order.body().side(), side);
+        assert_eq!(order.body().pos_side(), pos_side);
+        assert_eq!(order.body().reduce_only(), None);
+    }
+}
+
+#[test]
+fn futures_contract_order_uses_contract_lot_size() {
+    let mut draft = swap_draft(PositionAction::OpenShort, "2");
+    draft.inst_type = OrderInstrumentType::Futures;
+    draft.inst_id = "BTC-USDT-241227".into();
+    let order = build_order(draft, &futures_spec(), &trade_context()).unwrap();
+    assert_eq!(order.body().side(), OrderSide::Sell);
+    assert_eq!(serde_json::to_value(order.body()).unwrap()["sz"], "2");
+}
+
+#[test]
+fn order_draft_rejects_unknown_fields() {
+    let value = serde_json::json!({
+        "environment":"demo", "inst_type":"SPOT", "inst_id":"BTC-USDT",
+        "side":"buy", "ord_type":"market", "size":"0.001",
+        "cl_ord_id":"client123", "leverage":"100"
+    });
+    assert!(serde_json::from_value::<OrderDraft>(value).is_err());
+}
+
+#[test]
+fn order_validation_rejects_invalid_type_state_precision_size_price_and_slippage() {
+    let context = trade_context();
+    let mut cases = Vec::new();
+
+    let mut wrong_type = spot_spec();
+    wrong_type.inst_type = OrderInstrumentType::Swap;
+    cases.push((
+        "wrong instrument type",
+        spot_draft(OrderSide::Buy, OrderType::Market, "0.001"),
+        wrong_type,
+    ));
+
+    let mut suspended = spot_spec();
+    suspended.state = "suspend".into();
+    cases.push((
+        "suspended instrument",
+        spot_draft(OrderSide::Buy, OrderType::Market, "0.001"),
+        suspended,
+    ));
+
+    let post_only = swap_draft(PositionAction::OpenLong, "1");
+    let mut post_only_spec = swap_spec();
+    post_only_spec.state = "post_only".into();
+    cases.push(("post-only instrument", post_only, post_only_spec));
+
+    let mut off_tick = spot_draft(OrderSide::Buy, OrderType::Limit, "0.001");
+    off_tick.price = Some("100.25".into());
+    cases.push(("off-tick price", off_tick, spot_spec()));
+
+    cases.push((
+        "off-lot size",
+        spot_draft(OrderSide::Buy, OrderType::Market, "0.00101"),
+        spot_spec(),
+    ));
+    cases.push((
+        "below minimum",
+        spot_draft(OrderSide::Buy, OrderType::Market, "0.0004"),
+        spot_spec(),
+    ));
+    cases.push((
+        "contract off-lot",
+        swap_draft(PositionAction::OpenLong, "1.5"),
+        swap_spec(),
+    ));
+
+    let missing_limit_price = spot_draft(OrderSide::Buy, OrderType::Limit, "0.001");
+    cases.push(("missing limit price", missing_limit_price, spot_spec()));
+
+    let mut invalid_slippage = spot_draft(OrderSide::Buy, OrderType::Market, "0.001");
+    invalid_slippage.slippage_pct = Some("0.01234".into());
+    cases.push(("slippage precision", invalid_slippage, spot_spec()));
+
+    let mut negative_zero_slippage = spot_draft(OrderSide::Buy, OrderType::Market, "0.001");
+    negative_zero_slippage.slippage_pct = Some("-0".into());
+    cases.push((
+        "negative zero slippage",
+        negative_zero_slippage,
+        spot_spec(),
+    ));
+
+    let mut excessive_slippage = spot_draft(OrderSide::Buy, OrderType::Market, "0.001");
+    excessive_slippage.slippage_pct = Some("0.0501".into());
+    cases.push((
+        "slippage above five percent",
+        excessive_slippage,
+        spot_spec(),
+    ));
+
+    for (name, draft, spec) in cases {
+        assert!(
+            build_order(draft, &spec, &context).is_err(),
+            "accepted {name}"
+        );
+    }
+}
+
+#[test]
+fn public_instrument_reader_returns_validated_contract_rules_without_credentials() {
+    let (client, handle) = server(
+        vec![(
+            "/api/v5/public/instruments?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[{
+                "instType":"SWAP","instId":"BTC-USDT-SWAP","state":"live",
+                "tickSz":"0.1","lotSz":"1","minSz":"1","ctVal":"0.01",
+                "ctValCcy":"BTC","ctType":"linear","settleCcy":"USDT","baseCcy":"BTC","quoteCcy":"USDT"
+            }]}),
+        )],
+        false,
+    );
+    let spec = client
+        .read_instrument_spec(OrderInstrumentType::Swap, "BTC-USDT-SWAP")
+        .unwrap();
+    assert_eq!(spec.inst_id, "BTC-USDT-SWAP");
+    assert_eq!(spec.ct_val.as_deref(), Some("0.01"));
+    assert_eq!(spec.lot_sz, "1");
+    handle.join().unwrap();
+}
+
+#[test]
+fn demo_trade_context_reads_account_mode_positions_pending_closes_and_leverage() {
+    let (client, handle) = demo_server(vec![
+        (
+            "/api/v5/account/config",
+            serde_json::json!({"code":"0","data":[{"acctLv":"2","posMode":"net_mode"}]}),
+        ),
+        (
+            "/api/v5/account/positions?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","pos":"2","posSide":"net","mgnMode":"cross"}]}),
+        ),
+        (
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","side":"sell","posSide":"net","tdMode":"cross","reduceOnly":"true","sz":"3","accFillSz":"1.5"}]}),
+        ),
+        (
+            "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=cross",
+            serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","mgnMode":"cross","posSide":"net","lever":"5"}]}),
+        ),
+        (
+            "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=isolated",
+            serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","mgnMode":"isolated","posSide":"net","lever":"3"}]}),
+        ),
+    ]);
+    let context = client
+        .read_trade_context(
+            &credentials(),
+            OrderInstrumentType::Swap,
+            "BTC-USDT-SWAP",
+            OkxEnvironment::Demo,
+        )
+        .unwrap();
+    assert_eq!(context.acct_lv, "2");
+    assert_eq!(context.pos_mode, PositionMode::Net);
+    assert_eq!(context.positions[0].quantity, "2");
+    assert_eq!(context.pending_orders[0].remaining_size, "1.5");
+    assert_eq!(context.leverage.len(), 2);
+    assert_eq!(context.leverage[0].pos_side, Some(PositionSide::Net));
+    let serialized = serde_json::to_value(&context).unwrap();
+    assert_eq!(serialized["pos_mode"], "net_mode");
+    assert_eq!(serialized["leverage"][0]["pos_side"], "net");
+    handle.join().unwrap();
+}
+
+#[test]
+fn unavailable_optional_cross_leverage_does_not_block_trade_context() {
+    let (client, handle) = demo_server(vec![
+        (
+            "/api/v5/account/config",
+            serde_json::json!({"code":"0","data":[{"acctLv":"2","posMode":"net_mode"}]}),
+        ),
+        (
+            "/api/v5/account/positions?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[]}),
+        ),
+        (
+            "/api/v5/trade/orders-pending?instType=SWAP&instId=BTC-USDT-SWAP",
+            serde_json::json!({"code":"0","data":[]}),
+        ),
+        (
+            "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=cross",
+            serde_json::json!({"code":"50000","msg":"unavailable under portfolio margin"}),
+        ),
+        (
+            "/api/v5/account/leverage-info?instId=BTC-USDT-SWAP&mgnMode=isolated",
+            serde_json::json!({"code":"0","data":[{"instId":"BTC-USDT-SWAP","mgnMode":"isolated","posSide":"net","lever":"3"}]}),
+        ),
+    ]);
+    let context = client
+        .read_trade_context(
+            &credentials(),
+            OrderInstrumentType::Swap,
+            "BTC-USDT-SWAP",
+            OkxEnvironment::Demo,
+        )
+        .unwrap();
+    assert_eq!(context.leverage.len(), 1);
+    assert_eq!(context.leverage[0].margin_mode, TradeMode::Isolated);
+    handle.join().unwrap();
 }
 
 #[derive(serde::Serialize)]
