@@ -72,49 +72,96 @@
 .exchange-rate-source h3 {
   margin-bottom: 10px;
 }
+.exchange-rate-periods {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  width: 100%;
+}
+.exchange-rate-periods button {
+  min-height: 44px;
+  padding: 8px 4px;
+  white-space: nowrap;
+}
 .rate-chart-panel {
   max-width: 100%;
   margin: 12px 0;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #fffefa;
+  border-radius: 10px;
+  background: #fff;
 }
 .rate-chart {
   display: block;
   width: 100%;
   height: auto;
-  overflow: visible;
+  overflow: hidden;
+}
+.rate-chart-title {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 .rate-chart text {
   fill: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
-.rate-chart-grid line {
-  stroke: var(--line);
-  stroke-dasharray: 4 5;
+.rate-chart-grid-line {
+  fill: none;
+  stroke: #d8d8d8;
+  stroke-dasharray: 1.5 3;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
-.rate-chart-line {
-  stroke: var(--teal);
-  stroke-width: 2.5;
-  stroke-linejoin: round;
-}
-.rate-chart circle {
-  fill: var(--teal);
-  stroke: var(--cream);
-  stroke-width: 1.5;
+.rate-chart-candle {
   cursor: pointer;
-}
-.rate-chart circle:focus {
   outline: none;
+}
+.rate-chart-candle-up,
+.rate-chart-candle-flat {
+  fill: #2eaf43;
+  stroke: #229c37;
+}
+.rate-chart-candle-down {
+  fill: #c00000;
+  stroke: #b30000;
+}
+.rate-chart-candle line {
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.rate-chart-candle rect {
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+.rate-chart-candle:focus rect {
   stroke: var(--ink);
-  stroke-width: 2.5;
+  stroke-width: 2;
+}
+.rate-chart-range {
+  display: grid;
+  gap: 7px;
+  font-size: 0.82rem;
+}
+.rate-chart-range input {
+  width: 100%;
 }
 .rate-chart-selected {
+  display: grid;
+  gap: 4px;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
   margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f2f6f4;
   font-size: 0.82rem;
+}
+.rate-chart-selected span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.rate-chart-selected strong {
+  overflow-wrap: anywhere;
 }
 .exchange-rate-source {
   overflow-wrap: anywhere;
@@ -128,7 +175,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .rate-chart text {
-    font-size: 19px;
+    font-size: 15px;
   }
 }
 @media (max-width: 360px) {

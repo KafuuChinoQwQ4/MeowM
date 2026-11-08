@@ -26,6 +26,10 @@ impl ConnectorState {
     pub(crate) fn credentials(&self) -> Arc<CredentialService> {
         self.credentials.clone()
     }
+
+    pub(crate) fn ifind_tokens(&self) -> Arc<super::markets::IfindTokenCache> {
+        self.ifind_tokens.clone()
+    }
 }
 
 fn storage_error(_: CredentialStoreError) -> String {
@@ -47,19 +51,17 @@ pub fn save_provider_credentials(
     connectors: State<'_, ConnectorState>,
     input: CredentialInput,
 ) -> Result<ConnectionStatus, String> {
-    access(ledger.clone(), |_| Ok(()))?;
     let provider = input.provider();
-    let status = connectors.credentials.save(input).map_err(storage_error)?;
-    if provider == ProviderId::Okx {
-        access(ledger, |l| {
+    access(ledger, |l| {
+        if invalidates_market_session(provider) {
             l.clear_import_preview();
-            Ok(())
-        })?;
-    }
-    if provider == ProviderId::Ifind {
-        connectors.ifind_tokens.invalidate();
-    }
-    Ok(status)
+        }
+        let status = connectors.credentials.save(input).map_err(storage_error)?;
+        if provider == ProviderId::Ifind {
+            connectors.ifind_tokens.invalidate();
+        }
+        Ok(status)
+    })
 }
 
 #[tauri::command]
@@ -68,21 +70,33 @@ pub fn remove_provider_credentials(
     connectors: State<'_, ConnectorState>,
     provider: ProviderId,
 ) -> Result<ConnectionStatus, String> {
-    access(ledger.clone(), |_| Ok(()))?;
-    if provider == ProviderId::Ifind {
-        connectors.ifind_tokens.invalidate();
-    }
-    let status = connectors
-        .credentials
-        .remove(provider)
-        .map_err(storage_error)?;
-    if provider == ProviderId::Okx {
-        access(ledger, |l| {
+    access(ledger, |l| {
+        if invalidates_market_session(provider) {
             l.clear_import_preview();
-            Ok(())
-        })?;
-    }
-    Ok(status)
+        }
+        if provider == ProviderId::Ifind {
+            connectors.ifind_tokens.invalidate();
+        }
+        connectors
+            .credentials
+            .remove(provider)
+            .map_err(storage_error)
+    })
+}
+
+fn invalidates_market_session(provider: ProviderId) -> bool {
+    matches!(
+        provider,
+        ProviderId::Binance
+            | ProviderId::BinanceTradeDemo
+            | ProviderId::BinanceTradeLive
+            | ProviderId::BinanceWithdraw
+            | ProviderId::Okx
+            | ProviderId::OkxTradeDemo
+            | ProviderId::OkxTradeLive
+            | ProviderId::OkxWithdraw
+            | ProviderId::Ifind
+    )
 }
 
 #[tauri::command]
@@ -120,9 +134,12 @@ pub async fn connections_test(
             ProviderId::Binance | ProviderId::Okx | ProviderId::Ifind => {
                 super::markets::test(request, loaded, &ifind_tokens)
             }
-            ProviderId::OkxTradeDemo | ProviderId::OkxTradeLive => {
-                Err(ProviderErrorCode::UnsupportedProvider)
-            }
+            ProviderId::BinanceTradeDemo
+            | ProviderId::BinanceTradeLive
+            | ProviderId::BinanceWithdraw
+            | ProviderId::OkxTradeDemo
+            | ProviderId::OkxTradeLive
+            | ProviderId::OkxWithdraw => Err(ProviderErrorCode::UnsupportedProvider),
         };
         match result {
             Ok(summary) => Ok(ConnectionTestResult {

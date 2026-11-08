@@ -113,7 +113,7 @@ export function ClassificationPage({
           <div className="analytics-row">
             <h3>商户别名</h3>
           </div>
-          <p className="field-hint">原始商户名保留在流水中；别名只用于搜索和规则建议。</p>
+          <p className="field-hint">别名不修改原始商户名。</p>
           <div className="search-grid">
             <Field label="商户别名" value={alias} onChange={(e) => setAlias(e.target.value)} />
             <Field
@@ -154,9 +154,7 @@ export function ClassificationPage({
           <div className="analytics-row">
             <h3>商家自动分类</h3>
           </div>
-          <p className="field-hint">
-            输入商家并选择分类，之后导入或记账时会自动沿用；历史记录不会被批量改写。
-          </p>
+          <p className="field-hint">仅对后续流水生效，不修改历史记录。</p>
           <div className="search-grid">
             <Field
               label="商家名称"
@@ -242,7 +240,7 @@ export function ClassificationPage({
               新增规则
             </button>
           </div>
-          <p className="field-hint">优先级数字越小越先匹配；复杂规则可先预览受影响的待确认候选。</p>
+          <p className="field-hint">优先级数字越小越先匹配。</p>
           {state.data.rules.map((r) => (
             <div className="search-list-row" key={r.id}>
               <span>

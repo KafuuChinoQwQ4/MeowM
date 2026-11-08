@@ -3,6 +3,8 @@ import { useEffect, useRef } from 'react';
 import { useConnections } from '../connections/useConnections';
 import { OkxWorkspace } from './okx/OkxWorkspace';
 import { OkxCredentialSettings } from './okx/OkxCredentialSettings';
+import { MarketWorkspace } from './MarketWorkspace';
+import { BinanceCredentialSettings } from './BinanceCredentialSettings';
 import type { CredentialInput, ProviderId } from '../../api/connections';
 import '../../styles/providerConnections.css';
 
@@ -10,7 +12,6 @@ const marketProviders = [
   {
     provider: 'binance',
     title: '币安',
-    description: '读取现货账户非零余额。API Key 请仅开启读取权限。',
     operation: 'balances',
     fields: [
       { name: 'api_key', label: 'API Key' },
@@ -20,7 +21,6 @@ const marketProviders = [
   {
     provider: 'okx',
     title: '欧易',
-    description: '公开行情无需 API Key；账户数据可配置只读凭据，交易功能使用单独的交易凭据。',
     operation: 'balances',
     fields: [
       { name: 'api_key', label: 'API Key' },
@@ -31,7 +31,6 @@ const marketProviders = [
   {
     provider: 'ifind',
     title: '同花顺 iFinD',
-    description: '行情数据服务，不连接证券账户或下单功能。',
     operation: 'quote',
     fields: [{ name: 'refresh_token', label: 'HTTP API Refresh Token' }],
   },
@@ -67,13 +66,12 @@ export function MarketsPage({
   const provider = marketProviders.find((item) => item.provider === route?.provider);
   const configured = (id: ProviderId) =>
     connections.statuses.find((status) => status.provider === id)?.configured ?? false;
-  const needsSetup =
-    provider &&
-    (provider.provider === 'okx'
-      ? route?.page === 'settings'
-      : !configured(provider.provider) || route?.page === 'settings');
+  const needsSetup = provider && route?.page === 'settings';
   const unavailable = connections.loading || !!connections.error;
-  const routeUnavailable = provider?.provider === 'okx' ? connections.loading : unavailable;
+  const routeUnavailable =
+    provider?.provider === 'okx' || provider?.provider === 'binance'
+      ? connections.loading
+      : unavailable;
   const save = async (input: CredentialInput) => {
     const origin = route;
     await connections.save(input);
@@ -93,15 +91,6 @@ export function MarketsPage({
             ? `${provider.title}${route?.page === 'settings' ? ' · API 设置' : ''}`
             : '交易所'}
         </h2>
-        <p>
-          {provider
-            ? needsSetup
-              ? provider.provider === 'okx'
-                ? '按需分别配置只读、模拟盘和实盘 API 凭据。'
-                : '填写 API 凭据，保存后进入该交易所。'
-              : provider.description
-            : '选择交易所，查看账户与行情。OKX 公开行情可直接查看。'}
-        </p>
       </header>
       {connections.loading && <p role="status">正在读取连接状态…</p>}
       {connections.error && (
@@ -120,12 +109,14 @@ export function MarketsPage({
               key={item.provider}
               type="button"
               aria-label={`打开${item.title}`}
-              disabled={connections.loading || (!!connections.error && item.provider !== 'okx')}
+              disabled={
+                connections.loading ||
+                (!!connections.error && item.provider !== 'okx' && item.provider !== 'binance')
+              }
               onClick={() => onNavigate({ provider: item.provider, page: 'account' })}
             >
               <span>
                 <strong>{item.title}</strong>
-                <small>{item.description}</small>
               </span>
               <span
                 className={
@@ -147,23 +138,11 @@ export function MarketsPage({
           ))}
           <article className="provider-connection-placeholder">
             <h3>更多交易所</h3>
-            <p>更多交易所，后续接入</p>
             <span>尚未开放</span>
           </article>
         </div>
       ) : !routeUnavailable ? (
         <>
-          {!needsSetup && provider.provider !== 'okx' && (
-            <div>
-              <button
-                className="button"
-                type="button"
-                onClick={() => onNavigate({ provider: provider.provider, page: 'settings' })}
-              >
-                API 设置
-              </button>
-            </div>
-          )}
           {provider.provider === 'okx' ? (
             needsSetup ? (
               <OkxCredentialSettings
@@ -180,12 +159,41 @@ export function MarketsPage({
                 onCredentialSettings={() => onNavigate({ provider: 'okx', page: 'settings' })}
               />
             )
+          ) : provider.provider === 'binance' ? (
+            needsSetup ? (
+              <BinanceCredentialSettings
+                configured={configured}
+                onSave={save}
+                onRemove={remove}
+                onTest={connections.test}
+                onBack={() => onNavigate({ provider: 'binance', page: 'account' })}
+              />
+            ) : (
+              <MarketWorkspace
+                key="binance"
+                provider="binance"
+                configured={configured('binance')}
+                configuredScopes={{
+                  read: configured('binance'),
+                  trade_demo: configured('binance_trade_demo'),
+                  trade_live: configured('binance_trade_live'),
+                  withdraw: configured('binance_withdraw'),
+                }}
+                onConfigure={() => onNavigate({ provider: 'binance', page: 'settings' })}
+              />
+            )
+          ) : !needsSetup && provider.provider === 'ifind' ? (
+            <MarketWorkspace
+              key="ifind"
+              provider="ifind"
+              configured={configured('ifind')}
+              onConfigure={() => onNavigate({ provider: 'ifind', page: 'settings' })}
+            />
           ) : (
             <ProviderConnectionCard
               key={`${provider.provider}-${needsSetup ? 'settings' : 'account'}`}
               provider={provider.provider}
               title={provider.title}
-              description={provider.description}
               fields={[...provider.fields]}
               configured={configured(provider.provider)}
               showCredentials={!!needsSetup}

@@ -12,7 +12,6 @@ export interface CredentialFieldConfig {
 export function ProviderConnectionCard({
   provider,
   title,
-  description,
   fields,
   configured,
   showCredentials = true,
@@ -23,7 +22,6 @@ export function ProviderConnectionCard({
 }: {
   provider: ProviderId;
   title: string;
-  description: string;
   fields: CredentialFieldConfig[];
   configured: boolean;
   showCredentials?: boolean;
@@ -71,7 +69,6 @@ export function ProviderConnectionCard({
       <header className="provider-card-header">
         <div>
           <h3>{title}</h3>
-          <p>{description}</p>
         </div>
         <span className={configured ? 'connection-state configured' : 'connection-state'}>
           {configured ? '已配置' : '尚未配置'}
@@ -122,7 +119,7 @@ export function ProviderConnectionCard({
             value={billDate}
             onChange={(event) => setBillDate(event.target.value)}
           />
-          <small className="field-hint">账单接口只读取该日期的商户账单，不会导入账本。</small>
+          <small className="field-hint">仅查询商户账单，不导入账本。</small>
         </label>
       )}
       {operation === 'quote' && (
@@ -134,7 +131,6 @@ export function ProviderConnectionCard({
             maxLength={20}
             onChange={(event) => setSymbol(event.target.value.toUpperCase())}
           />
-          <small className="field-hint">iFinD 行情数据测试，默认标的为 000001.SZ。</small>
         </label>
       )}
       <div className="provider-card-actions">

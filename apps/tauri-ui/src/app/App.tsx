@@ -286,7 +286,6 @@ function UnlockedApp({
                       <div className="empty-state">
                         <span className="empty-art">＋</span>
                         <h2>从第一个平台开始</h2>
-                        <p>为微信、支付宝或银行卡建一个独立账本。</p>
                         <button
                           className="button button-primary"
                           onClick={() => setModal({ kind: 'account' })}

@@ -10,6 +10,7 @@ use zeroize::Zeroizing;
 
 const API_BASE: &str = "https://quantapi.51ifind.com";
 const TOKEN_PATH: &str = "/api/v1/get_access_token";
+const UPDATE_TOKEN_PATH: &str = "/api/v1/update_access_token";
 const QUOTE_PATH: &str = "/api/v1/real_time_quotation";
 const ACCESS_TOKEN_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60 - 5 * 60);
 
@@ -47,23 +48,147 @@ impl IfindTokenCache {
         client: &IfindClient,
         refresh_token: &str,
     ) -> Result<Zeroizing<String>, ProviderErrorCode> {
+        self.get_or_fetch_detailed(client, refresh_token)
+            .map_err(|error| error.error)
+    }
+
+    fn get_or_fetch_detailed(
+        &self,
+        client: &IfindClient,
+        refresh_token: &str,
+    ) -> Result<Zeroizing<String>, IfindTokenError> {
         let mut cache = self
             .token
             .lock()
-            .map_err(|_| ProviderErrorCode::ProviderFailure)?;
+            .map_err(|_| IfindTokenError::provider_failure())?;
         if let Some(cached) = cache.as_ref()
             && cached.expires_at > Instant::now()
         {
             return Ok(Zeroizing::new(cached.access_token.as_str().to_string()));
         }
 
-        let access_token = client.fetch_access_token(refresh_token)?;
+        let access_token = client.fetch_token_detailed(refresh_token, TOKEN_PATH)?;
         let copy = Zeroizing::new(access_token.as_str().to_string());
         *cache = Some(CachedToken {
             access_token,
             expires_at: Instant::now() + ACCESS_TOKEN_TTL,
         });
         Ok(copy)
+    }
+
+    pub(super) fn access_token(
+        &self,
+        client: &IfindClient,
+        refresh_token: &str,
+    ) -> Result<Zeroizing<String>, ProviderErrorCode> {
+        self.get_or_fetch(client, refresh_token)
+    }
+
+    pub(super) fn access_token_detailed(
+        &self,
+        client: &IfindClient,
+        refresh_token: &str,
+    ) -> Result<Zeroizing<String>, IfindTokenError> {
+        self.get_or_fetch_detailed(client, refresh_token)
+    }
+
+    /// Explicitly rotates the access token through the official update endpoint.
+    /// The returned secret remains inside the native process and is never sent to IPC.
+    pub(super) fn update_access_token(
+        &self,
+        client: &IfindClient,
+        refresh_token: &str,
+    ) -> Result<(), ProviderErrorCode> {
+        self.update_access_token_detailed(client, refresh_token)
+            .map_err(|error| error.error)
+    }
+
+    pub(super) fn update_access_token_detailed(
+        &self,
+        client: &IfindClient,
+        refresh_token: &str,
+    ) -> Result<(), IfindTokenError> {
+        let access_token = client.fetch_token_detailed(refresh_token, UPDATE_TOKEN_PATH)?;
+        let mut cache = self
+            .token
+            .lock()
+            .map_err(|_| IfindTokenError::provider_failure())?;
+        *cache = Some(CachedToken {
+            access_token,
+            expires_at: Instant::now() + ACCESS_TOKEN_TTL,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub(super) struct IfindTokenError {
+    pub(super) error: ProviderErrorCode,
+    pub(super) provider_code: Option<String>,
+    pub(super) message: Option<String>,
+    pub(super) http_status: Option<u16>,
+}
+
+impl IfindTokenError {
+    fn provider_failure() -> Self {
+        Self {
+            error: ProviderErrorCode::ProviderFailure,
+            provider_code: None,
+            message: None,
+            http_status: None,
+        }
+    }
+
+    fn provider_code(error: ProviderErrorCode) -> Self {
+        Self {
+            error,
+            provider_code: None,
+            message: None,
+            http_status: None,
+        }
+    }
+
+    fn transport(error: ProviderErrorCode) -> Self {
+        Self::provider_code(error)
+    }
+
+    fn with_status(error: ProviderErrorCode, status: u16) -> Self {
+        Self {
+            error,
+            provider_code: None,
+            message: None,
+            http_status: Some(status),
+        }
+    }
+
+    fn from_value(errorcode: i64, value: &Value, status: u16) -> Self {
+        Self {
+            error: map_ifind_error(errorcode),
+            provider_code: Some(errorcode.to_string()),
+            message: value
+                .get("errmsg")
+                .or_else(|| value.get("message"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            http_status: Some(status),
+        }
+    }
+
+    fn from_http(status: u16, value: &Value) -> Self {
+        Self {
+            error: map_ifind_http_status(status),
+            provider_code: value
+                .get("errorcode")
+                .and_then(Value::as_i64)
+                .map(|code| code.to_string())
+                .or_else(|| Some(status.to_string())),
+            message: value
+                .get("errmsg")
+                .or_else(|| value.get("message"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            http_status: Some(status),
+        }
     }
 }
 
@@ -110,34 +235,42 @@ impl IfindClient {
         }
     }
 
-    fn fetch_access_token(
+    fn fetch_token_detailed(
         &self,
         refresh_token: &str,
-    ) -> Result<Zeroizing<String>, ProviderErrorCode> {
-        let url = format!("{}{TOKEN_PATH}", self.base_url.trim_end_matches('/'));
+        path: &str,
+    ) -> Result<Zeroizing<String>, IfindTokenError> {
+        let url = format!("{}{path}", self.base_url.trim_end_matches('/'));
         let mut response = self
             .agent
             .post(&url)
             .header("Content-Type", "application/json")
             .header("refresh_token", refresh_token)
             .send_empty()
-            .map_err(request_error)?;
+            .map_err(|error| IfindTokenError::transport(request_error(error)))?;
         let status = response.status().as_u16();
+        let bytes = read_bounded(&mut response, super::MAX_JSON_BYTES)
+            .map_err(IfindTokenError::provider_code)?;
+        let value: Value = serde_json::from_slice(&bytes).map_err(|_| {
+            IfindTokenError::with_status(ProviderErrorCode::InvalidResponse, status)
+        })?;
+        if let Some(error_code) = value.get("errorcode").and_then(Value::as_i64)
+            && error_code != 0
+        {
+            return Err(IfindTokenError::from_value(error_code, &value, status));
+        }
         if !(200..300).contains(&status) {
-            return Err(map_ifind_http_status(status));
+            return Err(IfindTokenError::from_http(status, &value));
         }
-        let bytes = read_bounded(&mut response, super::MAX_JSON_BYTES)?;
-        let response: IfindTokenResponse =
-            serde_json::from_slice(&bytes).map_err(|_| ProviderErrorCode::InvalidResponse)?;
-        if let Some(error_code) = response.errorcode {
-            if error_code != 0 {
-                return Err(map_ifind_error(error_code));
-            }
-        }
+        let response: IfindTokenResponse = serde_json::from_value(value).map_err(|_| {
+            IfindTokenError::with_status(ProviderErrorCode::InvalidResponse, status)
+        })?;
         response
             .data
             .map(|data| Zeroizing::new(data.access_token.expose_secret().to_string()))
-            .ok_or(ProviderErrorCode::InvalidCredentials)
+            .ok_or_else(|| {
+                IfindTokenError::with_status(ProviderErrorCode::InvalidCredentials, status)
+            })
     }
 
     fn request_quote(
@@ -240,8 +373,6 @@ fn value_as_scalar_string(value: &Value) -> Option<String> {
 
 #[derive(Deserialize)]
 struct IfindTokenResponse {
-    #[serde(default)]
-    errorcode: Option<i64>,
     #[serde(default)]
     data: Option<IfindTokenData>,
 }

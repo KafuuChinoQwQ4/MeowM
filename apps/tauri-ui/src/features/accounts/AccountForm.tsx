@@ -43,7 +43,6 @@ export function AccountForm({
         />
         <div className="platform-color-preview" aria-label="平台颜色预览">
           <PlatformBadge name={name.trim()} category={category} />
-          <span className="field-hint">按平台名称自动配色</span>
         </div>
         <SelectField
           label="平台分类"
@@ -60,11 +59,7 @@ export function AccountForm({
           disabled={!!account}
           onChange={(e) => setCurrency(e.target.value)}
         />
-        <p className="field-hint">
-          {account
-            ? '账户币种创建后不可修改。'
-            : '币种创建后不可修改；平台分类不代表已接入行情或平台同步。'}
-        </p>
+        <p className="field-hint">账户币种创建后不可修改。</p>
       </fieldset>
       <FormError message={action.error} />
       <button className="button button-primary submit-button" disabled={action.busy}>

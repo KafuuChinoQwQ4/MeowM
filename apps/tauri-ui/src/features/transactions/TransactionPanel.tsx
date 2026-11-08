@@ -53,7 +53,6 @@ export function TransactionPanel({
           }}
         />
       )}
-      {detail && <p className="sheet-description">编辑会按版本号保存。导入来源字段保持不变。</p>}
       {(!detail || (canEdit && editing)) && (
         <TransactionEditor
           key={id ?? 'new'}

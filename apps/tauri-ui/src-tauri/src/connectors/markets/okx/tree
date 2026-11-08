@@ -3,6 +3,9 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `account.rs` — 读取 OKX 稳定 UID、交易与资金账户余额及 USD 账户估值。
+- `advanced.rs` — 按官方目录校验、签名并发送 OKX REST 请求，保留准确数值与未知结果。
+- `advanced_tests.rs` — 验证目录约束、请求签名、凭据隔离、精确数值及 SBE 回退。
+- `catalogue.json` — 从 OKX API v5 官方文档生成的 REST 和 WebSocket 接口目录快照。
 - `history.rs` — 读取并规范化 OKX 账单、双资产成交和充提状态，保留分页游标。
 - `market.rs` — 无需鉴权的 OKX 现货行情及当前、历史 K 线查询和校验。
 - `model.rs` — OKX 行情、资产、分页、产品、账户上下文及交易订单 DTO。

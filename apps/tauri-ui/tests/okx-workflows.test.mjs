@@ -5,10 +5,15 @@ import { installWorkflowIpc } from './helpers/workflow-ipc.mjs';
 import { navigate } from './helpers/navigation.mjs';
 const { url, newPage } = browserSuite('1447');
 
-async function open(configured = false) {
+async function open(
+  configured = false,
+  instruments = ['BTC-USDT', 'ETH-USDT', 'BTC-USDC', 'ETH-BTC'],
+  candleTimes = [1708580000000],
+) {
   const page = await newPage({ viewport: { width: 390, height: 844 } });
   await installWorkflowIpc(page);
-  await page.addInitScript(() => {
+  const marketData = { instruments, candleTimes };
+  await page.addInitScript(({ instruments, candleTimes }) => {
     const original = window.__TAURI_INTERNALS__.invoke;
     let watchlist = [];
     const records = [];
@@ -42,13 +47,14 @@ async function open(configured = false) {
     window.__TAURI_INTERNALS__.invoke = async (command, args) => {
       if (!command.startsWith('okx_')) return original(command, args);
       window.workflowCalls.push({ command, args });
-      if (command === 'okx_tickers') return [ticker('BTC-USDT'), ticker('ETH-USDT')];
+      if (command === 'okx_tickers') return instruments.map(ticker);
       if (command === 'okx_watchlist') return watchlist;
       if (command === 'okx_save_watchlist') {
         watchlist = args.instruments;
         return;
       }
-      if (command === 'okx_candles') return [candle(args.after ? 1708570000000 : 1708580000000)];
+      if (command === 'okx_candles')
+        return args.after ? [candle(1708570000000)] : candleTimes.map(candle);
       if (command === 'okx_assets')
         return {
           balances: [
@@ -251,7 +257,7 @@ async function open(configured = false) {
         };
       throw Error('Unexpected OKX command');
     };
-  });
+  }, marketData);
   await page.goto(url);
   await page.locator('.balance-value').waitFor();
   await navigate(page, 'markets');
@@ -291,7 +297,8 @@ test('configured OKX opens its workspace with public quotes, persistent watchlis
     await page.getByRole('heading', { name: '交易所', exact: true }).waitFor();
     assert.equal(await page.getByRole('tablist', { name: 'OKX 功能' }).count(), 0);
     await page.getByRole('button', { name: '打开币安', exact: true }).click();
-    await page.getByLabel('API Key', { exact: true }).waitFor();
+    await page.getByRole('tab', { name: '币安行情', exact: true }).waitFor();
+    assert.equal(await page.getByLabel('API Key', { exact: true }).count(), 0);
     assert.equal(await page.getByRole('tablist', { name: 'OKX 功能' }).count(), 0);
     await page.getByRole('button', { name: '返回上一级', exact: true }).click();
     await page.getByRole('button', { name: '打开欧易', exact: true }).click();
@@ -304,6 +311,147 @@ test('configured OKX opens its workspace with public quotes, persistent watchlis
     assert.equal(
       calls.some((c) => ['okx_assets', 'okx_positions', 'okx_import_history'].includes(c.command)),
       false,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('OKX candle slider reaches both ends of its visible track', async () => {
+  const page = await open(false, ['BTC-USDT'], [1708580000000, 1708583600000, 1708587200000]);
+  try {
+    const slider = page.getByRole('slider', { name: '查看 K 线', exact: true });
+    await slider.waitFor();
+    // A fixed accent lets us measure the painted thumb without a screenshot baseline.
+    await slider.evaluate((element) => {
+      element.style.accentColor = 'rgb(0, 120, 255)';
+    });
+    const detail = page.locator('.okx-candle-detail strong');
+    const latest = await detail.textContent();
+    await slider.scrollIntoViewIfNeeded();
+    const box = await slider.boundingBox();
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width - 24, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 1, y, { steps: 12 });
+    await page.mouse.up();
+    assert.equal(await slider.inputValue(), '0');
+    assert.notEqual(await detail.textContent(), latest);
+
+    const paintedThumb = async () => {
+      const bytes = [...(await slider.screenshot())];
+      return page.evaluate(async (bytes) => {
+        const image = await createImageBitmap(
+          new Blob([new Uint8Array(bytes)], { type: 'image/png' }),
+        );
+        const canvas = new OffscreenCanvas(image.width, image.height);
+        const context = canvas.getContext('2d');
+        context.drawImage(image, 0, 0);
+        const pixels = context.getImageData(0, 0, image.width, image.height).data;
+        let left = image.width,
+          right = -1;
+        for (let y = 0; y < image.height; y++) {
+          for (let x = 0; x < image.width; x++) {
+            const index = (y * image.width + x) * 4;
+            if (pixels[index] < 50 && pixels[index + 1] < 180 && pixels[index + 2] > 150) {
+              left = Math.min(left, x);
+              right = Math.max(right, x);
+            }
+          }
+        }
+        image.close();
+        return { left, right, width: canvas.width };
+      }, bytes);
+    };
+    const first = await paintedThumb();
+    assert.ok(first.left <= 3, `first candle leaves ${first.left}px before the thumb`);
+    await page.mouse.move(box.x + 24, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width - 1, y, { steps: 12 });
+    await page.mouse.up();
+    assert.equal(await slider.inputValue(), '2');
+    assert.equal(await detail.textContent(), latest);
+    const last = await paintedThumb();
+    const gap = last.width - last.right - 1;
+    assert.ok(gap <= 3, `last candle leaves ${gap}px after the thumb`);
+  } finally {
+    await page.close();
+  }
+});
+
+test('OKX market lists every spot pair even after saving a favorite', async () => {
+  const page = await open(false);
+  try {
+    const list = page.locator('.okx-quote-list');
+    await list.getByRole('button', { name: /BTC-USDT/ }).waitFor();
+    assert.equal(await list.getByRole('button').count(), 4);
+    await list.getByRole('button', { name: /BTC-USDC/ }).waitFor();
+    await list.getByRole('button', { name: /ETH-BTC/ }).waitFor();
+
+    await page.getByRole('button', { name: '收藏 BTC-USDT', exact: true }).click();
+    await page.getByRole('button', { name: '取消收藏 BTC-USDT', exact: true }).waitFor();
+    assert.equal(await list.getByRole('button').count(), 4);
+  } finally {
+    await page.close();
+  }
+});
+
+test('OKX market search matches currencies and pairs and clears an empty result', async () => {
+  const page = await open(false);
+  try {
+    const list = page.locator('.okx-quote-list');
+    const search = page.getByLabel('搜索现货交易对', { exact: true });
+    await page.getByRole('img', { name: /BTC-USDT K 线/ }).waitFor();
+    await search.fill('  usdc  ');
+    assert.equal(await list.getByRole('button').count(), 1);
+    await list.getByRole('button', { name: /BTC-USDC/ }).waitFor();
+
+    await search.fill('eth');
+    assert.equal(await list.getByRole('button').count(), 2);
+    await list.getByRole('button', { name: /ETH-BTC/ }).click();
+    assert.equal(await page.getByLabel('现货交易对', { exact: true }).inputValue(), 'ETH-BTC');
+    await page.getByRole('img', { name: /ETH-BTC K 线/ }).waitFor();
+
+    await search.fill('eth-btc');
+    assert.equal(await list.getByRole('button').count(), 1);
+    await search.fill('NO-SUCH-COIN');
+    assert.equal(await list.getByRole('button').count(), 0);
+    await page.getByText('未找到匹配的现货交易对。', { exact: true }).waitFor();
+    await page.getByRole('button', { name: '清空搜索', exact: true }).click();
+    assert.equal(await search.inputValue(), '');
+    assert.equal(await list.getByRole('button').count(), 4);
+    assert.equal(await page.getByLabel('现货交易对', { exact: true }).inputValue(), 'ETH-BTC');
+  } finally {
+    await page.close();
+  }
+});
+
+test('OKX market scroll reaches later spot pairs on mobile', async () => {
+  const instruments = [
+    'BTC-USDT',
+    ...Array.from({ length: 60 }, (_, index) => `COIN${index}-USDT`),
+    'LAST-BTC',
+  ];
+  const page = await open(false, instruments);
+  try {
+    const list = page.locator('.okx-quote-list');
+    await list.getByRole('button', { name: /BTC-USDT/ }).waitFor();
+    const scroll = await list.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      return {
+        top: element.scrollTop,
+        height: element.clientHeight,
+        content: element.scrollHeight,
+      };
+    });
+    assert.ok(scroll.content > scroll.height);
+    assert.ok(scroll.top > 0);
+    await list.getByRole('button', { name: /LAST-BTC/ }).click();
+    await page.getByRole('img', { name: /LAST-BTC K 线/ }).waitFor();
+    assert.equal(await page.getByLabel('现货交易对', { exact: true }).inputValue(), 'LAST-BTC');
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
     );
   } finally {
     await page.close();
@@ -327,7 +475,7 @@ test('OKX public markets open without credentials while private data links to cr
     await page.getByRole('button', { name: '配置私有凭据', exact: true }).waitFor();
     await page.getByRole('button', { name: '配置私有凭据', exact: true }).click();
     await page.getByRole('heading', { name: '只读 API', exact: true }).waitFor();
-    assert.equal(await page.getByLabel('API Key', { exact: true }).count(), 3);
+    assert.equal(await page.getByLabel('API Key', { exact: true }).count(), 4);
     assert.equal(
       await page.evaluate(() =>
         window.workflowCalls.some((call) => call.command === 'okx_place_order'),

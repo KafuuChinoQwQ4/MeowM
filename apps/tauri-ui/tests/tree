@@ -3,13 +3,15 @@
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
 - `data.test.mjs` — 备份恢复确认和筛选导出的 React 浏览器测试。
-- `exchange-rates.test.mjs` — 验证任意货币对交叉汇率、整数换算、紧凑图点、空数据和刷新错误。
+- `exchange-rates.test.mjs` — 验证交叉汇率、金额换算、时间范围过滤、K 线聚合、空数据和刷新错误。
 - `format.test.ts` — Money precision, calendar and amount input validation tests.
 - `imports.test.mjs` — 账单导入 UI、加密 PDF、划转核对及缺失平台自动定位回归测试。
+- `market-workspaces.test.mjs` — 币安完整行情与余额、iFinD 股票工作区、精度隐私、自选持久化及时区工作流回归。
 - `mobile-layout.test.mjs` — Small-screen and landscape scrolling, navigation reachability, keyboard-sized unlock and dialog layout regressions.
 - `multi-currency-accounting.test.mjs` — 多币种账户、外币交易、汇率预览与人民币报表折算浏览器工作流测试。
 - `notifications.test.mjs` — React notification consent, draft retention and source persistence browser tests.
-- `okx-workflows.test.mjs` — 验证 OKX 公共/私有页面、流水核对及模拟盘实盘交易、确认和结果协调流程。
+- `okx-api-workspace.test.mjs` — 验证接口目录、精确参数、操作确认与实时频道界面流程。
+- `okx-workflows.test.mjs` — 验证 OKX 全量行情搜索与滚动、K 线滑块端点、公共/私有页面、流水核对及模拟盘实盘交易、确认和结果协调流程。
 - `pending-inbox.test.mjs` — 跨页全部确认、筛选、失败重试及退款关联界面测试。
 - `platform-themes.test.mjs` — 平台别名、误匹配边界、白色回退及全部配色文字对比度检查。
 - `privacy.test.mjs` — 模拟 IPC 的锁定、金额遮盖和删除确认浏览器测试。

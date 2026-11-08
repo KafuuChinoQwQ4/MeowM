@@ -171,17 +171,13 @@
   width: 150px;
 }
 .navigation-directory {
+  width: 100%;
   max-width: 680px;
   margin: 0 auto;
   padding: 20px 6px;
 }
 .navigation-directory h2 {
-  margin: 0 0 8px;
-}
-.navigation-directory > p {
-  margin: 0 0 22px;
-  color: var(--muted);
-  line-height: 1.6;
+  margin: 0 0 16px;
 }
 .directory-entries {
   display: grid;
@@ -192,7 +188,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 82px;
+  min-height: 64px;
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 16px;
@@ -207,13 +203,6 @@
 .directory-entry strong {
   display: block;
   font-size: 1rem;
-}
-.directory-entry small {
-  display: block;
-  margin-top: 6px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  line-height: 1.6;
 }
 .directory-entry svg {
   flex: none;

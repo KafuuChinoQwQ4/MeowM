@@ -2,5 +2,8 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
-- `MarketsPage.tsx` — 交易所目录、按连接状态分层的 API 设置、OKX 工作区及返回路由。
+- `BinanceCredentialSettings.tsx` — 分离保存币安只读、测试网交易、生产交易和提现凭据的设置卡片。
+- `MarketApiWorkspace.tsx` — 可搜索币安与 iFinD 官方目录、填写参数并执行受约束 REST 或 Binance WebSocket 请求的通用工作区。
+- `MarketWorkspace.tsx` — 币安和 iFinD 行情、自选、只读资产及专家接口目录的标签页工作区。
+- `MarketsPage.tsx` — 交易所目录、按连接状态分层的 API 设置、币安与 iFinD 工作区、OKX 工作区及返回路由。
 - `tree` — 本目录直接文件的说明索引。

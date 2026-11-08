@@ -1,7 +1,17 @@
 import { invoke } from './client';
 
 export type ProviderId =
-  'wechat_pay' | 'alipay' | 'binance' | 'okx' | 'okx_trade_demo' | 'okx_trade_live' | 'ifind';
+  | 'wechat_pay'
+  | 'alipay'
+  | 'binance'
+  | 'binance_trade_demo'
+  | 'binance_trade_live'
+  | 'binance_withdraw'
+  | 'okx'
+  | 'okx_trade_demo'
+  | 'okx_trade_live'
+  | 'okx_withdraw'
+  | 'ifind';
 
 export type CredentialInput =
   | {
@@ -17,9 +27,14 @@ export type CredentialInput =
       alipay_public_key_pem: string;
     }
   | { provider: 'binance'; api_key: string; secret_key: string }
+  | {
+      provider: 'binance_trade_demo' | 'binance_trade_live' | 'binance_withdraw';
+      api_key: string;
+      secret_key: string;
+    }
   | { provider: 'okx'; api_key: string; secret_key: string; passphrase: string }
   | {
-      provider: 'okx_trade_demo' | 'okx_trade_live';
+      provider: 'okx_trade_demo' | 'okx_trade_live' | 'okx_withdraw';
       api_key: string;
       secret_key: string;
       passphrase: string;

@@ -10,7 +10,7 @@ export function UnlockScreen({ onUnlocked }: { onUnlocked: (status: PrivacyStatu
     <main className="privacy-lock-screen">
       <section className="data-card" aria-label="解锁账本">
         <h1>应用已锁定</h1>
-        <p>输入本机应用锁密码，继续查看账本。备份密码与应用锁密码分别管理。</p>
+        <p>应用锁密码与备份密码不同。</p>
         <form
           onSubmit={async (e) => {
             e.preventDefault();

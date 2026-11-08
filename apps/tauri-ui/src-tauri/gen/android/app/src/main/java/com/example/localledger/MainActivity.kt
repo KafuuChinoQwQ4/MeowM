@@ -1,6 +1,7 @@
 package com.example.localledger
 
 import android.os.Bundle
+import android.net.ConnectivityManager
 import android.view.View
 import android.view.WindowManager
 import androidx.activity.enableEdgeToEdge
@@ -13,6 +14,8 @@ class MainActivity : TauriActivity() {
     enableEdgeToEdge()
     // Initialize the keyring context before Tauri starts its Rust setup callback.
     RustBridge.nativeInitializeCredentialContext(applicationContext)
+    val proxy = getSystemService(ConnectivityManager::class.java).defaultProxy
+    RustBridge.nativeSetHttpProxy(proxy?.host, proxy?.port ?: 0)
     super.onCreate(savedInstanceState)
     ExchangeRateWorkScheduler.ensureScheduled(this)
     ExchangeRateWorkScheduler.enqueueStartupSync(this)

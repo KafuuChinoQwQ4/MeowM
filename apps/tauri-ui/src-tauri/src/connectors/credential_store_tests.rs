@@ -170,3 +170,58 @@ fn okx_read_demo_and_live_credentials_are_isolated() {
         Some(CredentialInput::Okx { api_key, .. }) if api_key.expose_secret() == "read-key"
     ));
 }
+
+#[test]
+fn withdrawal_credentials_have_a_separate_provider_slot() {
+    let service = CredentialService::new(Arc::new(MemoryCredentialStore::default()));
+    let input = |provider: &str, api_key: &str| {
+        serde_json::from_value(serde_json::json!({
+            "provider": provider,
+            "api_key": api_key,
+            "secret_key": "test-secret",
+            "passphrase": "test-passphrase"
+        }))
+        .unwrap()
+    };
+    service.save(input("okx_trade_live", "trade-key")).unwrap();
+    service.save(input("okx_withdraw", "withdraw-key")).unwrap();
+    let withdraw: ProviderId = serde_json::from_str("\"okx_withdraw\"").unwrap();
+    let live: ProviderId = serde_json::from_str("\"okx_trade_live\"").unwrap();
+    assert!(service.status(withdraw).unwrap().configured);
+    service.remove(withdraw).unwrap();
+    assert!(!service.status(withdraw).unwrap().configured);
+    assert!(service.status(live).unwrap().configured);
+}
+
+#[test]
+fn binance_read_trade_and_withdraw_credentials_are_isolated() {
+    let service = CredentialService::new(Arc::new(MemoryCredentialStore::default()));
+    let input = |provider: &str, key: &str| {
+        serde_json::from_value(serde_json::json!({
+            "provider": provider,
+            "api_key": key,
+            "secret_key": format!("{key}-secret")
+        }))
+        .unwrap()
+    };
+    for (provider, key) in [
+        ("binance", "read-key"),
+        ("binance_trade_demo", "demo-key"),
+        ("binance_trade_live", "live-key"),
+        ("binance_withdraw", "withdraw-key"),
+    ] {
+        service.save(input(provider, key)).unwrap();
+    }
+    let demo: ProviderId = serde_json::from_str(r#""binance_trade_demo""#).unwrap();
+    let live: ProviderId = serde_json::from_str(r#""binance_trade_live""#).unwrap();
+    let withdraw: ProviderId = serde_json::from_str(r#""binance_withdraw""#).unwrap();
+    assert!(service.status(ProviderId::Binance).unwrap().configured);
+    assert!(service.status(demo).unwrap().configured);
+    assert!(service.status(live).unwrap().configured);
+    assert!(service.status(withdraw).unwrap().configured);
+    service.remove(demo).unwrap();
+    assert!(service.status(ProviderId::Binance).unwrap().configured);
+    assert!(!service.status(demo).unwrap().configured);
+    assert!(service.status(live).unwrap().configured);
+    assert!(service.status(withdraw).unwrap().configured);
+}

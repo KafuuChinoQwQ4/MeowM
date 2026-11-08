@@ -92,7 +92,6 @@ export function SearchPage({
               </button>
             </div>
           </form>
-          <p className="field-hint">跨日期搜索全部流水；导出使用当前已提交的筛选条件。</p>
           <FormError message={error} />
           <LoadState {...state} />
           {state.data && (

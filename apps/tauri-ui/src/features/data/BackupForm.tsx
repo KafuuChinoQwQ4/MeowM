@@ -11,9 +11,7 @@ export function BackupForm({ busy, onBusy }: { busy: boolean; onBusy: (v: boolea
   return (
     <section className="data-card" aria-label="创建加密备份">
       <h3>创建加密备份</h3>
-      <p>
-        保存全部平台、交易、来源摘要、导入批次、分类规则、预算、周期账单和对账审计。密码只用于本次加密，不会保存，遗失后无法找回。
-      </p>
+      <p>备份密码不会保存，遗失后无法找回。</p>
       <form
         onSubmit={async (e) => {
           e.preventDefault();

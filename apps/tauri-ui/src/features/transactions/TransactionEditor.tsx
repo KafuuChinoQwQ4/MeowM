@@ -194,11 +194,6 @@ export function TransactionEditor({
         </p>
       )}
       <fieldset disabled={action.busy || loadingPreview}>
-        {!tx && (
-          <p className="field-hint">
-            账户选实际记账平台，商户填实际消费店名，日期和时间按交易发生时填写。备注可选；有渠道交易单号时优先据此去重，商户单号辅助核对。没有单号时只提示疑似重复，不会自动合并。
-          </p>
-        )}
         <SelectField
           label="类型"
           options={editableKinds}
@@ -312,10 +307,7 @@ export function TransactionEditor({
               value={draft.merchant_order_id ?? ''}
               onChange={(e) => update('merchant_order_id', e.target.value)}
             />
-            <p className="field-hint">
-              可从支付详情复制，保留前导
-              0。渠道交易单号与商户单号应分别填写；备注无需复制账单商品说明。
-            </p>
+            <p className="field-hint">请保留单号开头的 0，渠道交易单号与商户单号分别填写。</p>
           </details>
         )}
         {draft.kind === 'refund' && (

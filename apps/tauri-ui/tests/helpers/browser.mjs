@@ -41,6 +41,10 @@ export function browserSuite(port) {
     url,
     newPage: async (options = {}) => {
       const page = await browser.newPage(options);
+      // UI workflows use fallback fonts so remote font loading cannot block page readiness.
+      await page.route('https://fonts.googleapis.com/**', (route) =>
+        route.fulfill({ status: 200, contentType: 'text/css', body: '' }),
+      );
       page.setDefaultTimeout(5000);
       page.setDefaultNavigationTimeout(15000);
       return page;

@@ -34,7 +34,7 @@ export function DeleteData({
   return (
     <section className="data-card" aria-label="删除数据">
       <h3>删除数据</h3>
-      <p>先检查范围，再输入确认短语。建议先创建加密备份；删除完成后不能撤销。</p>
+      <p>删除后无法撤销，建议先创建加密备份。</p>
       <div className="delete-data-actions">
         <button className="button" onClick={onBackup}>
           前往创建加密备份

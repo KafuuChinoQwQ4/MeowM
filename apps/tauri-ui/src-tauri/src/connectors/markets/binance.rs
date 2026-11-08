@@ -118,10 +118,7 @@ impl BinanceBalance {
 }
 
 fn validate_asset(asset: &str) -> Result<(), ProviderErrorCode> {
-    if asset.is_empty()
-        || asset.len() > 32
-        || !asset.bytes().all(|byte| byte.is_ascii_alphanumeric())
-    {
+    if asset.is_empty() || asset.chars().count() > 32 || !asset.chars().all(char::is_alphanumeric) {
         return Err(ProviderErrorCode::InvalidResponse);
     }
     Ok(())

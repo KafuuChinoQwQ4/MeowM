@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { cryptoApi } from '../../../api/crypto';
 import { useResource } from '../../../shared/useResource';
 import { CandlePanel } from './CandlePanel';
@@ -12,23 +12,24 @@ export function MarketPanel() {
   const watchlist = useResource(useCallback(() => safe(cryptoApi.watchlist()), []));
   const [instrument, setInstrument] = useState('BTC-USDT');
   const [input, setInput] = useState('BTC-USDT');
+  const [search, setSearch] = useState('');
   const [bar, setBar] = useState('1H');
+  const listRef = useRef<HTMLDivElement>(null);
   const action = useAction();
   const favorites = watchlist.data ?? [];
   const ticker = tickers.data?.find((row) => row.instrument === instrument);
-  const displayed =
-    tickers.data?.filter((row) =>
-      favorites.length
-        ? favorites.includes(row.instrument)
-        : ['BTC-USDT', 'ETH-USDT', 'SOL-USDT'].includes(row.instrument),
-    ) ?? [];
+  const query = search.trim().toUpperCase();
+  const displayed = tickers.data?.filter((row) => row.instrument.includes(query)) ?? [];
+  const changeSearch = (value: string) => {
+    setSearch(value);
+    if (listRef.current) listRef.current.scrollTop = 0;
+  };
   const choose = (value: string) => {
     setInstrument(value);
     setInput(value);
   };
   return (
     <div className="okx-panel">
-      <p className="field-hint">公共行情无需 API Key。价格以交易对的报价币计价，按刷新时点显示。</p>
       <form
         className="okx-controls"
         onSubmit={(event) => {
@@ -89,18 +90,56 @@ export function MarketPanel() {
       <ReadState {...tickers} />
       <ReadState {...watchlist} />
       {action.error && <p role="alert">{action.error}</p>}
-      <div className="okx-quote-list" aria-label="自选行情">
+      <div className="okx-controls">
+        <label className="form-field">
+          搜索现货交易对
+          <input
+            aria-label="搜索现货交易对"
+            type="search"
+            value={search}
+            placeholder="搜索币种或交易对，如 BTC、USDC、ETH-BTC"
+            autoComplete="off"
+            spellCheck={false}
+            aria-controls="okx-market-list"
+            onChange={(event) => changeSearch(event.target.value)}
+          />
+        </label>
+        {search && (
+          <button className="button" type="button" onClick={() => changeSearch('')}>
+            清空搜索
+          </button>
+        )}
+      </div>
+      {tickers.data && (
+        <p className="field-hint" role="status">
+          显示 {displayed.length} / {tickers.data.length} 个现货交易对
+        </p>
+      )}
+      <div
+        className="okx-quote-list"
+        id="okx-market-list"
+        role="region"
+        aria-label="现货行情列表"
+        tabIndex={0}
+        ref={listRef}
+      >
         {displayed.map((row) => (
           <button
+            type="button"
             className={row.instrument === instrument ? 'selected' : ''}
+            aria-pressed={row.instrument === instrument}
             key={row.instrument}
             onClick={() => choose(row.instrument)}
           >
             <strong>{row.instrument}</strong>
             <span>{row.last}</span>
             <small>24h 开盘 {row.open_24h}</small>
+            {favorites.includes(row.instrument) && <small>已收藏</small>}
           </button>
         ))}
+        {tickers.data && displayed.length === 0 && (
+          <p>{query ? '未找到匹配的现货交易对。' : '暂无现货行情，请刷新重试。'}</p>
+        )}
       </div>
       {favorites.length > 0 && (
         <p className="field-hint">

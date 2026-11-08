@@ -32,9 +32,6 @@ export function ReconciliationPage({
   return (
     <div className="analytics-page reconciliation-page">
       <h2>账户对账</h2>
-      <p className="field-hint">
-        逐项核实平台流水与实际余额。历史快照保留核对时的数据，之后记账不会改写它。
-      </p>
       <SelectField
         label="对账平台"
         value={accountId}

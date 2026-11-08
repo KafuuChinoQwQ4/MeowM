@@ -7,14 +7,6 @@
   margin: 4px 0;
   font-size: 1.3rem;
 }
-.provider-connections-header p,
-.provider-card-header p,
-.provider-connection-placeholder p {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 0.78rem;
-  line-height: 1.5;
-}
 .provider-connections-list {
   display: grid;
   gap: 12px;

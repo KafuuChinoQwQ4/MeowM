@@ -8,7 +8,7 @@ export function RecurringHistory({ id }: { id: string }) {
   const state = useResource(useCallback(() => recurringApi.instances(id), [id]));
   return (
     <div className="sheet-form recurring-history">
-      <p className="field-hint">最近 200 个实例；状态随待确认记录同步更新。</p>
+      <p className="field-hint">最近 200 条</p>
       <LoadState {...state} />
       {state.data?.map((i) => (
         <article key={i.due_date}>

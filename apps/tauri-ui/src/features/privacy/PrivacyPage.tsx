@@ -18,7 +18,6 @@ export function PrivacyPage({
       <LockSettings status={status} onStatus={onStatus} />
       <section className="data-card">
         <h3>通知来源</h3>
-        <p>关闭微信或支付宝来源后，停止处理该来源的新通知；已有候选和已确认交易仍保留。</p>
         <button className="button" onClick={() => onNavigate('notifications')}>
           管理通知来源开关
         </button>

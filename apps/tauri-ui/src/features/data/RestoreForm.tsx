@@ -39,10 +39,7 @@ export function RestoreForm({
   return (
     <section className="data-card" aria-label="恢复备份">
       <h3>恢复备份</h3>
-      <p>
-        先检查文件和密码，再预览替换范围。恢复会替换当前全部账本；请先保存当前账本的备份。仅支持
-        MeowM 加密备份，文件不超过 32 MB。
-      </p>
+      <p>恢复将替换全部账本，请先备份当前数据。仅支持 MeowM 加密备份，上限 32 MB。</p>
       <fieldset disabled={busy}>
         {isAndroid() ? (
           <button className="button" onClick={() => choose(async () => (await pickBackup()).data)}>

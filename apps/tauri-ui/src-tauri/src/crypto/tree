@@ -2,7 +2,14 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `advanced_commands.rs` — 将目录查询与 REST 请求接入应用锁保护的 Tauri 命令。
+- `binance_streams.rs` — 币安持续 WebSocket 会话、环境与凭据隔离、取消、背压和事件确认。
 - `commands.rs` — 带应用锁校验的异步 OKX 查询及本机加密候选、自选和核对命令。
+- `market_commands.rs` — 将币安与 iFinD 官方目录和请求接入应用锁保护的异步 Tauri 命令。
 - `mod.rs` — 独立 OKX 加密资产流程的 Tauri 模块边界。
+- `sbe.rs` — 无浮点舍入地解码 OKX SBE 行情和深度快照。
+- `sbe_tests.rs` — 验证 SBE 消息、订单簿档位、精确数值和异常数据处理。
+- `streams.rs` — 管理隔离凭据的 OKX WebSocket 订阅、交易消息、心跳和确认队列。
+- `streams_tests.rs` — 通过本地 WebSocket 测试登录、订阅、交易、断线与 SBE 消息。
 - `tests.rs` — 验证失效的后台导入不能在锁定、恢复、删除或切换账户后提交。
 - `tree` — 本目录直接文件的说明索引。

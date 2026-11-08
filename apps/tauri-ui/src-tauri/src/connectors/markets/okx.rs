@@ -9,6 +9,10 @@ use sha2::Sha256;
 use ureq::Agent;
 
 mod account;
+pub(crate) mod advanced;
+#[cfg(test)]
+#[path = "okx/advanced_tests.rs"]
+mod advanced_tests;
 mod history;
 mod market;
 pub(crate) mod model;

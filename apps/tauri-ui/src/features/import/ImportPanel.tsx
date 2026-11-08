@@ -116,7 +116,6 @@ export function ImportPanel({
         </span>
         <div>
           <span className="import-eyebrow">本地账单导入</span>
-          <p>账单先预览核对，确认后再加入待确认收件箱。</p>
         </div>
       </div>
 
@@ -125,7 +124,6 @@ export function ImportPanel({
           <span className="import-step-number">01</span>
           <div>
             <strong>选择账单来源</strong>
-            <small>平台名称和记账目标来自平台管理</small>
           </div>
         </div>
         <label className="form-field import-source-field">
@@ -211,10 +209,7 @@ export function ImportPanel({
           </span>
           <span className="import-file-button">浏览文件</span>
         </label>
-        <p className="import-format-note">
-          支持 UTF-8 / GBK / GB18030 文本及中国银行交易流水明细 PDF。加密 PDF 会在本机提示输入密码；
-          识别结果可在预览中核对，精确重复不会再次导入。
-        </p>
+        <p className="import-format-note">支持 UTF-8 / GBK / GB18030 文本及中国银行流水 PDF。</p>
       </section>
 
       {needsPassword && (
@@ -239,9 +234,7 @@ export function ImportPanel({
             disabled={busy}
             onChange={(event) => setPassword(event.target.value)}
           />
-          <p className="field-hint">
-            密码仅用于本次在本机读取 PDF，不会保存。读取成功后进入预览核对。
-          </p>
+          <p className="field-hint">密码仅用于本次读取，不会保存。</p>
           <button className="button button-primary" disabled={busy || !password}>
             解锁并读取账单
           </button>

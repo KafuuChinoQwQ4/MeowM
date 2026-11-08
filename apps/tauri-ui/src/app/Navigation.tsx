@@ -29,63 +29,52 @@ const primaryViews: View[] = [
   'finance',
   'settings',
 ];
-const destinations: Record<
-  View,
-  { title: string; description: string; parent?: View; children?: View[] }
-> = {
-  ledger: { title: '账本', description: '查看每日收支与余额' },
-  records: { title: '明细', description: '查看和编辑交易流水' },
-  pending: { title: '待确认', description: '检查导入和采集的候选记录' },
+const destinations: Record<View, { title: string; parent?: View; children?: View[] }> = {
+  ledger: { title: '账本' },
+  records: { title: '明细' },
+  pending: { title: '待确认' },
   finance: {
     title: '财务管理',
-    description: '查看统计、管理预算，整理账单和流水。',
     children: ['reports', 'budgets', 'recurring', 'search', 'reconciliation'],
   },
   settings: {
     title: '设置',
-    description: '按类别管理平台、采集、隐私与本机数据。',
     children: ['sources', 'security'],
   },
   sources: {
     title: '平台与采集',
-    description: '管理记账平台和自动采集来源。',
     parent: 'settings',
     children: ['platforms', 'notifications', 'connections'],
   },
   security: {
     title: '安全与数据',
-    description: '设置隐私保护，备份、恢复或清理数据。',
     parent: 'settings',
     children: ['privacy', 'data'],
   },
   platforms: {
     title: '平台管理',
-    description: '新增、编辑、删除和选择记账平台',
     parent: 'sources',
   },
   notifications: {
     title: '通知采集',
-    description: '通知来源、采集权限与屏幕识别',
     parent: 'sources',
   },
   connections: {
     title: '支付 API',
-    description: '连接微信支付和支付宝商户账单 API。',
     parent: 'sources',
   },
   privacy: {
     title: '隐私与数据',
-    description: '应用锁、金额隐藏与数据清理',
     parent: 'security',
   },
-  data: { title: '备份与导出', description: '加密备份、恢复与筛选导出', parent: 'security' },
-  reports: { title: '报表总览', description: '收支趋势、分类与商户统计', parent: 'finance' },
-  exchange: { title: '法币汇率', description: '查看法定货币每日参考汇率与历史走势' },
-  markets: { title: '交易所', description: '连接交易所账户和行情数据 API' },
-  budgets: { title: '预算管理', description: '设置预算并查看使用进度', parent: 'finance' },
-  recurring: { title: '周期账单', description: '管理重复账单与到期提醒', parent: 'finance' },
-  search: { title: '搜索与分类', description: '搜索流水、整理分类和匹配规则', parent: 'finance' },
-  reconciliation: { title: '账户对账', description: '核对平台余额与历史流水', parent: 'finance' },
+  data: { title: '备份与导出', parent: 'security' },
+  reports: { title: '报表总览', parent: 'finance' },
+  exchange: { title: '法币汇率' },
+  markets: { title: '交易所' },
+  budgets: { title: '预算管理', parent: 'finance' },
+  recurring: { title: '周期账单', parent: 'finance' },
+  search: { title: '搜索与分类', parent: 'finance' },
+  reconciliation: { title: '账户对账', parent: 'finance' },
 };
 
 export function parentView(view: View) {
@@ -109,7 +98,6 @@ export function NavigationDirectory({
   return (
     <section className="navigation-directory" aria-label={destination.title}>
       <h2>{destination.title}</h2>
-      <p>{destination.description}</p>
       <div className="directory-entries">
         {destination.children.map((id) => (
           <button
@@ -120,7 +108,6 @@ export function NavigationDirectory({
           >
             <span>
               <strong>{destinations[id].title}</strong>
-              <small>{destinations[id].description}</small>
             </span>
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="m9 5 7 7-7 7" />

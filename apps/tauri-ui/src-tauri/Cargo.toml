@@ -20,7 +20,7 @@ ledger-import = { path = "../../../crates/ledger-import" }
 
 ledger-notifications = { path = "../../../crates/ledger-notifications" }
 serde_json = { version = "1", features = ["arbitrary_precision"] }
-ureq = { version = "3.4.2", features = ["json"] }
+ureq = { version = "3.4.2", features = ["json", "socks-proxy"] }
 base64 = "0.22"
 zeroize = "1"
 keyring-core = "1.0.1"
@@ -28,10 +28,14 @@ rsa = { version = "0.9.8", features = ["sha2"] }
 sha1 = "0.10"
 sha2 = "0.10"
 hmac = "0.12"
+futures-util = { version = "0.3", features = ["sink"] }
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt", "sync", "time"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 flate2 = "1"
 url = "2"
 ledger-backup = { path = "../../../crates/ledger-backup" }
 ledger-export = { path = "../../../crates/ledger-export" }
+tokio-socks = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"

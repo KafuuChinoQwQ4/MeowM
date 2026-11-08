@@ -22,6 +22,22 @@ pub extern "system" fn Java_com_example_localledger_RustBridge_nativeInitializeC
     );
 }
 
+#[cfg(target_os = "android")]
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_example_localledger_RustBridge_nativeSetHttpProxy(
+    mut env: jni::JNIEnv<'_>,
+    _class: jni::objects::JClass<'_>,
+    host: jni::objects::JString<'_>,
+    port: jni::sys::jint,
+) {
+    let host: Option<String> = if host.is_null() {
+        None
+    } else {
+        env.get_string(&host).ok().map(Into::into)
+    };
+    crate::connectors::payments::initialize_android_http_proxy(host.as_deref(), port);
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CredentialStoreError {
     Unavailable,
@@ -179,9 +195,13 @@ impl CredentialService {
             ProviderId::WechatPay,
             ProviderId::Alipay,
             ProviderId::Binance,
+            ProviderId::BinanceTradeDemo,
+            ProviderId::BinanceTradeLive,
+            ProviderId::BinanceWithdraw,
             ProviderId::Okx,
             ProviderId::OkxTradeDemo,
             ProviderId::OkxTradeLive,
+            ProviderId::OkxWithdraw,
             ProviderId::Ifind,
         ]
         .into_iter()
@@ -272,6 +292,18 @@ impl CredentialService {
                 api_key: take(&mut fields, CredentialField::ApiKey)?,
                 secret_key: take(&mut fields, CredentialField::SecretKey)?,
             },
+            ProviderId::BinanceTradeDemo => CredentialInput::BinanceTradeDemo {
+                api_key: take(&mut fields, CredentialField::ApiKey)?,
+                secret_key: take(&mut fields, CredentialField::SecretKey)?,
+            },
+            ProviderId::BinanceTradeLive => CredentialInput::BinanceTradeLive {
+                api_key: take(&mut fields, CredentialField::ApiKey)?,
+                secret_key: take(&mut fields, CredentialField::SecretKey)?,
+            },
+            ProviderId::BinanceWithdraw => CredentialInput::BinanceWithdraw {
+                api_key: take(&mut fields, CredentialField::ApiKey)?,
+                secret_key: take(&mut fields, CredentialField::SecretKey)?,
+            },
             ProviderId::Okx => CredentialInput::Okx {
                 api_key: take(&mut fields, CredentialField::ApiKey)?,
                 secret_key: take(&mut fields, CredentialField::SecretKey)?,
@@ -283,6 +315,11 @@ impl CredentialService {
                 passphrase: take(&mut fields, CredentialField::Passphrase)?,
             },
             ProviderId::OkxTradeLive => CredentialInput::OkxTradeLive {
+                api_key: take(&mut fields, CredentialField::ApiKey)?,
+                secret_key: take(&mut fields, CredentialField::SecretKey)?,
+                passphrase: take(&mut fields, CredentialField::Passphrase)?,
+            },
+            ProviderId::OkxWithdraw => CredentialInput::OkxWithdraw {
                 api_key: take(&mut fields, CredentialField::ApiKey)?,
                 secret_key: take(&mut fields, CredentialField::SecretKey)?,
                 passphrase: take(&mut fields, CredentialField::Passphrase)?,
@@ -329,8 +366,13 @@ fn required_fields(provider: ProviderId) -> &'static [CredentialField] {
         ProviderId::WechatPay => &[MerchantId, CertificateSerial, PrivateKeyPem],
         ProviderId::Alipay => &[AppId, AppPrivateKeyPem, AlipayPublicKeyPem],
         ProviderId::Binance => &[ApiKey, SecretKey],
+        ProviderId::BinanceTradeDemo
+        | ProviderId::BinanceTradeLive
+        | ProviderId::BinanceWithdraw => &[ApiKey, SecretKey],
         ProviderId::Okx => &[ApiKey, SecretKey, Passphrase],
-        ProviderId::OkxTradeDemo | ProviderId::OkxTradeLive => &[ApiKey, SecretKey, Passphrase],
+        ProviderId::OkxTradeDemo | ProviderId::OkxTradeLive | ProviderId::OkxWithdraw => {
+            &[ApiKey, SecretKey, Passphrase]
+        }
         ProviderId::Ifind => &[RefreshToken],
     }
 }

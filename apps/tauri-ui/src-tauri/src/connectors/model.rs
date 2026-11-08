@@ -8,9 +8,13 @@ pub enum ProviderId {
     WechatPay,
     Alipay,
     Binance,
+    BinanceTradeDemo,
+    BinanceTradeLive,
+    BinanceWithdraw,
     Okx,
     OkxTradeDemo,
     OkxTradeLive,
+    OkxWithdraw,
     Ifind,
 }
 
@@ -20,9 +24,13 @@ impl ProviderId {
             Self::WechatPay => "wechat_pay",
             Self::Alipay => "alipay",
             Self::Binance => "binance",
+            Self::BinanceTradeDemo => "binance_trade_demo",
+            Self::BinanceTradeLive => "binance_trade_live",
+            Self::BinanceWithdraw => "binance_withdraw",
             Self::Okx => "okx",
             Self::OkxTradeDemo => "okx_trade_demo",
             Self::OkxTradeLive => "okx_trade_live",
+            Self::OkxWithdraw => "okx_withdraw",
             Self::Ifind => "ifind",
         }
     }
@@ -45,6 +53,18 @@ pub enum CredentialInput {
         api_key: SensitiveString,
         secret_key: SensitiveString,
     },
+    BinanceTradeDemo {
+        api_key: SensitiveString,
+        secret_key: SensitiveString,
+    },
+    BinanceTradeLive {
+        api_key: SensitiveString,
+        secret_key: SensitiveString,
+    },
+    BinanceWithdraw {
+        api_key: SensitiveString,
+        secret_key: SensitiveString,
+    },
     Okx {
         api_key: SensitiveString,
         secret_key: SensitiveString,
@@ -56,6 +76,11 @@ pub enum CredentialInput {
         passphrase: SensitiveString,
     },
     OkxTradeLive {
+        api_key: SensitiveString,
+        secret_key: SensitiveString,
+        passphrase: SensitiveString,
+    },
+    OkxWithdraw {
         api_key: SensitiveString,
         secret_key: SensitiveString,
         passphrase: SensitiveString,
@@ -139,9 +164,13 @@ impl CredentialInput {
             Self::WechatPay { .. } => ProviderId::WechatPay,
             Self::Alipay { .. } => ProviderId::Alipay,
             Self::Binance { .. } => ProviderId::Binance,
+            Self::BinanceTradeDemo { .. } => ProviderId::BinanceTradeDemo,
+            Self::BinanceTradeLive { .. } => ProviderId::BinanceTradeLive,
+            Self::BinanceWithdraw { .. } => ProviderId::BinanceWithdraw,
             Self::Okx { .. } => ProviderId::Okx,
             Self::OkxTradeDemo { .. } => ProviderId::OkxTradeDemo,
             Self::OkxTradeLive { .. } => ProviderId::OkxTradeLive,
+            Self::OkxWithdraw { .. } => ProviderId::OkxWithdraw,
             Self::Ifind { .. } => ProviderId::Ifind,
         }
     }
@@ -173,6 +202,21 @@ impl CredentialInput {
                 (CredentialField::ApiKey, api_key),
                 (CredentialField::SecretKey, secret_key),
             ],
+            Self::BinanceTradeDemo {
+                api_key,
+                secret_key,
+            }
+            | Self::BinanceTradeLive {
+                api_key,
+                secret_key,
+            }
+            | Self::BinanceWithdraw {
+                api_key,
+                secret_key,
+            } => vec![
+                (CredentialField::ApiKey, api_key),
+                (CredentialField::SecretKey, secret_key),
+            ],
             Self::Okx {
                 api_key,
                 secret_key,
@@ -192,6 +236,15 @@ impl CredentialInput {
                 (CredentialField::Passphrase, passphrase),
             ],
             Self::OkxTradeLive {
+                api_key,
+                secret_key,
+                passphrase,
+            } => vec![
+                (CredentialField::ApiKey, api_key),
+                (CredentialField::SecretKey, secret_key),
+                (CredentialField::Passphrase, passphrase),
+            ],
+            Self::OkxWithdraw {
                 api_key,
                 secret_key,
                 passphrase,

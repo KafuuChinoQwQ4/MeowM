@@ -128,7 +128,7 @@ fn binance_reads_only_account_balances_with_signed_get() {
         assert_eq!(signature, hmac_hex(b"secret", payload.as_bytes()));
         respond(
             &mut stream,
-            r#"{"balances":[{"asset":"BTC","free":"0.12500000","locked":"0.00000000"},{"asset":"ETH","free":"0.00","locked":"0"}]}"#,
+            r#"{"balances":[{"asset":"BTC","free":"0.12500000","locked":"0.00000000"},{"asset":"ETH","free":"0.00","locked":"0"},{"asset":"币安人生","free":"0.00000001","locked":"0"}]}"#,
         );
     });
 
@@ -140,10 +140,12 @@ fn binance_reads_only_account_balances_with_signed_get() {
         })
         .unwrap();
     server.join().unwrap();
-    assert_eq!(balances.len(), 1);
+    assert_eq!(balances.len(), 2);
     assert_eq!(balances[0].asset, "BTC");
     assert_eq!(balances[0].free, "0.12500000");
     assert_eq!(balances[0].locked, "0.00000000");
+    assert_eq!(balances[1].asset, "币安人生");
+    assert_eq!(balances[1].free, "0.00000001");
 }
 
 #[test]

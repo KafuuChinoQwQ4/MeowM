@@ -2,14 +2,18 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `AdvancedCommon.tsx` — 接口目录读取、环境与凭据选择及操作确认共用组件。
 - `AssetsPanel.tsx` — 分账户展示加密资产数量、可用、冻结、权益及 USD 估值。
 - `CandlePanel.tsx` — 可通过键盘选择的 SVG 蜡烛图、精确报价详情和更早 K 线加载。
-- `MarketPanel.tsx` — 现货行情、持久化自选、交易对选择和 K 线周期操作。
-- `OkxCredentialSettings.tsx` — 分离保存 OKX 只读、模拟盘 Trade 与实盘 Trade 凭据的设置卡片。
-- `OkxWorkspace.tsx` — OKX 行情、资产、加密流水、合约表现和交易下单页签及凭据提示。
+- `MarketPanel.tsx` — 全部现货行情、币种与交易对搜索、滚动浏览、持久化自选和 K 线周期操作。
+- `OkxCredentialSettings.tsx` — 分离保存 OKX 只读、模拟盘交易、实盘交易与提币凭据的设置卡片。
+- `OkxWorkspace.tsx` — OKX 行情、资产、交易、接口目录和实时频道页签及凭据提示。
 - `OrderReviewDialog.tsx` — 显示订单参数和估算并要求用户二次确认的无障碍交易对话框。
+- `PendingOperations.tsx` — 持久保存需核对的 OKX 操作及其请求标识。
 - `PositionsPanel.tsx` — 永续和交割合约持仓、费用分项及按结算币种精确汇总已读取净盈亏。
 - `RecordsPanel.tsx` — 加密流水来源与时间筛选、逐页导入、人工确认、忽略和状态查询。
+- `RestExplorer.tsx` — 按目录搜索 OKX REST 接口并填写、预览和查看请求结果。
+- `StreamExplorer.tsx` — 选择 OKX 实时频道或交易操作并展示消息与连接状态。
 - `TradingPanel.tsx` — 模拟盘/实盘现货与合约下单、订单状态核对、历史读取和选中挂单撤销。
 - `shared.tsx` — OKX 安全错误提示、请求生命周期、隐私金额显示与十进制精确求和。
 - `tree` — 本目录直接文件的说明索引。

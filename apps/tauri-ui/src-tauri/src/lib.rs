@@ -238,6 +238,8 @@ pub fn run() {
             let ledger = Ledger::open(&path).map_err(std::io::Error::other)?;
             app.manage(LedgerState(Mutex::new(ledger)));
             app.manage(connectors::credentials::ConnectorState::initialize());
+            app.manage(crypto::streams::OkxStreamState::default());
+            app.manage(crypto::binance_streams::BinanceStreamState::default());
             #[cfg(not(target_os = "android"))]
             std::thread::spawn(move || {
                 if let Ok(repo) = ledger_storage::sqlite::SqliteLedgerRepository::open(&path) {
@@ -254,6 +256,19 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            crypto::advanced_commands::okx_api_catalogue,
+            crypto::advanced_commands::okx_api_request,
+            crypto::market_commands::binance_api_catalogue,
+            crypto::market_commands::ifind_api_catalogue,
+            crypto::market_commands::binance_api_request,
+            crypto::market_commands::binance_socket_request,
+            crypto::market_commands::ifind_api_request,
+            crypto::binance_streams::binance_ws_start,
+            crypto::binance_streams::binance_ws_stop,
+            crypto::binance_streams::binance_ws_ack,
+            crypto::streams::okx_ws_start,
+            crypto::streams::okx_ws_stop,
+            crypto::streams::okx_ws_ack,
             crypto::commands::okx_tickers,
             crypto::commands::okx_candles,
             crypto::commands::okx_watchlist,

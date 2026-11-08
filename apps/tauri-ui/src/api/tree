@@ -12,7 +12,9 @@
 - `exchangeRates.ts` — 本机汇率 IPC 客户端，并以双方共同日期构造精确货币对历史。
 - `imports.ts` — 账单预览、加密 PDF 密码一次性传递、标准化预览复查及候选入箱接口。
 - `ledger.ts` — 每日汇总和流水的类型与 IPC 接口。
+- `marketApi.ts` — 币安与 iFinD 官方 API 目录、固定路径请求和结果的类型化 IPC 客户端。
 - `notifications.ts` — Typed notification settings and Android permission IPC client.
+- `okxAdvanced.ts` — OKX 接口目录、请求和实时消息的类型化 IPC 边界。
 - `privacy.ts` — 隐私设置和数据清理的类型化 IPC 接口。
 - `reconciliation.ts` — 对账会话和操作的类型化 IPC 接口。
 - `recurring.ts` — 周期账单管理和到期提醒的类型化 IPC 接口。

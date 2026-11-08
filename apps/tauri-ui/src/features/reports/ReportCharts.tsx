@@ -88,9 +88,6 @@ function TrendPie({
   });
   return (
     <>
-      <p className="field-hint">
-        按各{yearly ? '年' : '月'}正{name}金额显示占比，零金额不显示扇区。
-      </p>
       {segments.length ? (
         <>
           <p className="pie-total">
@@ -220,9 +217,7 @@ function TrendChart({
               </button>
             </div>
           )}
-          <p className="field-hint">
-            蓝色为收入，粉色为支出，空{yearly ? '年份' : '月份'}也会保留。
-          </p>
+          <p className="field-hint">蓝色：收入 · 粉色：支出</p>
           <div className="bar-chart-layout">
             <div className="chart-axis" aria-label="金额刻度（元）">
               {[4n, 3n, 2n, 1n, 0n].map((level) => (
@@ -260,14 +255,12 @@ function TrendChart({
               ))}
             </div>
           </div>
-          {selection ? (
+          {selection && (
             <div className="chart-selection" role="status" aria-live="polite">
               <strong>{selection.period}</strong>
               <span>收入 ¥{money(decimal(selection.income))}</span>
               <span>支出 ¥{money(decimal(selection.expense))}</span>
             </div>
-          ) : (
-            <p className="field-hint">点选{yearly ? '年份' : '月份'}查看收支金额。</p>
           )}
         </>
       )}
@@ -301,7 +294,6 @@ export function ReportCharts({
     <>
       <section className="analytics-section" aria-label="分类支出饼图">
         <h3>分类支出饼图</h3>
-        <p className="field-hint">按当前筛选周期显示支出分类占比。</p>
         {!pieSegments.length ? (
           <p>本期暂无分类支出。</p>
         ) : (

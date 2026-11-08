@@ -60,7 +60,7 @@ test('exchange directory opens public OKX first and keeps credentials in setting
       await page.getByRole('button', { name: `打开${title}`, exact: true }).waitFor();
     assert.equal(await page.locator('#day-content input').count(), 0);
     assert.equal(await page.getByRole('tablist', { name: 'OKX 功能' }).count(), 0);
-    await page.getByText('更多交易所，后续接入', { exact: true }).waitFor();
+    await page.getByRole('heading', { name: '更多交易所', exact: true }).waitFor();
     await page.getByRole('button', { name: '打开欧易', exact: true }).click();
     await page.getByRole('tab', { name: 'OKX 行情', exact: true }).waitFor();
     assert.equal(await page.getByLabel('API Key', { exact: true }).count(), 0);
@@ -85,7 +85,7 @@ test('exchange directory opens public OKX first and keeps credentials in setting
     await page.getByRole('button', { name: '返回 OKX 行情', exact: true }).click();
     await page.getByRole('button', { name: '返回上一级', exact: true }).click();
     await page.getByRole('button', { name: '打开币安', exact: true }).click();
-    await page.locator('[data-provider="binance"]').waitFor();
+    await page.getByRole('tab', { name: '币安行情', exact: true }).waitFor();
     assert.equal(await page.locator('[data-provider="okx"]').count(), 0);
     await page.getByRole('button', { name: '返回上一级', exact: true }).click();
     await page.getByRole('button', { name: '打开欧易', exact: true }).click();
@@ -104,14 +104,15 @@ test('exchange API credentials and account results are masked while iFinD is lab
   try {
     await navigate(page, 'markets');
     await page.getByRole('button', { name: '打开币安', exact: true }).click();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     const card = page.locator('[data-provider="binance"]');
     await card.getByLabel('API Key', { exact: true }).fill('api-key-secret');
     await card.getByLabel('Secret Key', { exact: true }).fill('secret-key-secret');
     await card.getByRole('button', { name: '保存凭据', exact: true }).click();
-    await page.getByRole('button', { name: 'API 设置', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).waitFor();
     assert.equal(await card.getByLabel('API Key', { exact: true }).count(), 0);
-    await card.getByRole('button', { name: '测试只读余额', exact: true }).click();
-    await card.getByText('USDT', { exact: true }).waitFor();
+    await page.getByRole('tab', { name: '资产总览', exact: true }).click();
+    await page.getByText('USDT', { exact: true }).waitFor();
     assert.equal(await card.getByText('api-key-secret', { exact: true }).count(), 0);
     assert.equal(
       await page.evaluate(() =>
@@ -119,18 +120,21 @@ test('exchange API credentials and account results are masked while iFinD is lab
       ),
       false,
     );
-    await page.getByRole('button', { name: 'API 设置', exact: true }).click();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     assert.equal(await card.getByLabel('API Key', { exact: true }).inputValue(), '');
     await page.getByRole('button', { name: '返回上一级', exact: true }).click();
-    await card.getByRole('button', { name: '测试只读余额', exact: true }).waitFor();
+    await page.getByRole('tab', { name: '资产总览', exact: true }).click();
+    await page.getByText('USDT', { exact: true }).waitFor();
     assert.equal(await card.getByLabel('API Key', { exact: true }).count(), 0);
     await navigate(page, 'exchange');
     await navigate(page, 'markets');
     await page.getByRole('button', { name: '打开币安', exact: true }).click();
-    await card.getByRole('button', { name: '测试只读余额', exact: true }).waitFor();
+    await page.getByRole('tab', { name: '资产总览', exact: true }).click();
+    await page.getByText('USDT', { exact: true }).waitFor();
     assert.equal(await card.getByLabel('API Key', { exact: true }).count(), 0);
-    await page.getByRole('button', { name: 'API 设置', exact: true }).click();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     await card.getByRole('button', { name: '断开连接', exact: true }).click();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
     await card.getByLabel('API Key', { exact: true }).waitFor();
     assert.equal(await card.getByLabel('API Key', { exact: true }).inputValue(), '');
     assert.equal(
@@ -138,9 +142,55 @@ test('exchange API credentials and account results are masked while iFinD is lab
       false,
     );
     await page.getByRole('button', { name: '返回上一级', exact: true }).click();
+    await page.getByRole('button', { name: '返回上一级', exact: true }).click();
     await page.getByRole('button', { name: '打开同花顺 iFinD', exact: true }).click();
-    await page.getByText('行情数据服务，不连接证券账户或下单功能。', { exact: true }).waitFor();
+    await page.getByRole('tab', { name: '股票行情', exact: true }).waitFor();
     assert.equal(await page.getByText('USDT', { exact: true }).count(), 0);
+  } finally {
+    await page.close();
+  }
+});
+
+test('configured Binance and iFinD expose their catalogue workspaces', async () => {
+  const page = await open();
+  try {
+    await navigate(page, 'markets');
+    await page.getByRole('button', { name: '打开币安', exact: true }).click();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
+    const binance = page.locator('[data-provider="binance"]');
+    await binance.getByLabel('API Key', { exact: true }).fill('api-key');
+    await binance.getByLabel('Secret Key', { exact: true }).fill('secret-key');
+    await binance.getByRole('button', { name: '保存凭据', exact: true }).click();
+    await page.getByRole('tab', { name: '更多接口', exact: true }).click();
+    const workspace = page.locator('.market-api-workspace');
+    await workspace.getByText('1 个接口', { exact: true }).waitFor();
+    await workspace.getByLabel('搜索接口', { exact: true }).fill('ticker');
+    await workspace.getByRole('button', { name: '执行请求', exact: true }).click();
+    await workspace.getByText('请求成功', { exact: true }).waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'binance_api_request'),
+      ),
+      true,
+    );
+
+    await page.getByRole('button', { name: '返回上一级', exact: true }).click();
+    await page.getByRole('button', { name: '打开同花顺 iFinD', exact: true }).click();
+    await page.getByRole('button', { name: 'API 凭据设置', exact: true }).click();
+    const ifind = page.locator('[data-provider="ifind"]');
+    await ifind.getByLabel('HTTP API Refresh Token', { exact: true }).fill('refresh-token');
+    await ifind.getByRole('button', { name: '保存凭据', exact: true }).click();
+    await page.getByRole('tab', { name: '更多接口', exact: true }).click();
+    const ifindWorkspace = page.locator('.market-api-workspace');
+    await ifindWorkspace.getByText('1 个接口', { exact: true }).waitFor();
+    await ifindWorkspace.getByRole('button', { name: '执行请求', exact: true }).click();
+    await ifindWorkspace.getByText('请求成功', { exact: true }).waitFor();
+    assert.equal(
+      await page.evaluate(() =>
+        window.workflowCalls.some((call) => call.command === 'ifind_api_request'),
+      ),
+      true,
+    );
   } finally {
     await page.close();
   }

@@ -2,7 +2,9 @@ pub mod alipay;
 mod crypto;
 mod http;
 pub mod wechat;
-pub(crate) use http::{MAX_JSON_BYTES, agent, map_ureq_error, read_bounded};
+#[cfg(target_os = "android")]
+pub(crate) use http::initialize_android_http_proxy;
+pub(crate) use http::{MAX_JSON_BYTES, agent, configured_proxy, map_ureq_error, read_bounded};
 
 use crate::connectors::model::{
     ConnectionTestRequest, ConnectionTestSummary, CredentialInput, ProviderErrorCode, ProviderId,

@@ -4,6 +4,8 @@ import { AssetsPanel } from './AssetsPanel';
 import { RecordsPanel } from './RecordsPanel';
 import { PositionsPanel } from './PositionsPanel';
 import { TradingPanel } from './TradingPanel';
+import { RestExplorer } from './RestExplorer';
+import { StreamExplorer } from './StreamExplorer';
 import { ConfigureHint } from './shared';
 import '../../../styles/okx.css';
 
@@ -13,6 +15,8 @@ const tabs = {
   records: '加密流水',
   positions: '合约表现',
   trading: '交易下单',
+  api: '更多接口',
+  streams: '实时频道',
 } as const;
 export function OkxWorkspace({
   readConfigured,
@@ -30,7 +34,6 @@ export function OkxWorkspace({
     <section className="okx-workspace" aria-label="OKX 加密资产">
       <header>
         <h3>OKX 加密资产</h3>
-        <p className="field-hint">公开行情无需 API Key；账户数据和交易功能可按需配置各自的凭据。</p>
         <button className="button" type="button" onClick={onCredentialSettings}>
           API 凭据设置
         </button>
@@ -74,6 +77,8 @@ export function OkxWorkspace({
             onConfigure={onCredentialSettings}
           />
         )}
+        {tab === 'api' && <RestExplorer />}
+        {tab === 'streams' && <StreamExplorer />}
       </div>
     </section>
   );

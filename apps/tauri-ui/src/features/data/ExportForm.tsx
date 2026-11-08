@@ -27,9 +27,6 @@ export function ExportForm({
   return (
     <section className="data-card" aria-label="筛选导出">
       <h3>筛选导出</h3>
-      <p>
-        默认导出已确认交易。修改状态可明确包含待确认或已忽略记录。导出涵盖筛选后的全部结果，金额使用精确十进制字符串，保留退款及冲销关联，不改变账本。
-      </p>
       <LoadState {...categories} />
       <form
         onSubmit={async (e) => {

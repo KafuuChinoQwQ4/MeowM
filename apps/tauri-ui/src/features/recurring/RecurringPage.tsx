@@ -50,9 +50,7 @@ export function RecurringPage({
           新增周期账单
         </button>
       </div>
-      <p className="field-hint">
-        打开应用、返回前台或刷新时检查到期日；到期先进入待确认，不会直接扣款或改变余额。暂停不删除历史，恢复后补生成。
-      </p>
+      <p className="field-hint">到期账单进入待确认，确认后才计入余额。</p>
       <button
         className="button button-secondary"
         disabled={busy || state.loading}
@@ -65,9 +63,7 @@ export function RecurringPage({
       )}
       <LoadState {...state} />
       <FormError message={error} />
-      {state.data?.templates.length === 0 && (
-        <p className="analytics-empty">暂无周期账单。添加房租、订阅或工资计划。</p>
-      )}
+      {state.data?.templates.length === 0 && <p className="analytics-empty">暂无周期账单。</p>}
       {state.data?.templates.map((t) => (
         <RecurringCard
           key={t.id}

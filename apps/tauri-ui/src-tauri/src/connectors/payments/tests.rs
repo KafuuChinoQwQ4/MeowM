@@ -3,6 +3,7 @@ use super::crypto::{
     alipay_canonical_parameters, resolve_alipay_download_url, sign_rsa_sha256,
     validate_wechat_bill_date, verify_rsa_sha256, wechat_canonical_request,
 };
+use super::http::android_http_proxy_uri;
 use super::wechat::{WechatClient, WechatCredentials, verify_wechat_bill};
 use chrono::NaiveDate;
 use flate2::Compression;
@@ -15,6 +16,22 @@ use std::time::Duration;
 
 const PRIVATE_KEY: &str = include_str!("../testdata/provider_test_private.pem");
 const PUBLIC_KEY: &str = include_str!("../testdata/provider_test_public.pem");
+
+#[test]
+fn android_system_proxy_uri_accepts_network_hosts_and_rejects_invalid_values() {
+    assert_eq!(
+        android_http_proxy_uri("127.0.0.1", 10808).as_deref(),
+        Some("http://127.0.0.1:10808")
+    );
+    assert_eq!(
+        android_http_proxy_uri("::1", 8080).as_deref(),
+        Some("http://[::1]:8080")
+    );
+    assert_eq!(android_http_proxy_uri("", 10808), None);
+    assert_eq!(android_http_proxy_uri("127.0.0.1", 0), None);
+    assert_eq!(android_http_proxy_uri("127.0.0.1", 65536), None);
+    assert_eq!(android_http_proxy_uri("proxy.example/path", 10808), None);
+}
 
 #[test]
 fn wechat_canonical_request_has_exact_v3_newline_layout() {

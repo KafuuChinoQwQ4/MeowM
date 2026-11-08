@@ -88,7 +88,6 @@ export function PendingPage({
           导入账单
         </button>
       </div>
-      <p className="field-hint">导入、通知和周期候选仅在确认后计入余额与报表。</p>
       <button
         className="button button-secondary"
         disabled={busy || state.loading}
@@ -113,7 +112,6 @@ export function PendingPage({
                   {confirmingAll ? '正在确认全部…' : `一键确认全部（${state.data.total} 条）`}
                 </button>
               </div>
-              <p className="field-hint">确认当前筛选下所有页的待确认记录，无需逐页勾选。</p>
             </>
           )}
           <div className="pending-actions">

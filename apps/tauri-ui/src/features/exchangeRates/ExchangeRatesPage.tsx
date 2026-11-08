@@ -80,7 +80,6 @@ export function ExchangeRatesPage() {
       <div className="analytics-row exchange-rates-heading">
         <div>
           <h2 id="exchange-rates-title">法币汇率</h2>
-          <p className="field-hint">趋势与换算 · 每日参考汇率，本地保存并支持离线查看</p>
         </div>
         <button
           className="button button-primary"
@@ -109,16 +108,6 @@ export function ExchangeRatesPage() {
             {CURRENCIES.map(([code, label]) => (
               <option key={code} value={code}>
                 {code} · {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="form-field">
-          时间范围
-          <select value={days} onChange={(event) => setDays(Number(event.target.value))}>
-            {[30, 90, 365].map((range) => (
-              <option key={range} value={range}>
-                最近 {range} 日
               </option>
             ))}
           </select>
@@ -167,22 +156,36 @@ export function ExchangeRatesPage() {
 
       {error && <p role="alert">{error}</p>}
       {notice && <p role="status">{notice}</p>}
-      <LoadState loading={history.loading} error={history.error} reload={history.reload} />
-
-      {history.data &&
-        (base === quote ? (
-          <p className="empty-state">同一币种按 1:1 换算，无需汇率曲线。</p>
-        ) : (
-          <section className="analytics-section exchange-rate-chart" aria-label="汇率趋势图">
-            <h3>历史走势</h3>
+      <section className="analytics-section exchange-rate-chart" aria-label="汇率趋势图">
+        <h3>历史走势</h3>
+        <div className="chart-switch exchange-rate-periods" role="group" aria-label="时间范围">
+          {[7, 30, 90, 180, 365].map((range) => (
+            <button
+              key={range}
+              type="button"
+              aria-pressed={days === range}
+              onClick={() => setDays(range)}
+            >
+              近{range}天
+            </button>
+          ))}
+        </div>
+        <p className="field-hint">
+          {from} 至 {anchor}
+        </p>
+        <LoadState loading={history.loading} error={history.error} reload={history.reload} />
+        {history.data &&
+          (base === quote ? (
+            <p className="empty-state">同一币种按 1:1 换算，无需汇率曲线。</p>
+          ) : (
             <RateChart
               key={`${base}-${quote}-${days}`}
               rows={history.data}
               base={base}
               quote={quote}
             />
-          </section>
-        ))}
+          ))}
+      </section>
 
       <section className="analytics-section exchange-rate-source" aria-label="汇率数据说明">
         <h3>数据与同步</h3>
@@ -191,7 +194,6 @@ export function ExchangeRatesPage() {
           {latest?.provider_sources.length ? `（${latest.provider_sources.join('、')}）` : ''}
           ；参考汇率，非实时交易报价。
         </p>
-        <p className="field-hint">周末和节假日可能暂无新数据，曲线保留来源实际发布的日期。</p>
         <LoadState loading={sync.loading} error={sync.error} reload={sync.reload} />
         {sync.data && (
           <p className="field-hint">
@@ -201,10 +203,6 @@ export function ExchangeRatesPage() {
             )}
           </p>
         )}
-        <p className="field-hint">
-          Android
-          关闭界面后会在联网时每日尝试更新，实际时间受系统省电策略影响；桌面版在应用启动和手动刷新时更新。
-        </p>
       </section>
     </section>
   );

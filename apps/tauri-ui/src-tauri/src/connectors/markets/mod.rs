@@ -1,5 +1,7 @@
+pub(crate) mod api;
 mod binance;
 mod ifind;
+pub(crate) mod ifind_api;
 pub(crate) mod okx;
 
 use crate::connectors::model::{

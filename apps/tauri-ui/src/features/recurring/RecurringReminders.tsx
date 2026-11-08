@@ -21,7 +21,7 @@ export function RecurringReminders({
           管理周期账单
         </button>
       </div>
-      <p className="field-hint">未来 7 天与逾期待确认账单；确认后才计入收支。</p>
+      <p className="field-hint">未来 7 天及逾期账单</p>
       <LoadState {...state} />
       {state.data?.reminders.map((r) => (
         <article key={r.template_id + r.due_date}>

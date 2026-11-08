@@ -15,9 +15,19 @@ export async function installWorkflowIpc(page, seed = {}) {
     let pending = seedData.pending ?? [];
     let reversed = false;
     const connectionStatus = new Map(
-      ['wechat_pay', 'alipay', 'binance', 'okx', 'okx_trade_demo', 'okx_trade_live', 'ifind'].map(
-        (provider) => [provider, false],
-      ),
+      [
+        'wechat_pay',
+        'alipay',
+        'binance',
+        'binance_trade_demo',
+        'binance_trade_live',
+        'binance_withdraw',
+        'okx',
+        'okx_trade_demo',
+        'okx_trade_live',
+        'okx_withdraw',
+        'ifind',
+      ].map((provider) => [provider, false]),
     );
     window.workflowCalls = [];
     window.savedTransactions = [];
@@ -79,6 +89,119 @@ export async function installWorkflowIpc(page, seed = {}) {
             error_code: null,
           };
         }
+        if (command === 'binance_api_catalogue')
+          return [
+            {
+              id: 'binance.rest.spot.get.api_v3_ticker_price',
+              product: 'Spot REST API',
+              category: 'Market Data',
+              title: 'Ticker Price',
+              method: 'GET',
+              path: '/api/v3/ticker/price',
+              host: 'api',
+              transport: 'rest',
+              auth: 'public',
+              mutating: false,
+              params: [
+                {
+                  name: 'symbol',
+                  type: 'string',
+                  required: false,
+                  location: 'query',
+                  description: '',
+                  example: 'BTCUSDT',
+                },
+              ],
+              doc_url: 'https://developers.binance.com/zh-CN/docs/catalog',
+            },
+          ];
+        if (command === 'ifind_api_catalogue')
+          return [
+            {
+              id: 'ifind.rest.post.real_time_quotation',
+              product: 'iFinD HTTP API',
+              category: '官方数据服务',
+              title: '实时行情',
+              method: 'POST',
+              path: '/api/v1/real_time_quotation',
+              host: 'quantapi.51ifind.com',
+              transport: 'rest',
+              auth: 'access_token',
+              mutating: false,
+              params: [
+                {
+                  name: 'codes',
+                  type: 'string',
+                  required: false,
+                  location: 'json',
+                  description: '',
+                  example: '300033.SZ',
+                },
+              ],
+              sample: { codes: '300033.SZ' },
+              doc_url:
+                'https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html',
+            },
+          ];
+        if (command === 'binance_api_request') {
+          const id = args.request.endpoint_id;
+          let data = { symbol: 'BTCUSDT', price: '100.00' };
+          if (id.endsWith('api_v3_exchangeinfo'))
+            data = {
+              symbols: [
+                {
+                  symbol: 'BTCUSDT',
+                  baseAsset: 'BTC',
+                  quoteAsset: 'USDT',
+                  status: 'TRADING',
+                  isSpotTradingAllowed: true,
+                },
+              ],
+            };
+          if (id.endsWith('api_v3_ticker_24hr'))
+            data = [
+              {
+                symbol: 'BTCUSDT',
+                lastPrice: '100.00',
+                openPrice: '99.00',
+                highPrice: '101.00',
+                lowPrice: '98.00',
+                volume: '12.5',
+                priceChangePercent: '1.01',
+                closeTime: 1708587373361,
+              },
+            ];
+          if (id.endsWith('api_v3_klines'))
+            data = [[1708580000000, '99', '101', '98', '100', '12.5', 1708583600000]];
+          if (id.endsWith('api_v3_account'))
+            data = { balances: [{ asset: 'USDT', free: '12.5', locked: '0' }] };
+          return {
+            status: 'success',
+            code: '0',
+            message: null,
+            data,
+            request_id: args.request.request_id,
+            http_status: 200,
+          };
+        }
+        if (command === 'ifind_api_request')
+          return {
+            status: 'success',
+            code: '0',
+            message: null,
+            data: { symbol: 'BTCUSDT', price: '100.00' },
+            request_id: args.request.request_id,
+            http_status: 200,
+          };
+        if (command === 'binance_socket_request')
+          return {
+            status: 'success',
+            code: '0',
+            message: null,
+            data: { result: null },
+            request_id: args.request.request_id,
+            http_status: 101,
+          };
         if (command === 'recurring_state')
           return { templates: [], reminders: [], generated_count: 0, has_more: false };
         if (command === 'list_budgets' || command === 'budget_reminders') return [];

@@ -1,0 +1,980 @@
+[
+  {
+    "id": "ifind.rest.post.basic_data_service",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "基础数据",
+    "method": "POST",
+    "path": "/api/v1/basic_data_service",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "300033.SZ,600000.SH"
+      },
+      {
+        "name": "indipara",
+        "type": "array",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": [
+          {
+            "indicator": "ths_regular_report_actual_dd_stock",
+            "indiparams": [
+              "104"
+            ]
+          },
+          {
+            "indicator": "ths_total_shares_stock",
+            "indiparams": [
+              "20220705"
+            ]
+          }
+        ]
+      }
+    ],
+    "sample": {
+      "codes": "300033.SZ,600000.SH",
+      "indipara": [
+        {
+          "indicator": "ths_regular_report_actual_dd_stock",
+          "indiparams": [
+            "104"
+          ]
+        },
+        {
+          "indicator": "ths_total_shares_stock",
+          "indiparams": [
+            "20220705"
+          ]
+        }
+      ]
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.date_sequence",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "日期序列",
+    "method": "POST",
+    "path": "/api/v1/date_sequence",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "000001.SZ,600000.SH"
+      },
+      {
+        "name": "startdate",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "20220605"
+      },
+      {
+        "name": "enddate",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "20220705"
+      },
+      {
+        "name": "functionpara",
+        "type": "object",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": {
+          "Fill": "Blank"
+        }
+      },
+      {
+        "name": "indipara",
+        "type": "array",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": [
+          {
+            "indicator": "ths_close_price_stock",
+            "indiparams": [
+              "",
+              "100",
+              ""
+            ]
+          },
+          {
+            "indicator": "ths_total_shares_stock",
+            "indiparams": [
+              ""
+            ]
+          }
+        ]
+      }
+    ],
+    "sample": {
+      "codes": "000001.SZ,600000.SH",
+      "startdate": "20220605",
+      "enddate": "20220705",
+      "functionpara": {
+        "Fill": "Blank"
+      },
+      "indipara": [
+        {
+          "indicator": "ths_close_price_stock",
+          "indiparams": [
+            "",
+            "100",
+            ""
+          ]
+        },
+        {
+          "indicator": "ths_total_shares_stock",
+          "indiparams": [
+            ""
+          ]
+        }
+      ]
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.cmd_history_quotation",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "历史行情",
+    "method": "POST",
+    "path": "/api/v1/cmd_history_quotation",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "000001.SZ,600000.SH"
+      },
+      {
+        "name": "indicators",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "open,high,low,close"
+      },
+      {
+        "name": "startdate",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "2021-07-05"
+      },
+      {
+        "name": "enddate",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "2022-07-05"
+      },
+      {
+        "name": "functionpara",
+        "type": "object",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": {
+          "Fill": "Blank"
+        }
+      }
+    ],
+    "sample": {
+      "codes": "000001.SZ,600000.SH",
+      "indicators": "open,high,low,close",
+      "startdate": "2021-07-05",
+      "enddate": "2022-07-05",
+      "functionpara": {
+        "Fill": "Blank"
+      }
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.high_frequency",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "高频行情",
+    "method": "POST",
+    "path": "/api/v1/high_frequency",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "000001.SZ"
+      },
+      {
+        "name": "indicators",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "open,high,low,close,volume,amount,changeRatio"
+      },
+      {
+        "name": "starttime",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "2022-07-05 09:15:00"
+      },
+      {
+        "name": "endtime",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "2022-07-05 15:15:00"
+      }
+    ],
+    "sample": {
+      "codes": "000001.SZ",
+      "indicators": "open,high,low,close,volume,amount,changeRatio",
+      "starttime": "2022-07-05 09:15:00",
+      "endtime": "2022-07-05 15:15:00"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.real_time_quotation",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "实时行情",
+    "method": "POST",
+    "path": "/api/v1/real_time_quotation",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "300033.SZ"
+      },
+      {
+        "name": "indicators",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "latest"
+      }
+    ],
+    "sample": {
+      "codes": "300033.SZ",
+      "indicators": "latest"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.snap_shot",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "快照行情",
+    "method": "POST",
+    "path": "/api/v1/snap_shot",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "000001.SZ"
+      },
+      {
+        "name": "indicators",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "open,high,low,latest,bid1,ask1,bidSize1,askSize1"
+      },
+      {
+        "name": "starttime",
+        "type": "string",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": "2022-07-06 09:15:00"
+      },
+      {
+        "name": "endtime",
+        "type": "string",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": "2022-07-06 15:15:00"
+      }
+    ],
+    "sample": {
+      "codes": "000001.SZ",
+      "indicators": "open,high,low,latest,bid1,ask1,bidSize1,askSize1",
+      "starttime": "2022-07-06 09:15:00",
+      "endtime": "2022-07-06 15:15:00"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.smart_stock_picking",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "智能选股",
+    "method": "POST",
+    "path": "/api/v1/smart_stock_picking",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "searchstring",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "涨跌幅"
+      },
+      {
+        "name": "searchtype",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "stock"
+      }
+    ],
+    "sample": {
+      "searchstring": "涨跌幅",
+      "searchtype": "stock"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.report_query",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "专题报表",
+    "method": "POST",
+    "path": "/api/v1/report_query",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "000001.SZ,600000.SH"
+      },
+      {
+        "name": "functionpara",
+        "type": "object",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": {
+          "reportType": "901"
+        }
+      },
+      {
+        "name": "beginrDate",
+        "type": "string",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": "2021-01-01"
+      },
+      {
+        "name": "endrDate",
+        "type": "string",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": "2022-07-06"
+      },
+      {
+        "name": "outputpara",
+        "type": "string",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": "reportDate:Y,thscode:Y,secName:Y,ctime:Y,reportTitle:Y,pdfURL:Y,seq:Y"
+      }
+    ],
+    "sample": {
+      "codes": "000001.SZ,600000.SH",
+      "functionpara": {
+        "reportType": "901"
+      },
+      "beginrDate": "2021-01-01",
+      "endrDate": "2022-07-06",
+      "outputpara": "reportDate:Y,thscode:Y,secName:Y,ctime:Y,reportTitle:Y,pdfURL:Y,seq:Y"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.fund_valuation",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "基金估值",
+    "method": "POST",
+    "path": "/api/v1/fund_valuation",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "512880.SH"
+      },
+      {
+        "name": "functionpara",
+        "type": "object",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": {
+          "onlyLastest": "0",
+          "beginTime": "2024-12-06 09:15:00",
+          "endTime": "2024-12-06 15:15:00"
+        }
+      },
+      {
+        "name": "outputpara",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "realTimeValuation:Y"
+      }
+    ],
+    "sample": {
+      "codes": "512880.SH",
+      "functionpara": {
+        "onlyLastest": "0",
+        "beginTime": "2024-12-06 09:15:00",
+        "endTime": "2024-12-06 15:15:00"
+      },
+      "outputpara": "realTimeValuation:Y"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  },
+  {
+    "id": "ifind.rest.post.data_pool",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "数据池",
+    "method": "POST",
+    "path": "/api/v1/data_pool",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "reportname",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "p03425"
+      },
+      {
+        "name": "functionpara",
+        "type": "object",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": {
+          "date": "20220706",
+          "blockname": "001005010",
+          "iv_type": "allcontract"
+        }
+      },
+      {
+        "name": "outputpara",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "p03291_f001,p03291_f002,p03291_f003,p03291_f004"
+      }
+    ],
+    "sample": {
+      "reportname": "p03425",
+      "functionpara": {
+        "date": "20220706",
+        "blockname": "001005010",
+        "iv_type": "allcontract"
+      },
+      "outputpara": "p03291_f001,p03291_f002,p03291_f003,p03291_f004"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.edb_service",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "宏观经济数据库",
+    "method": "POST",
+    "path": "/api/v1/edb_service",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "indicators",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "G009035746"
+      },
+      {
+        "name": "startdate",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "2022-04-01"
+      },
+      {
+        "name": "enddate",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "2022-05-01"
+      }
+    ],
+    "sample": {
+      "indicators": "G009035746",
+      "startdate": "2022-04-01",
+      "enddate": "2022-05-01"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.get_trade_dates",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "交易日历",
+    "method": "POST",
+    "path": "/api/v1/get_trade_dates",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "marketcode",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "212001"
+      },
+      {
+        "name": "functionpara",
+        "type": "object",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": {
+          "dateType": "0",
+          "period": "D",
+          "offset": "-10",
+          "dateFormat": "0",
+          "output": "sequencedate"
+        }
+      },
+      {
+        "name": "startdate",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "2022-07-05"
+      }
+    ],
+    "sample": {
+      "marketcode": "212001",
+      "functionpara": {
+        "dateType": "0",
+        "period": "D",
+        "offset": "-10",
+        "dateFormat": "0",
+        "output": "sequencedate"
+      },
+      "startdate": "2022-07-05"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/example.html"
+  },
+  {
+    "id": "ifind.rest.post.get_access_token",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "获取访问令牌",
+    "method": "POST",
+    "path": "/api/v1/get_access_token",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "refresh_token",
+    "mutating": false,
+    "internal_auth": true,
+    "environments": [
+      "production"
+    ],
+    "params": [],
+    "sample": {},
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  },
+  {
+    "id": "ifind.rest.post.final_fund_valuation",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "基金实时估值（日）",
+    "method": "POST",
+    "path": "/api/v1/final_fund_valuation",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "codes",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "000001.OF,000003.OF"
+      },
+      {
+        "name": "functionpara",
+        "type": "object",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": {
+          "beginDate": "20210824",
+          "endDate": "20210824"
+        }
+      },
+      {
+        "name": "outputpara",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "finalValuation:Y,netAssetValue:Y,deviation:Y"
+      }
+    ],
+    "sample": {
+      "codes": "000001.OF,000003.OF",
+      "functionpara": {
+        "beginDate": "20210824",
+        "endDate": "20210824"
+      },
+      "outputpara": "finalValuation:Y,netAssetValue:Y,deviation:Y"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  },
+  {
+    "id": "ifind.rest.post.get_error_message",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "错误信息查询",
+    "method": "POST",
+    "path": "/api/v1/get_error_message",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "errorcode",
+        "type": "number",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": -1303
+      }
+    ],
+    "sample": {
+      "errorcode": -1303
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  },
+  {
+    "id": "ifind.rest.post.get_thscode",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "证券代码转换",
+    "method": "POST",
+    "path": "/api/v1/get_thscode",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "seccode",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "000001"
+      },
+      {
+        "name": "mode",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "seccode"
+      }
+    ],
+    "sample": {
+      "seccode": "000001",
+      "mode": "seccode"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  },
+  {
+    "id": "ifind.rest.post.portfolio_manage",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "组合管理",
+    "method": "POST",
+    "path": "/api/v1/portfolio_manage",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": true,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [
+      {
+        "name": "func",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "newportf"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": "股债策略组合"
+      },
+      {
+        "name": "group",
+        "type": "number",
+        "required": true,
+        "location": "json",
+        "description": "",
+        "example": 11580
+      },
+      {
+        "name": "performbm",
+        "type": "object",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": {
+          "code": "000300.SH",
+          "name": "沪深300"
+        }
+      },
+      {
+        "name": "tday",
+        "type": "string",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": "国内交易所"
+      },
+      {
+        "name": "currency",
+        "type": "string",
+        "required": false,
+        "location": "json",
+        "description": "",
+        "example": "CNY"
+      }
+    ],
+    "sample": {
+      "func": "newportf",
+      "name": "股债策略组合",
+      "group": 11580,
+      "performbm": {
+        "code": "000300.SH",
+        "name": "沪深300"
+      },
+      "tday": "国内交易所",
+      "currency": "CNY"
+    },
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  },
+  {
+    "id": "ifind.rest.post.get_data_volume",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "数据量查询",
+    "method": "POST",
+    "path": "/api/v1/get_data_volume",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "access_token",
+    "mutating": false,
+    "internal_auth": false,
+    "environments": [
+      "production"
+    ],
+    "params": [],
+    "sample": {},
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  },
+  {
+    "id": "ifind.rest.post.update_access_token",
+    "product": "iFinD HTTP API",
+    "category": "官方数据服务",
+    "title": "轮换访问令牌",
+    "method": "POST",
+    "path": "/api/v1/update_access_token",
+    "host": "quantapi.51ifind.com",
+    "transport": "rest",
+    "auth": "refresh_token",
+    "mutating": true,
+    "internal_auth": true,
+    "environments": [
+      "production"
+    ],
+    "params": [],
+    "sample": {},
+    "doc_url": "https://quantapi.51ifind.com/gwstatic/static/ds_web/quantapi-web/help-center/manual.html"
+  }
+]

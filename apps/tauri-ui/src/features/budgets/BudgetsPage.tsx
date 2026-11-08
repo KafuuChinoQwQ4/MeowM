@@ -45,12 +45,9 @@ export function BudgetsPage({
           新增预算
         </button>
       </div>
-      <p className="field-hint">按月份、分类或平台设置额度，也可以自定义日期。</p>
       <LoadState {...state} />
       <FormError message={error} />
-      {state.data?.length === 0 && (
-        <p className="analytics-empty">暂无预算。设置第一个预算，了解支出进度。</p>
-      )}
+      {state.data?.length === 0 && <p className="analytics-empty">暂无预算。</p>}
       {state.data?.map((b) => (
         <BudgetCard
           key={b.id}

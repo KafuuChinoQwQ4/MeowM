@@ -2,8 +2,12 @@
 
 仅列出本目录文件；子目录内容请查看对应目录中的 `tree`。
 
+- `api.rs` — 受官方目录约束的币安 REST/WebSocket 与 iFinD HTTP 请求、凭据校验和响应限制。
 - `binance.rs` — 币安现货账户余额签名读取与精确十进制校验。
+- `binance_catalogue.json` — 从币安官方 Postman 与 API Reference 导出的 REST、WebSocket API 和行情流目录。
 - `ifind.rs` — iFinD access token 内存缓存、过期刷新和实时行情读取。
+- `ifind_api.rs` — 同花顺 iFinD 官方 HTTP 目录执行、令牌轮换、嵌套参数与官方错误保留。
+- `ifind_catalogue.json` — 从同花顺 iFinD 官方手册和示例导出的 HTTP 数据服务目录。
 - `mod.rs` — 币安、欧易和 iFinD 只读 API 分发及安全 HTTP 响应处理。
 - `okx.rs` — OKX 固定端点 GET/POST 请求、环境隔离、完整签名和安全错误映射。
 - `tests.rs` — 币安、欧易和 iFinD 签名、凭据缓存、行情解析与错误映射测试。
